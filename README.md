@@ -10,6 +10,8 @@
   </a>
 </div>
 
+### **THIS BRANCH AND INSTALLER ARE OUTDATED. USE THE LATEST VERSION FROM RELEASES, INSTALL FROM SOURCEFORGE OR SWITCH TO THE EXP BRANCH.**
+
 This repository is a restructured Windows fork based on [TheFireKahuna/equalizerAPO64](https://github.com/TheFireKahuna/equalizerAPO64), with the goal of keeping the familiar Equalizer APO workflow while adding
 native VST3 plug-in support.
 
