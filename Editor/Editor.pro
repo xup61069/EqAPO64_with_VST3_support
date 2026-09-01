@@ -130,6 +130,7 @@ SOURCES += main.cpp\
 	../filters/VSTPluginFilter.cpp \
 	../filters/VSTPluginFilterFactory.cpp \
 	../helpers/VSTPluginInstance.cpp \
+	guis/LegacyLoudnessCorrectionFilterGUI.cpp \
 	guis/LoudnessCorrectionFilterGUI.cpp \
 	guis/LoudnessCorrectionFilterGUIFactory.cpp \
 	../filters/loudnessCorrection/LoudnessCorrectionFilter.cpp \
@@ -253,6 +254,7 @@ HEADERS  += \
 	../filters/VSTPluginFilter.h \
 	../filters/VSTPluginFilterFactory.h \
 	../helpers/VSTPluginInstance.h \
+	guis/LegacyLoudnessCorrectionFilterGUI.h \
 	guis/LoudnessCorrectionFilterGUI.h \
 	guis/LoudnessCorrectionFilterGUIFactory.h \
 	../filters/loudnessCorrection/LoudnessProfile.h \

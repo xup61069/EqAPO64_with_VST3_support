@@ -688,6 +688,11 @@ void FilterEngine::addFilters(vector<IFilter*> filters)
 	for (vector<IFilter*>::iterator it = filters.begin(); it != filters.end(); it++)
 	{
 		IFilter* filter = *it;
+		FilterRuntimeContext runtimeContext;
+		runtimeContext.isCapture = capture;
+		if (!deviceGuid.empty())
+			runtimeContext.endpointId = deviceGuid;
+		filter->setRuntimeContext(runtimeContext);
 		FilterInfo* filterInfo = (FilterInfo*)MemoryHelper::alloc(sizeof(FilterInfo));
 		filterInfo->filter = filter;
 		filterInfo->inPlace = filter->getInPlace();

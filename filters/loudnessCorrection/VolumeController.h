@@ -17,11 +17,12 @@ class EndpointVolumeCallback;
 class VolumeController
 {
 public:
-	VolumeController();
+	explicit VolumeController(const std::wstring& endpointId = L"");
 	~VolumeController();
 	HRESULT getVolume(double& currentVolume);
 	HRESULT setVolume(double volume);
 	bool hasVolumeChanged();
+	const std::wstring& getEndpointId() const { return _endpointId; }
 
 private:
 	bool initEndpoint();
@@ -35,6 +36,7 @@ private:
 	bool _comInitialized;
 	std::atomic<bool> _volumeChanged;
 	double _lastVolume;
+	std::wstring _requestedEndpointId;
 	std::wstring _endpointId;
 	ULONGLONG _nextEndpointCheck;
 };

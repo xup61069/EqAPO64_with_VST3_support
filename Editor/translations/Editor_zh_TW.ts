@@ -855,6 +855,39 @@ Change the file permissions or copy the file to the config directory.</source>
     </message>
 </context>
 <context>
+    <name>LegacyLoudnessCorrectionFilterGUI</name>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="33"/>
+        <source>This entry uses the retired generic profile. It remains unchanged and bypassed until you explicitly convert it.</source>
+        <translation>此項目使用已停用的通用輪廓。在您明確轉換前，內容會保持不變並略過處理。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="38"/>
+        <source>Its volume range extends below the formula profile limit; values below -100 dB will be clamped during conversion.</source>
+        <translation>此設定的音量範圍低於公式校正曲線的限制；轉換時低於 -100 dB 的值會被限制為 -100 dB。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="41"/>
+        <source>The retired headroom mode has no direct equivalent; the formula profile uses automatic headroom.</source>
+        <translation>已淘汰的餘裕模式沒有直接對應項目；公式校正曲線會自動保留餘裕。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="47"/>
+        <source>Convert and enable formula profile</source>
+        <translation>轉換並啟用公式輪廓</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="50"/>
+        <source>Maps the old neutral volume and strength to the formula profile, then enables it.</source>
+        <translation>將舊版的中性音量與強度對應至公式輪廓，然後啟用。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="51"/>
+        <source>Converts this disabled entry and enables the new formula profile.</source>
+        <translation>轉換此停用項目並啟用新的公式輪廓。</translation>
+    </message>
+</context>
+<context>
     <name>LoudnessCorrectionFilterGUI</name>
     <message>
         <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="172"/>
@@ -896,6 +929,28 @@ Alexander Walch</source>
         <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="326"/>
         <source>Calibrate</source>
         <translation>校準</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="81"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="183"/>
+        <source>Manual volume (required):</source>
+        <translation>手動音量（必填）：</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="83"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="185"/>
+        <source>Automatic volume is available only for the selected playback endpoint. Use manual volume for an input or unavailable endpoint.</source>
+        <translation>自動音量僅適用於目前選取的播放端點。輸入裝置或無法使用的端點請改用手動音量。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="228"/>
+        <source>Calibration not applied</source>
+        <translation>未套用校正</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="229"/>
+        <source>The selected endpoint volume could not be read. The measured level was not applied; reconnect the device or use manual volume and try again.</source>
+        <translation>無法讀取所選端點的音量。測得的音壓級並未套用；請重新連接裝置，或改用手動音量後再試。</translation>
     </message>
 </context>
 <context>
@@ -960,16 +1015,55 @@ Alexander Walch</source>
         <source> dB</source>
         <translation> dB</translation>
     </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="79"/>
+        <source> dB SPL</source>
+        <translation> dB SPL</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="80"/>
+        <source>Enter the slow-response, Z-weighted (flat) reading measured at the listening position.</source>
+        <translation>請輸入在聆聽位置以慢速響應、Z 加權（平直）量得的讀值。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="87"/>
+        <source>The selected playback device is not the Windows default playback device. Test-noise playback is blocked to prevent calibration on the wrong speaker.</source>
+        <translation>所選播放裝置不是 Windows 預設播放裝置。為避免校正錯誤的揚聲器，已阻止播放測試噪音。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="98"/>
+        <source>The Windows default playback device changed. Test noise was stopped to prevent calibration on the wrong speaker.</source>
+        <translation>Windows 預設播放裝置已變更。為避免校正錯誤的揚聲器，測試噪音已停止。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="125"/>
+        <source>Make the selected playback device the Windows default playback device, then reopen calibration. No test noise was played.</source>
+        <translation>請將所選播放裝置設為 Windows 預設播放裝置，然後重新開啟校正。未播放任何測試噪音。</translation>
+    </message>
+    <message>
+        <source>The selected playback device is not the Windows default Multimedia device. Test-noise playback is blocked to prevent calibration on the wrong speaker.</source>
+        <translation type="vanished">目前選取的播放裝置不是 Windows 預設的多媒體裝置。為避免在錯誤的揚聲器上校準，已封鎖測試噪音播放。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="97"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="124"/>
+        <source>Playback device mismatch</source>
+        <translation>播放裝置不相符</translation>
+    </message>
+    <message>
+        <source>Make the selected playback device the Windows default Multimedia device, then reopen calibration. No test noise was played.</source>
+        <translation type="vanished">請將目前選取的播放裝置設為 Windows 預設的多媒體裝置，然後重新開啟校準。未播放任何測試噪音。</translation>
+    </message>
 </context>
 <context>
     <name>LoudnessCorrectionFilterGUIFactory</name>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIFactory.cpp" line="49"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIFactory.cpp" line="135"/>
         <source>Loudness correction</source>
         <translation>響度校正</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIFactory.cpp" line="49"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIFactory.cpp" line="135"/>
         <source>Advanced filters</source>
         <translation>高階過濾器</translation>
     </message>

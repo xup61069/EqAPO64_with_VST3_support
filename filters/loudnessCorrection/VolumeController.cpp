@@ -7,11 +7,71 @@
 #include "stdafx.h"
 #include "VolumeController.h"
 #include <mmdeviceapi.h>
-#include <mmsystem.h>
 #include <algorithm>
 #include <cmath>
 
-#pragma comment(lib, "winmm.lib")
+namespace
+{
+	// PKEY_AudioEndpoint_GUID. The value is a device identifier, not an opaque
+	// IMMDevice endpoint ID, so resolve it by enumeration and then call GetId().
+	const PROPERTYKEY ENDPOINT_GUID_PROPERTY = {
+		{0x1da5d803, 0xd492, 0x4edd,
+			{0x8c, 0x23, 0xe0, 0xc0, 0xff, 0xee, 0x7f, 0x0e}},
+		4
+	};
+
+	HRESULT findDeviceByEndpointGuid(
+		IMMDeviceEnumerator* enumerator,
+		const std::wstring& endpointGuid,
+		IMMDevice** result)
+	{
+		if (enumerator == NULL || result == NULL)
+			return E_POINTER;
+		*result = NULL;
+
+		IMMDeviceCollection* collection = NULL;
+		HRESULT hr = enumerator->EnumAudioEndpoints(
+			eRender, DEVICE_STATEMASK_ALL, &collection);
+		if (FAILED(hr) || collection == NULL)
+			return hr;
+
+		UINT count = 0;
+		hr = collection->GetCount(&count);
+		for (UINT index = 0; SUCCEEDED(hr) && index < count; ++index)
+		{
+			IMMDevice* candidate = NULL;
+			HRESULT itemResult = collection->Item(index, &candidate);
+			if (FAILED(itemResult) || candidate == NULL)
+				continue;
+
+			IPropertyStore* properties = NULL;
+			HRESULT propertyResult = candidate->OpenPropertyStore(
+				STGM_READ, &properties);
+			PROPVARIANT value;
+			PropVariantInit(&value);
+			if (SUCCEEDED(propertyResult) && properties != NULL)
+				propertyResult = properties->GetValue(ENDPOINT_GUID_PROPERTY, &value);
+
+			bool matches = SUCCEEDED(propertyResult) && value.vt == VT_LPWSTR &&
+				value.pwszVal != NULL &&
+				_wcsicmp(value.pwszVal, endpointGuid.c_str()) == 0;
+			PropVariantClear(&value);
+			if (properties != NULL)
+				properties->Release();
+
+			if (matches)
+			{
+				*result = candidate;
+				collection->Release();
+				return S_OK;
+			}
+			candidate->Release();
+		}
+
+		collection->Release();
+		return HRESULT_FROM_WIN32(ERROR_NOT_FOUND);
+	}
+}
 
 class EndpointVolumeCallback : public IAudioEndpointVolumeCallback
 {
@@ -69,7 +129,7 @@ private:
 	std::atomic<bool>* _flag;
 };
 
-VolumeController::VolumeController()
+VolumeController::VolumeController(const std::wstring& endpointId)
 	: _endpointVolume(NULL),
 	  _callback(NULL),
 	  _minVol(-65.0f),
@@ -77,6 +137,7 @@ VolumeController::VolumeController()
 	  _comInitialized(false),
 	  _volumeChanged(true),
 	  _lastVolume(0.0),
+	  _requestedEndpointId(endpointId),
 	  _nextEndpointCheck(0)
 {
 	HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
@@ -135,27 +196,38 @@ bool VolumeController::initEndpoint()
 	if (FAILED(hr) || !deviceEnumerator)
 		return false;
 
-	IMMDevice* defaultDevice = NULL;
-	hr = deviceEnumerator->GetDefaultAudioEndpoint(eRender, eMultimedia, &defaultDevice);
+	IMMDevice* device = NULL;
+	if (_requestedEndpointId.empty())
+		hr = deviceEnumerator->GetDefaultAudioEndpoint(eRender, eMultimedia, &device);
+	else
+	{
+		// Accept a true opaque endpoint ID when one is available. The APO and
+		// editor normally provide PKEY_AudioEndpoint_GUID, which must be resolved
+		// without assuming an endpoint-ID string format.
+		hr = deviceEnumerator->GetDevice(_requestedEndpointId.c_str(), &device);
+		if (FAILED(hr) || device == NULL)
+			hr = findDeviceByEndpointGuid(
+				deviceEnumerator, _requestedEndpointId, &device);
+	}
 	deviceEnumerator->Release();
-	if (FAILED(hr) || !defaultDevice)
+	if (FAILED(hr) || !device)
 		return false;
 
 	LPWSTR endpointId = NULL;
-	hr = defaultDevice->GetId(&endpointId);
+	hr = device->GetId(&endpointId);
 	if (FAILED(hr) || !endpointId)
 	{
-		defaultDevice->Release();
+		device->Release();
 		return false;
 	}
 
 	IAudioEndpointVolume* endpointVolume = NULL;
-	hr = defaultDevice->Activate(
+	hr = device->Activate(
 		__uuidof(IAudioEndpointVolume),
 		CLSCTX_INPROC_SERVER,
 		NULL,
 		reinterpret_cast<LPVOID*>(&endpointVolume));
-	defaultDevice->Release();
+	device->Release();
 	if (FAILED(hr) || !endpointVolume)
 	{
 		CoTaskMemFree(endpointId);
@@ -190,6 +262,11 @@ bool VolumeController::initEndpoint()
 
 void VolumeController::refreshEndpointIfChanged()
 {
+	// A runtime filter is bound to one APO endpoint. It must never follow the
+	// system default when that default changes.
+	if (!_requestedEndpointId.empty())
+		return;
+
 	ULONGLONG now = GetTickCount64();
 	if (now < _nextEndpointCheck)
 		return;
@@ -230,24 +307,6 @@ HRESULT VolumeController::getVolume(double& currentVolume)
 	{
 		if (!initEndpoint())
 		{
-			// Fallback to legacy waveOutGetVolume
-			DWORD dwVol = 0;
-			if (waveOutGetVolume(0, &dwVol) == MMSYSERR_NOERROR)
-			{
-				WORD left = LOWORD(dwVol);
-				WORD right = HIWORD(dwVol);
-				double maxChan = static_cast<double>((std::max)(left, right)) / 65535.0;
-				if (maxChan > 1e-4)
-				{
-					currentVolume = 20.0 * log10(maxChan);
-				}
-				else
-				{
-					currentVolume = -65.0;
-				}
-				_lastVolume = currentVolume;
-				return S_OK;
-			}
 			currentVolume = _lastVolume;
 			return E_FAIL;
 		}
@@ -261,23 +320,6 @@ HRESULT VolumeController::getVolume(double& currentVolume)
 	{
 		currentVolume = vol;
 		_lastVolume = vol;
-		return S_OK;
-	}
-
-	// Fallback to Scalar volume if dB reporting is unsupported by driver
-	float scalar = 1.0f;
-	res = _endpointVolume->GetMasterVolumeLevelScalar(&scalar);
-	if (SUCCEEDED(res))
-	{
-		if (scalar > 1e-4f)
-		{
-			currentVolume = 20.0 * log10((double)scalar);
-		}
-		else
-		{
-			currentVolume = -65.0;
-		}
-		_lastVolume = currentVolume;
 		return S_OK;
 	}
 

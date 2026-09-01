@@ -73,7 +73,74 @@ try {
 		throw "The enabled loudness-correction benchmark clipped samples."
 	}
 
-	Write-Host "Runtime loudness test passed: enabled output differs and does not clip."
+	$transitionLog = & $benchmark --nopause --loudness-transition-test 2>&1
+	if ($LASTEXITCODE -ne 0) {
+		throw "Dynamic loudness transition regression failed:`n$($transitionLog -join [Environment]::NewLine)"
+	}
+	$transitionLog | ForEach-Object { Write-Host $_ }
+
+	# These frequencies are prior inter-bin headroom failures. Keep them as
+	# fixed-tone regressions so a coarse response scan cannot silently return.
+	$safetyCases = @(
+		@{
+			Name = "48k-low-frequency"
+			Rate = 48000
+			Frequency = 20.216
+			Config = "LoudnessCorrection: State 1 ReferenceLevel 100 ReferenceOffset 0 Attenuation 1.0 Volume -40"
+		},
+		@{
+			Name = "8k-high-frequency"
+			Rate = 8000
+			Frequency = 3151
+			Config = "LoudnessCorrection: State 1 ReferenceLevel 1 ReferenceOffset -100 Attenuation 1.0 Volume 0"
+		}
+	)
+
+	foreach ($safetyCase in $safetyCases) {
+		$safetyConfig = Join-Path $resolvedTestDirectory "$($safetyCase.Name).txt"
+		$safetyOutput = Join-Path $resolvedTestDirectory "$($safetyCase.Name).wav"
+		[System.IO.File]::WriteAllText(
+			$safetyConfig,
+			$safetyCase.Config,
+			$utf8NoBom
+		)
+
+		$safetyArguments = @(
+			"--nopause",
+			"--rate", $safetyCase.Rate,
+			"--channels", "1",
+			"--batchsize", "256",
+			"--from", $safetyCase.Frequency,
+			"--to", $safetyCase.Frequency,
+			"--length", "2",
+			"--config", $safetyConfig,
+			"--output", $safetyOutput
+		)
+		$safetyLog = & $benchmark @safetyArguments 2>&1
+		if ($LASTEXITCODE -ne 0) {
+			throw "$($safetyCase.Name) benchmark failed:`n$($safetyLog -join [Environment]::NewLine)"
+		}
+		if (!(Test-Path -LiteralPath $safetyOutput)) {
+			throw "$($safetyCase.Name) benchmark did not produce an output WAV file."
+		}
+		$safetyLogText = $safetyLog -join "`n"
+		if ($safetyLogText -match "samples clipped") {
+			throw "$($safetyCase.Name) reproduced clipped samples."
+		}
+		if ($safetyLogText -notmatch "Max output level:\s+([0-9]+(?:\.[0-9]+)?)") {
+			throw "$($safetyCase.Name) benchmark did not report a maximum output level."
+		}
+		$maximumOutput = [double]::Parse(
+			$Matches[1],
+			[System.Globalization.CultureInfo]::InvariantCulture
+		)
+		if ($maximumOutput -gt 1.0) {
+			throw "$($safetyCase.Name) exceeded full scale: $maximumOutput"
+		}
+		Write-Host "$($safetyCase.Name): maximum output $maximumOutput"
+	}
+
+	Write-Host "Runtime loudness test passed: enabled output differs and all safety cases avoid clipping."
 }
 finally {
 	$env:Path = $previousPath

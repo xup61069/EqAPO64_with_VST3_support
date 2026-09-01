@@ -12,6 +12,7 @@
 #include "stdafx.h"
 #include "LoudnessCorrectionFilter.h"
 #include "VolumeController.h"
+#include "helpers/LogHelper.h"
 
 #include <algorithm>
 #include <cmath>
@@ -21,9 +22,20 @@ LoudnessCorrectionFilter::LoudnessCorrectionFilter(const FilterParameters& fPara
 	: _parameterUpdateThreadHandle(NULL),
 	  _stopParameterUpdateThreadEvent(NULL),
 	  _parameters(fParameters),
+	  _runtimeContext(),
+	  _runtimeBypass(false),
+	  _recoveryPending(false),
 	  _channelCount(0),
 	  _activeBandCount(0),
 	  _sampleRate(48000.0f),
+	  _activeBankIndex(0),
+	  _transitionBankIndex(1),
+	  _warmupPosition(0),
+	  _crossfadePosition(0),
+	  _crossfadeLength(4800),
+	  _warmupActive(false),
+	  _crossfadeActive(false),
+	  _transitionFromBypass(false),
 	  _pendingCoeffs{},
 	  _outputGainLinear(1.0),
 	  _targetOutputGainLinear(1.0),
@@ -82,11 +94,23 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 		_stopParameterUpdateThreadEvent = NULL;
 	}
 
+	_runtimeBypass.store(false, std::memory_order_relaxed);
+	_recoveryPending.store(false, std::memory_order_relaxed);
 	_channelCount = channelNames.size();
 	_activeBandCount = 0;
-	_biquadBanks.clear();
+	for (size_t bank = 0; bank < 2; ++bank)
+		_biquadBanks[bank].clear();
+	_activeBankIndex = 0;
+	_transitionBankIndex = 1;
+	_warmupPosition = 0;
+	_crossfadePosition = 0;
+	_warmupActive = false;
+	_crossfadeActive = false;
+	_transitionFromBypass = false;
 	_coeffsUpdated.store(false, std::memory_order_relaxed);
 	_sampleRate = std::isfinite(sampleRate) && sampleRate >= 8000.0f ? sampleRate : 48000.0f;
+	_crossfadeLength = (std::max)(1u, static_cast<unsigned>(
+		std::lround(_sampleRate * COEFFICIENT_CROSSFADE_SECONDS)));
 
 	// Frequencies at or above 90% of Nyquist are not representable reliably.
 	double maximumCenterFrequency = 0.45 * static_cast<double>(_sampleRate);
@@ -96,34 +120,49 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 		++_activeBandCount;
 	}
 
-	_biquadBanks.resize(_channelCount);
-	for (size_t channel = 0; channel < _channelCount; ++channel)
+	for (size_t bank = 0; bank < 2; ++bank)
 	{
-		_biquadBanks[channel].reserve(_activeBandCount);
-		for (size_t band = 0; band < _activeBandCount; ++band)
+		_biquadBanks[bank].resize(_channelCount);
+		for (size_t channel = 0; channel < _channelCount; ++channel)
 		{
-			_biquadBanks[channel].push_back(BiQuad(
-				BiQuad::PEAKING,
-				0.0,
-				LoudnessProfile::LOUDNESS_PROFILE_TABLE[band].frequency,
-				_sampleRate,
-				FILTER_Q,
-				false));
+			_biquadBanks[bank][channel].reserve(_activeBandCount);
+			for (size_t band = 0; band < _activeBandCount; ++band)
+			{
+				_biquadBanks[bank][channel].push_back(BiQuad(
+					BiQuad::PEAKING,
+					0.0,
+					LoudnessProfile::LOUDNESS_PROFILE_TABLE[band].frequency,
+					_sampleRate,
+					FILTER_Q,
+					false));
+			}
 		}
 	}
 
 	computeResponseInverse();
 
 	double initialVolume = 0.0;
-	if (_parameters.useManualVolume)
+	if (_parameters.state && _parameters.useManualVolume)
 	{
 		initialVolume = _parameters.manualVolume;
 	}
-	else
+	else if (_parameters.state)
 	{
-		VolumeController volumeController;
-		if (FAILED(volumeController.getVolume(initialVolume)))
-			initialVolume = 0.0;
+		if (_runtimeContext.isCapture || _runtimeContext.endpointId.empty())
+		{
+			_runtimeBypass.store(true, std::memory_order_relaxed);
+			LogF(L"LoudnessCorrection automatic volume mode is unavailable for this endpoint; filter is bypassed. Use manual volume mode.");
+		}
+		else
+		{
+			VolumeController volumeController(_runtimeContext.endpointId);
+			if (FAILED(volumeController.getVolume(initialVolume)))
+			{
+				_runtimeBypass.store(true, std::memory_order_relaxed);
+				initialVolume = 0.0;
+				LogF(L"LoudnessCorrection could not read the configured endpoint volume; filter is bypassed until the endpoint recovers.");
+			}
+		}
 	}
 
 	std::vector<double> gains;
@@ -139,13 +178,20 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 			_pendingCoeffs[band].a1,
 			_pendingCoeffs[band].a2
 		};
-		for (size_t channel = 0; channel < _channelCount; ++channel)
-			_biquadBanks[channel][band].setCoefficients(coefficients, _pendingCoeffs[band].b0);
+		for (size_t bank = 0; bank < 2; ++bank)
+		{
+			for (size_t channel = 0; channel < _channelCount; ++channel)
+			{
+				_biquadBanks[bank][channel][band].setCoefficients(
+					coefficients, _pendingCoeffs[band].b0);
+			}
+		}
 	}
 
 	// Manual mode is immutable for the lifetime of a filter instance, so it
 	// needs no polling thread. A configuration edit creates a new instance.
-	if (_parameters.state && !_parameters.useManualVolume)
+	if (_parameters.state && !_parameters.useManualVolume &&
+		!_runtimeContext.isCapture && !_runtimeContext.endpointId.empty())
 	{
 		_stopParameterUpdateThreadEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 		if (_stopParameterUpdateThreadEvent)
@@ -156,7 +202,14 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 			{
 				CloseHandle(_stopParameterUpdateThreadEvent);
 				_stopParameterUpdateThreadEvent = NULL;
+				_runtimeBypass.store(true, std::memory_order_relaxed);
+				LogF(L"LoudnessCorrection could not start endpoint-volume tracking; filter is bypassed.");
 			}
+		}
+		else
+		{
+			_runtimeBypass.store(true, std::memory_order_relaxed);
+			LogF(L"LoudnessCorrection could not create the endpoint-volume tracking event; filter is bypassed.");
 		}
 	}
 
@@ -299,29 +352,113 @@ double LoudnessCorrectionFilter::calculateHeadroomGain(
 {
 	if (_activeBandCount == 0)
 		return 1.0;
+	bool hasNonZeroGain = false;
+	for (size_t band = 0; band < _activeBandCount; ++band)
+	{
+		if (std::abs(gains[band]) > 1.0e-12)
+		{
+			hasNonZeroGain = true;
+			break;
+		}
+	}
+	if (!hasNonZeroGain)
+		return 1.0;
 
 	double maximumFrequency = (std::min)(
 		20000.0,
-		0.45 * static_cast<double>(_sampleRate));
+		0.499 * static_cast<double>(_sampleRate));
 	if (maximumFrequency <= 20.0)
 		return 1.0;
 
-	double maximumResponse = 0.0;
-	double ratio = maximumFrequency / 20.0;
-	for (unsigned point = 0; point < RESPONSE_SCAN_POINTS; ++point)
+	const double minimumFrequency = 20.0;
+	const double logMinimum = std::log(minimumFrequency);
+	const double logMaximum = std::log(maximumFrequency);
+	const double logStep = (logMaximum - logMinimum) /
+		static_cast<double>(RESPONSE_SCAN_POINTS - 1);
+	std::vector<double> responses(RESPONSE_SCAN_POINTS, 0.0);
+
+	auto responseAtLogFrequency = [this, &gains](double logFrequency)
 	{
-		double position = static_cast<double>(point) /
-			static_cast<double>(RESPONSE_SCAN_POINTS - 1);
-		double frequency = 20.0 * std::pow(ratio, position);
 		double response = 0.0;
+		double frequency = std::exp(logFrequency);
 		for (size_t band = 0; band < _activeBandCount; ++band)
 			response += biquadResponseDb(band, gains[band], frequency);
-		maximumResponse = (std::max)(maximumResponse, response);
+		return response;
+	};
+
+	// A dense logarithmic scan resolves the Q=3 pass bands by hundreds of
+	// samples. Each detected local maximum is then refined in log-frequency
+	// space, avoiding the inter-bin peaks missed by the former 256-point scan.
+	double maximumResponse = 0.0;
+	for (unsigned point = 0; point < RESPONSE_SCAN_POINTS; ++point)
+	{
+		double logFrequency = logMinimum + static_cast<double>(point) * logStep;
+		responses[point] = responseAtLogFrequency(logFrequency);
+		maximumResponse = (std::max)(maximumResponse, responses[point]);
+	}
+
+	const double goldenRatioConjugate = 0.6180339887498948482;
+	for (unsigned point = 1; point + 1 < RESPONSE_SCAN_POINTS; ++point)
+	{
+		if (responses[point] < responses[point - 1] ||
+			responses[point] < responses[point + 1] ||
+			(responses[point] == responses[point - 1] &&
+				responses[point] == responses[point + 1]))
+		{
+			continue;
+		}
+
+		double left = logMinimum + static_cast<double>(point - 1) * logStep;
+		double right = logMinimum + static_cast<double>(point + 1) * logStep;
+		double innerLeft = right - goldenRatioConjugate * (right - left);
+		double innerRight = left + goldenRatioConjugate * (right - left);
+		double leftResponse = responseAtLogFrequency(innerLeft);
+		double rightResponse = responseAtLogFrequency(innerRight);
+
+		for (unsigned iteration = 0;
+			iteration < RESPONSE_REFINEMENT_ITERATIONS;
+			++iteration)
+		{
+			if (leftResponse < rightResponse)
+			{
+				left = innerLeft;
+				innerLeft = innerRight;
+				leftResponse = rightResponse;
+				innerRight = left + goldenRatioConjugate * (right - left);
+				rightResponse = responseAtLogFrequency(innerRight);
+			}
+			else
+			{
+				right = innerRight;
+				innerRight = innerLeft;
+				rightResponse = leftResponse;
+				innerLeft = right - goldenRatioConjugate * (right - left);
+				leftResponse = responseAtLogFrequency(innerLeft);
+			}
+		}
+
+		maximumResponse = (std::max)(maximumResponse,
+			(std::max)(leftResponse, rightResponse));
 	}
 
 	if (maximumResponse <= 0.0)
 		return 1.0;
 	return std::pow(10.0, -(maximumResponse + HEADROOM_MARGIN_DB) / 20.0);
+}
+
+void LoudnessCorrectionFilter::publishVolumeUpdate(
+	double currentVolumeDb,
+	std::vector<double>& scratchGains)
+{
+	double outputGainLinear = 1.0;
+	calculateBandGains(currentVolumeDb, scratchGains, outputGainLinear);
+
+	EnterCriticalSection(&_parameterUpdateSection);
+	for (size_t band = 0; band < _activeBandCount; ++band)
+		computeBiquadCoeffs(band, scratchGains[band], _pendingCoeffs[band]);
+	_pendingOutputGainLinear = outputGainLinear;
+	_coeffsUpdated.store(true, std::memory_order_release);
+	LeaveCriticalSection(&_parameterUpdateSection);
 }
 
 void LoudnessCorrectionFilter::computeBiquadCoeffs(
@@ -386,11 +523,10 @@ double LoudnessCorrectionFilter::biquadResponseDb(
 unsigned long __stdcall LoudnessCorrectionFilter::parameterUpdateThread(void* parameter)
 {
 	LoudnessCorrectionFilter* self = static_cast<LoudnessCorrectionFilter*>(parameter);
-	VolumeController volumeController;
+	VolumeController volumeController(self->_runtimeContext.endpointId);
 	double lastVolume = std::numeric_limits<double>::quiet_NaN();
 	ULONGLONG lastReadTime = 0;
 	std::vector<double> gains;
-	double outputGainLinear = 1.0;
 
 	while (WaitForSingleObject(
 		self->_stopParameterUpdateThreadEvent,
@@ -406,18 +542,25 @@ unsigned long __stdcall LoudnessCorrectionFilter::parameterUpdateThread(void* pa
 		lastReadTime = now;
 		double currentVolume = 0.0;
 		if (FAILED(volumeController.getVolume(currentVolume)))
+		{
+			self->_recoveryPending.store(false, std::memory_order_release);
+			self->_runtimeBypass.store(true, std::memory_order_release);
+			continue;
+		}
+
+		bool recovering = self->_runtimeBypass.load(std::memory_order_acquire);
+		if (!recovering && std::isfinite(lastVolume) &&
+			std::abs(currentVolume - lastVolume) <= 0.05)
 			continue;
 
-		if (std::isfinite(lastVolume) && std::abs(currentVolume - lastVolume) <= 0.05)
-			continue;
-
-		self->calculateBandGains(currentVolume, gains, outputGainLinear);
-		EnterCriticalSection(&self->_parameterUpdateSection);
-		for (size_t band = 0; band < self->_activeBandCount; ++band)
-			self->computeBiquadCoeffs(band, gains[band], self->_pendingCoeffs[band]);
-		self->_pendingOutputGainLinear = outputGainLinear;
-		self->_coeffsUpdated.store(true, std::memory_order_release);
-		LeaveCriticalSection(&self->_parameterUpdateSection);
+		self->publishVolumeUpdate(currentVolume, gains);
+		if (recovering)
+		{
+			// Keep bypass asserted until the audio thread has installed the
+			// recovered coefficients. It will warm the new bank silently and
+			// crossfade from the unfiltered signal.
+			self->_recoveryPending.store(true, std::memory_order_release);
+		}
 		lastVolume = currentVolume;
 	}
 	return 0;
@@ -436,9 +579,30 @@ void LoudnessCorrectionFilter::process(double** output, double** input, unsigned
 		return;
 	}
 
-	if (_coeffsUpdated.load(std::memory_order_acquire) &&
+	bool runtimeBypass = _runtimeBypass.load(std::memory_order_acquire);
+	if (runtimeBypass)
+	{
+		// A read failure can arrive in the middle of a transition. Cancel that
+		// transition immediately so recovery always starts from raw passthrough.
+		_warmupActive = false;
+		_crossfadeActive = false;
+		_transitionFromBypass = false;
+	}
+
+	bool recoveryReady = runtimeBypass &&
+		_recoveryPending.load(std::memory_order_acquire);
+
+	if ((!runtimeBypass || recoveryReady) &&
+		!_warmupActive && !_crossfadeActive &&
+		_coeffsUpdated.load(std::memory_order_acquire) &&
 		TryEnterCriticalSection(&_parameterUpdateSection))
 	{
+		_transitionBankIndex = 1 - _activeBankIndex;
+		for (size_t channel = 0; channel < _channelCount; ++channel)
+		{
+			for (size_t band = 0; band < _activeBandCount; ++band)
+				_biquadBanks[_transitionBankIndex][channel][band].resetState();
+		}
 		for (size_t band = 0; band < _activeBandCount; ++band)
 		{
 			double coefficients[4] = {
@@ -448,39 +612,163 @@ void LoudnessCorrectionFilter::process(double** output, double** input, unsigned
 				_pendingCoeffs[band].a2
 			};
 			for (size_t channel = 0; channel < _channelCount; ++channel)
-				_biquadBanks[channel][band].setCoefficients(
+				_biquadBanks[_transitionBankIndex][channel][band].setCoefficients(
 					coefficients,
 					_pendingCoeffs[band].b0);
 		}
 		_targetOutputGainLinear = _pendingOutputGainLinear;
-		// Reducing gain must be immediate so a newly boosted contour cannot clip.
-		// Increasing gain is ramped over the next block to avoid a level step.
-		if (_targetOutputGainLinear < _outputGainLinear)
-			_outputGainLinear = _targetOutputGainLinear;
+		_warmupPosition = 0;
+		_crossfadePosition = 0;
+		_warmupActive = true;
+		_crossfadeActive = false;
+		_transitionFromBypass = recoveryReady;
 		_coeffsUpdated.store(false, std::memory_order_release);
+		if (recoveryReady)
+		{
+			// Clear bypass before claiming the recovery token. A simultaneous
+			// read failure clears that token first; if so, restore bypass instead
+			// of overwriting the newer failure with a stale success.
+			_runtimeBypass.store(false, std::memory_order_release);
+			bool expectedRecovery = true;
+			if (_recoveryPending.compare_exchange_strong(
+				expectedRecovery,
+				false,
+				std::memory_order_acq_rel,
+				std::memory_order_acquire))
+			{
+				runtimeBypass = false;
+			}
+			else
+			{
+				_runtimeBypass.store(true, std::memory_order_release);
+				runtimeBypass = true;
+				_warmupActive = false;
+				_crossfadeActive = false;
+				_transitionFromBypass = false;
+			}
+		}
 		LeaveCriticalSection(&_parameterUpdateSection);
 	}
 
-	double outputGainStep = frameCount == 0 ? 0.0 :
-		(_targetOutputGainLinear - _outputGainLinear) / static_cast<double>(frameCount);
+	if (runtimeBypass)
+	{
+		for (size_t channel = 0; channel < _channelCount; ++channel)
+		{
+			for (unsigned frame = 0; frame < frameCount; ++frame)
+				output[channel][frame] = input[channel][frame];
+		}
+		return;
+	}
 
 	for (size_t channel = 0; channel < _channelCount; ++channel)
 	{
 		double* inputChannel = input[channel];
 		double* outputChannel = output[channel];
-		double outputGain = _outputGainLinear;
 		for (unsigned frame = 0; frame < frameCount; ++frame)
 		{
-			outputGain += outputGainStep;
-			double sample = inputChannel[frame];
-			for (size_t band = 0; band < _activeBandCount; ++band)
-				sample = _biquadBanks[channel][band].process(sample);
-			outputChannel[frame] = sample * outputGain;
+			if (_warmupActive)
+			{
+				// Feed the new bank real, headroom-adjusted input while keeping it
+				// silent. This lets its zeroed state settle before the audible fade.
+				double transitionSample =
+					inputChannel[frame] * _targetOutputGainLinear;
+				for (size_t band = 0; band < _activeBandCount; ++band)
+				{
+					transitionSample =
+						_biquadBanks[_transitionBankIndex][channel][band]
+							.process(transitionSample);
+				}
+
+				double activeSample = inputChannel[frame];
+				if (!_transitionFromBypass)
+				{
+					activeSample *= _outputGainLinear;
+					for (size_t band = 0; band < _activeBandCount; ++band)
+					{
+						activeSample = _biquadBanks[_activeBankIndex][channel][band]
+							.process(activeSample);
+					}
+				}
+				outputChannel[frame] = activeSample;
+			}
+			else if (_crossfadeActive)
+			{
+				double transitionSample =
+					inputChannel[frame] * _targetOutputGainLinear;
+				for (size_t band = 0; band < _activeBandCount; ++band)
+				{
+					transitionSample =
+						_biquadBanks[_transitionBankIndex][channel][band]
+							.process(transitionSample);
+				}
+
+				if (_crossfadePosition + frame < _crossfadeLength)
+				{
+					double activeSample = inputChannel[frame];
+					if (!_transitionFromBypass)
+					{
+						activeSample *= _outputGainLinear;
+						for (size_t band = 0; band < _activeBandCount; ++band)
+						{
+							activeSample =
+								_biquadBanks[_activeBankIndex][channel][band]
+									.process(activeSample);
+						}
+					}
+					double mix =
+						static_cast<double>(_crossfadePosition + frame + 1) /
+						static_cast<double>(_crossfadeLength);
+					outputChannel[frame] =
+						activeSample * (1.0 - mix) + transitionSample * mix;
+				}
+				else
+				{
+					outputChannel[frame] = transitionSample;
+				}
+			}
+			else
+			{
+				double activeSample = inputChannel[frame] * _outputGainLinear;
+				for (size_t band = 0; band < _activeBandCount; ++band)
+				{
+					activeSample = _biquadBanks[_activeBankIndex][channel][band]
+						.process(activeSample);
+				}
+				outputChannel[frame] = activeSample;
+			}
 		}
 
-		for (size_t band = 0; band < _activeBandCount; ++band)
-			_biquadBanks[channel][band].removeDenormals();
+		for (size_t bank = 0; bank < 2; ++bank)
+		{
+			for (size_t band = 0; band < _activeBandCount; ++band)
+				_biquadBanks[bank][channel][band].removeDenormals();
+		}
 	}
-	_outputGainLinear = _targetOutputGainLinear;
+
+	if (_warmupActive)
+	{
+		unsigned remaining = _crossfadeLength - _warmupPosition;
+		unsigned advanced = (std::min)(frameCount, remaining);
+		_warmupPosition += advanced;
+		if (_warmupPosition >= _crossfadeLength)
+		{
+			_warmupActive = false;
+			_crossfadePosition = 0;
+			_crossfadeActive = true;
+		}
+	}
+	else if (_crossfadeActive)
+	{
+		unsigned remaining = _crossfadeLength - _crossfadePosition;
+		unsigned advanced = (std::min)(frameCount, remaining);
+		_crossfadePosition += advanced;
+		if (_crossfadePosition >= _crossfadeLength)
+		{
+			_activeBankIndex = _transitionBankIndex;
+			_outputGainLinear = _targetOutputGainLinear;
+			_crossfadeActive = false;
+			_transitionFromBypass = false;
+		}
+	}
 }
 #pragma AVRT_CODE_END

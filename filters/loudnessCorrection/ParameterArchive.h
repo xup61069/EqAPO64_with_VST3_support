@@ -23,7 +23,7 @@
 #include <regex>
 #include <string>
 #include <vector>
-#include <helpers/StringHelper.h>
+#include "../../helpers/StringHelper.h"
 
 template<typename type> struct to_WString_type_traits
 {

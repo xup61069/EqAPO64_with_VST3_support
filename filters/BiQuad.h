@@ -59,6 +59,15 @@ public:
 	}
 
 	__forceinline
+	void resetState()
+	{
+		x1 = 0.0;
+		x2 = 0.0;
+		y1 = 0.0;
+		y2 = 0.0;
+	}
+
+	__forceinline
 	double process(double sample)
 	{
 		// changed order of additions leads to better pipelining

@@ -1,6 +1,6 @@
 # Loudness-profile notice
 
-This repository includes a data-driven loudness-profile implementation and tabular profile data.
+This repository includes a formula-driven loudness-correction implementation and a tabular parameter set.
 
 The repository owner has confirmed permission to redistribute these included materials publicly in source and binary form. The permission applies to this repository and its released installer packages.
 

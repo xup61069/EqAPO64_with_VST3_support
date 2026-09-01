@@ -5,8 +5,10 @@ param(
     [string] $QtVersion = "6.10.1",
     [string] $QtArch = "win64_msvc2022_64",
     [string] $AqtInstallVersion = "3.3.0",
+    [string] $AqtInstallSha256 = "E88DBD87226F276FDD5D05347A44578D390D93A7F176E9476FBDA0A7C9635F69",
     [switch] $WithNsis,
     [string] $NsisVersion = "3.11",
+    [string] $NsisSha256 = "C7D27F780DDB6CFFB4730138CD1591E841F4B7EDB155856901CDF5F214394FA1",
     [string] $VcpkgCommit = "30ef65cad98f08e7197c9a1656fbd871bcb72f2d"
 )
 
@@ -100,7 +102,30 @@ if ($WithQt) {
         $pythonTools = Join-Path $thirdParty "python"
         New-Item -ItemType Directory -Force -Path $pythonTools | Out-Null
 
-        python -m pip install --upgrade --target $pythonTools "aqtinstall==$AqtInstallVersion"
+        # Pin the aqtinstall wheel itself by content. Its transitive Python
+        # packages and the Qt archives fetched by aqt are not content-locked,
+        # so release builds using this path must keep a read-only token.
+        if ($AqtInstallSha256 -notmatch '^[0-9a-fA-F]{64}$') {
+            throw "AqtInstallSha256 must be a 64-character SHA-256 digest"
+        }
+        $aqtDownloadRoot = Join-Path $thirdParty "downloads\aqtinstall"
+        New-Item -ItemType Directory -Force -Path $aqtDownloadRoot | Out-Null
+        $aqtWheel = Join-Path $aqtDownloadRoot "aqtinstall-$AqtInstallVersion-py3-none-any.whl"
+        if (!(Test-Path -LiteralPath $aqtWheel)) {
+            python -m pip download --disable-pip-version-check --no-deps --only-binary=:all: --dest $aqtDownloadRoot "aqtinstall==$AqtInstallVersion"
+            if ($LASTEXITCODE -ne 0) {
+                throw "aqtinstall wheel download failed with exit code $LASTEXITCODE"
+            }
+        }
+        if (!(Test-Path -LiteralPath $aqtWheel)) {
+            throw "aqtinstall wheel was not downloaded to the expected path: $aqtWheel"
+        }
+        $actualAqtSha256 = (Get-FileHash -LiteralPath $aqtWheel -Algorithm SHA256).Hash
+        if (![StringComparer]::OrdinalIgnoreCase.Equals($actualAqtSha256, $AqtInstallSha256)) {
+            throw "aqtinstall SHA-256 mismatch. Expected $AqtInstallSha256 but received $actualAqtSha256"
+        }
+
+        python -m pip install --disable-pip-version-check --upgrade --only-binary=:all: --target $pythonTools $aqtWheel
         if ($LASTEXITCODE -ne 0) {
             throw "aqtinstall install failed with exit code $LASTEXITCODE"
         }
@@ -132,9 +157,28 @@ if ($WithNsis) {
     } else {
         Require-Command curl.exe
         $zip = Join-Path $thirdParty "nsis-$NsisVersion.zip"
-        curl.exe -L --fail --output $zip "https://sourceforge.net/projects/nsis/files/NSIS%203/$NsisVersion/nsis-$NsisVersion.zip/download"
-        if ($LASTEXITCODE -ne 0) {
-            throw "NSIS download failed with exit code $LASTEXITCODE"
+        $downloadZip = "$zip.download"
+        if ($NsisSha256 -notmatch '^[0-9a-fA-F]{64}$') {
+            throw "NsisSha256 must be a 64-character SHA-256 digest"
+        }
+
+        try {
+            curl.exe -L --fail --retry 3 --proto "=https" --proto-redir "=https" --tlsv1.2 --output $downloadZip "https://sourceforge.net/projects/nsis/files/NSIS%203/$NsisVersion/nsis-$NsisVersion.zip/download"
+            if ($LASTEXITCODE -ne 0) {
+                throw "NSIS download failed with exit code $LASTEXITCODE"
+            }
+
+            $actualNsisSha256 = (Get-FileHash -LiteralPath $downloadZip -Algorithm SHA256).Hash
+            if (![StringComparer]::OrdinalIgnoreCase.Equals($actualNsisSha256, $NsisSha256)) {
+                throw "NSIS SHA-256 mismatch. Expected $NsisSha256 but received $actualNsisSha256"
+            }
+
+            Move-Item -LiteralPath $downloadZip -Destination $zip -Force
+        }
+        finally {
+            if (Test-Path -LiteralPath $downloadZip) {
+                Remove-Item -LiteralPath $downloadZip -Force
+            }
         }
 
         Expand-Archive -LiteralPath $zip -DestinationPath $thirdParty -Force

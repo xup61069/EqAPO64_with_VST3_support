@@ -1,7 +1,10 @@
 !include "LogicLib.nsh"
 !include "MUI2.nsh"
+!include "StrFunc.nsh"
 !include "WinVer.nsh"
 !include "x64.nsh"
+
+${StrTrimNewLines}
 
 Unicode true
 ManifestDPIAware true
@@ -16,6 +19,7 @@ SetCompressor /SOLID lzma
 
 !define REGPATH "Software\EqualizerAPO"
 !define UNINST_REGPATH "Software\Microsoft\Windows\CurrentVersion\Uninstall\EqualizerAPO"
+!define INSTALLER_RECOVERY_REGPATH "${REGPATH}\InstallerRecovery"
 
 VIProductVersion "${MAJOR}.${MINOR}.${REVISION}.0"
 VIAddVersionKey /LANG=1033 "ProductName" "Equalizer APO"
@@ -41,7 +45,20 @@ VIAddVersionKey /LANG=1033 "LegalCopyright" "Equalizer APO contributors"
   Var OLDINSTDIR
   Var ProtectedAudioValueExisted
   Var ProtectedAudioValue
+  Var ProtectedAudioOverrideActive
   Var MissingAsset
+  Var InstallRollbackDirectory
+  Var InstallRollbackFiles
+  Var InstallRollbackState
+  Var InstallRollbackCopyCode
+  Var PreviousApoPresent
+  Var NewApoRegistrationAttempted
+  Var RenameManifestPath
+  Var RenameManifestHandle
+  Var ApoRollbackRegistrationCode
+  Var ApoRollbackUnregistrationCode
+  Var ApoRollbackStatus
+  Var FailedRegistrationCode
   
 ;--------------------------------
 ;Interface Settings
@@ -97,7 +114,17 @@ Var renameIndex
       StrCpy $renamePath "${path}.old.$renameIndex"
       IntOp $renameIndex $renameIndex + 1
     ${EndWhile}
+    ClearErrors
     Rename "${path}" "$renamePath"
+    ${IfNot} ${Errors}
+      ClearErrors
+      FileWrite $RenameManifestHandle "$renamePath$\r$\n"
+      ${If} ${Errors}
+        DetailPrint "Could not record a renamed application file for rollback: $renamePath"
+        Call RollbackInstallTransaction
+        Abort
+      ${EndIf}
+    ${EndIf}
   ${EndIf}
 !macroend
 
@@ -120,6 +147,12 @@ Var renameIndex
     StrCpy $MissingAsset "${path}"
     Goto missingRequiredAsset
   ${EndIf}
+!macroend
+
+; Remove only files owned by this installer. config and VSTPlugins are
+; deliberately outside the transaction because they may contain user data.
+!macro DeleteTransactionFile path
+  Delete "${path}"
 !macroend
     
 LangString VersionError ${LANG_ENGLISH} "This installer is only supposed to be run on {0} Windows. Please use the {1} installer."
@@ -156,6 +189,15 @@ Function .onInit
   !if ${LIBPATH} != "lib32"
     SetRegView 64
   !endif
+  ; Repair an interrupted prior registration attempt before reading any other
+  ; installer state. The journal is written before the temporary audio override.
+  Call RecoverProtectedAudioSetting
+  ${If} $ProtectedAudioOverrideActive == "1"
+    ${IfNot} ${Silent}
+      MessageBox MB_ICONSTOP|MB_OK "Setup could not recover the protected-audio setting left by an interrupted installation. No installation files will be changed."
+    ${EndIf}
+    Abort
+  ${EndIf}
   !insertmacro MUI_LANGDLL_DISPLAY
   ;Get installation folder from registry if available
   ReadRegStr $INSTDIR HKLM ${REGPATH} "InstallPath"
@@ -245,12 +287,406 @@ Function SaveProtectedAudioSetting
   ${EndIf}
 FunctionEnd
 
+Function BeginProtectedAudioOverride
+  ; Never overwrite a still-pending journal from an earlier attempt in this
+  ; process. If it cannot be restored, the caller must not run regsvr32.
+  ${If} $ProtectedAudioOverrideActive == "1"
+    Call RestoreProtectedAudioSetting
+    ${If} $ProtectedAudioOverrideActive == "1"
+      Return
+    ${EndIf}
+  ${EndIf}
+
+  Call SaveProtectedAudioSetting
+  ; Journal value data first and mark it pending last. The protected-audio value
+  ; is changed only after the durable pending marker exists.
+  ClearErrors
+  WriteRegDWORD HKLM ${INSTALLER_RECOVERY_REGPATH} "ValueExisted" $ProtectedAudioValueExisted
+  ${If} ${Errors}
+    Goto protectedAudioJournalFailed
+  ${EndIf}
+  WriteRegDWORD HKLM ${INSTALLER_RECOVERY_REGPATH} "Value" $ProtectedAudioValue
+  ${If} ${Errors}
+    Goto protectedAudioJournalFailed
+  ${EndIf}
+  WriteRegDWORD HKLM ${INSTALLER_RECOVERY_REGPATH} "Pending" 1
+  ${If} ${Errors}
+    Goto protectedAudioJournalFailed
+  ${EndIf}
+  StrCpy $ProtectedAudioOverrideActive "1"
+  ClearErrors
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Audio" "DisableProtectedAudioDG" 1
+  ${If} ${Errors}
+    Call RestoreProtectedAudioSetting
+  ${EndIf}
+  Return
+
+  protectedAudioJournalFailed:
+  DeleteRegKey HKLM ${INSTALLER_RECOVERY_REGPATH}
+  DeleteRegKey /ifempty HKLM ${REGPATH}
+  StrCpy $ProtectedAudioOverrideActive "0"
+  DetailPrint "Could not create the protected-audio recovery journal."
+FunctionEnd
+
 Function RestoreProtectedAudioSetting
+  StrCpy $ProtectedAudioOverrideActive "1"
   ${If} $ProtectedAudioValueExisted == "1"
+    ClearErrors
     WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Audio" "DisableProtectedAudioDG" $ProtectedAudioValue
+    ${If} ${Errors}
+      DetailPrint "Could not restore the protected-audio registry value; the recovery journal was retained."
+      Return
+    ${EndIf}
+    ClearErrors
+    ReadRegDWORD $0 HKLM "Software\Microsoft\Windows\CurrentVersion\Audio" "DisableProtectedAudioDG"
+    ${If} ${Errors}
+      DetailPrint "Could not verify the restored protected-audio registry value; the recovery journal was retained."
+      Return
+    ${ElseIf} $0 != $ProtectedAudioValue
+      DetailPrint "The protected-audio registry value did not verify; the recovery journal was retained."
+      Return
+    ${EndIf}
   ${Else}
     DeleteRegValue HKLM "Software\Microsoft\Windows\CurrentVersion\Audio" "DisableProtectedAudioDG"
+    ; Verify absence rather than trusting DeleteRegValue's error flag; deleting
+    ; a value which is already absent is also a successful restoration.
+    ClearErrors
+    ReadRegDWORD $0 HKLM "Software\Microsoft\Windows\CurrentVersion\Audio" "DisableProtectedAudioDG"
+    ${IfNot} ${Errors}
+      DetailPrint "Could not remove the temporary protected-audio registry value; the recovery journal was retained."
+      Return
+    ${EndIf}
   ${EndIf}
+
+  DeleteRegKey HKLM ${INSTALLER_RECOVERY_REGPATH}
+  ClearErrors
+  ReadRegDWORD $0 HKLM ${INSTALLER_RECOVERY_REGPATH} "Pending"
+  ${IfNot} ${Errors}
+    DetailPrint "Could not clear the protected-audio recovery journal."
+    Return
+  ${EndIf}
+  DeleteRegKey /ifempty HKLM ${REGPATH}
+  StrCpy $ProtectedAudioOverrideActive "0"
+FunctionEnd
+
+Function RecoverProtectedAudioSetting
+  StrCpy $ProtectedAudioOverrideActive "0"
+  ClearErrors
+  ReadRegDWORD $0 HKLM ${INSTALLER_RECOVERY_REGPATH} "Pending"
+  ${If} ${Errors}
+    Return
+  ${EndIf}
+  ${If} $0 != 1
+    ; A present but malformed pending marker must not be overwritten because its
+    ; intended recovery state is unknown.
+    StrCpy $ProtectedAudioOverrideActive "1"
+    Return
+  ${EndIf}
+
+  ClearErrors
+  ReadRegDWORD $1 HKLM ${INSTALLER_RECOVERY_REGPATH} "ValueExisted"
+  ${If} ${Errors}
+    StrCpy $ProtectedAudioOverrideActive "1"
+    Return
+  ${EndIf}
+  ${If} $1 != 0
+  ${AndIf} $1 != 1
+    StrCpy $ProtectedAudioOverrideActive "1"
+    Return
+  ${EndIf}
+  ReadRegDWORD $2 HKLM ${INSTALLER_RECOVERY_REGPATH} "Value"
+  ${If} ${Errors}
+    StrCpy $ProtectedAudioOverrideActive "1"
+    Return
+  ${EndIf}
+  StrCpy $ProtectedAudioValueExisted "$1"
+  StrCpy $ProtectedAudioValue "$2"
+  StrCpy $ProtectedAudioOverrideActive "1"
+  Call RestoreProtectedAudioSetting
+  ${If} $ProtectedAudioOverrideActive == "0"
+    DetailPrint "Recovered the protected-audio setting from an interrupted installation."
+  ${EndIf}
+FunctionEnd
+
+Function RemoveInstalledProductFiles
+  ; Current payload. Keep config and VSTPlugins intact even on a fresh-install
+  ; failure: an existing folder may already contain user-created data.
+  !insertmacro DeleteTransactionFile "$INSTDIR\EqualizerAPO.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\DeviceSelector.exe"
+  !insertmacro DeleteTransactionFile "$INSTDIR\Benchmark.exe"
+  !insertmacro DeleteTransactionFile "$INSTDIR\VoicemeeterClient.exe"
+  !insertmacro DeleteTransactionFile "$INSTDIR\UpdateChecker.exe"
+  !insertmacro DeleteTransactionFile "$INSTDIR\Editor.exe"
+  !insertmacro DeleteTransactionFile "$INSTDIR\NOTICE.md"
+  !insertmacro DeleteTransactionFile "$INSTDIR\LICENSE.txt"
+  !insertmacro DeleteTransactionFile "$INSTDIR\libfftw3.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\fftw3.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\sndfile.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\FLAC.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\libmp3lame.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\mpg123.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\ogg.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\opus.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\vorbis.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\vorbisenc.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\vorbisfile.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\msvcp140.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\msvcp140_1.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\vcruntime140.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\vcruntime140_1.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\d3dcompiler_47.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\icuuc.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\Qt6Core.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\Qt6Gui.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\Qt6Network.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\Qt6Svg.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\Qt6Widgets.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\Configuration tutorial (online).url"
+  !insertmacro DeleteTransactionFile "$INSTDIR\Configuration reference (online).url"
+  !insertmacro DeleteTransactionFile "$INSTDIR\qt.conf"
+  !insertmacro DeleteTransactionFile "$INSTDIR\qt\generic\qtuiotouchplugin.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\qt\iconengines\qsvgicon.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\qt\imageformats\qico.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\qt\imageformats\qsvg.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\qt\networkinformation\qnetworklistmanager.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\qt\platforms\qwindows.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\qt\styles\qmodernwindowsstyle.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\qt\tls\qcertonlybackend.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\qt\tls\qschannelbackend.dll"
+
+  ; Files retired by this release may have been removed or renamed before the
+  ; failure. The snapshot restores them for an upgrade.
+  !insertmacro DeleteTransactionFile "$INSTDIR\Configurator.exe"
+  !insertmacro DeleteTransactionFile "$INSTDIR\Qt5Core.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\Qt5Gui.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\Qt5Widgets.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\libfftw3-3.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\libsndfile-1.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\msvcp100.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\msvcr100.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\msvcp120.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\msvcr120.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\msvcp140_2.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\icudt.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\icuin.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\icudt78.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\icuin78.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\icuuc78.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\qt\imageformats\qgif.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\qt\imageformats\qjpeg.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\qt\styles\qwindowsvistastyle.dll"
+  ; Remove only empty product directories. Never recursively delete a directory
+  ; which may contain an unrelated file or a reparse point.
+  RMDir "$INSTDIR\qt\generic"
+  RMDir "$INSTDIR\qt\iconengines"
+  RMDir "$INSTDIR\qt\imageformats"
+  RMDir "$INSTDIR\qt\networkinformation"
+  RMDir "$INSTDIR\qt\platforms"
+  RMDir "$INSTDIR\qt\styles"
+  RMDir "$INSTDIR\qt\tls"
+  RMDir "$INSTDIR\qt"
+FunctionEnd
+
+Function CloseRenameManifest
+  ${If} $RenameManifestHandle != ""
+    FileClose $RenameManifestHandle
+    StrCpy $RenameManifestHandle ""
+  ${EndIf}
+FunctionEnd
+
+Function DiscardRenamedProductFiles
+  Call CloseRenameManifest
+
+  ; Delete only exact paths recorded after successful Rename calls. This avoids
+  ; treating arbitrary pre-existing *.old files as transaction-owned.
+  ClearErrors
+  FileOpen $0 "$RenameManifestPath" r
+  ${If} ${Errors}
+    Goto renameManifestCleanup
+  ${EndIf}
+
+  readRenamedProductFile:
+  ClearErrors
+  FileRead $0 $1
+  ${If} ${Errors}
+    Goto closeRenameManifest
+  ${EndIf}
+  ${StrTrimNewLines} $1 "$1"
+  ${If} $1 != ""
+    Delete /REBOOTOK "$1"
+  ${EndIf}
+  Goto readRenamedProductFile
+
+  closeRenameManifest:
+  FileClose $0
+  renameManifestCleanup:
+  Delete "$RenameManifestPath"
+  RMDir /r "$InstallRollbackDirectory"
+FunctionEnd
+
+Function PrepareInstallTransaction
+  StrCpy $InstallRollbackState "0"
+  StrCpy $PreviousApoPresent "0"
+  StrCpy $NewApoRegistrationAttempted "0"
+  StrCpy $RenameManifestHandle ""
+  StrCpy $InstallRollbackDirectory ""
+  ${If} ${FileExists} "$INSTDIR\EqualizerAPO.dll"
+    StrCpy $PreviousApoPresent "1"
+  ${EndIf}
+
+  ; Use a unique durable temporary directory rather than $PLUGINSDIR. If an
+  ; automatic restore cannot finish, the only recovery copy must survive setup
+  ; process cleanup for manual recovery.
+  ClearErrors
+  GetTempFileName $InstallRollbackDirectory
+  ${If} ${Errors}
+    StrCpy $InstallRollbackCopyCode "temporary path creation failed"
+    Goto installBackupFailed
+  ${EndIf}
+  Delete "$InstallRollbackDirectory"
+  CreateDirectory "$InstallRollbackDirectory"
+  StrCpy $InstallRollbackFiles "$InstallRollbackDirectory\files"
+  StrCpy $RenameManifestPath "$InstallRollbackDirectory\renamed-files.txt"
+  CreateDirectory "$InstallRollbackFiles"
+
+  ; Snapshot the old application tree outside $INSTDIR before changing files.
+  ; config and VSTPlugins are excluded because they are user-data containers and
+  ; are never deleted or overwritten by rollback.
+  nsExec::ExecToLog '"$SYSDIR\robocopy.exe" "$INSTDIR" "$InstallRollbackFiles" /E /COPY:DATS /DCOPY:DAT /R:1 /W:1 /XJ /XD "$INSTDIR\config" "$INSTDIR\VSTPlugins" /NFL /NDL /NJH /NJS /NP'
+  Pop $InstallRollbackCopyCode
+  ${If} $InstallRollbackCopyCode == "error"
+    Goto installBackupFailed
+  ${ElseIf} $InstallRollbackCopyCode >= 8
+    Goto installBackupFailed
+  ${EndIf}
+
+  ClearErrors
+  FileOpen $RenameManifestHandle "$RenameManifestPath" w
+  ${If} ${Errors}
+    StrCpy $InstallRollbackCopyCode "rename manifest creation failed"
+    Goto installBackupFailed
+  ${EndIf}
+
+  StrCpy $InstallRollbackState "1"
+  DetailPrint "Application-file rollback snapshot created at $InstallRollbackDirectory."
+  Return
+
+  installBackupFailed:
+  DetailPrint "Could not create the application-file rollback snapshot. Error: $InstallRollbackCopyCode"
+  ${If} $RenameManifestHandle != ""
+    FileClose $RenameManifestHandle
+    StrCpy $RenameManifestHandle ""
+  ${EndIf}
+  ${If} $InstallRollbackDirectory != ""
+    RMDir /r "$InstallRollbackDirectory"
+  ${EndIf}
+  ${IfNot} ${Silent}
+    MessageBox MB_ICONSTOP|MB_OK "The existing application files could not be backed up safely. Installation will stop before replacing them."
+  ${EndIf}
+  Abort
+FunctionEnd
+
+Function RollbackInstallTransaction
+  ${If} $InstallRollbackState != "1"
+    Return
+  ${EndIf}
+
+  DetailPrint "Registration did not complete; restoring the pre-install application files."
+  StrCpy $ApoRollbackRegistrationCode "not attempted"
+  StrCpy $ApoRollbackStatus "The new application files were removed. User configuration was preserved."
+  Call CloseRenameManifest
+
+  ; Only a regsvr32 process which actually started can have left partial COM
+  ; entries. Pre-registration extraction/verification failures must never
+  ; unregister the previously installed APO.
+  ${If} $NewApoRegistrationAttempted == "1"
+    ${If} ${FileExists} "$INSTDIR\EqualizerAPO.dll"
+      ClearErrors
+      StrCpy $ApoRollbackUnregistrationCode "process did not start"
+      ExecWait '"$SYSDIR\regsvr32.exe" /u /s "$INSTDIR\EqualizerAPO.dll"' $ApoRollbackUnregistrationCode
+      ${If} ${Errors}
+        StrCpy $ApoRollbackStatus "Automatic rollback could not start regsvr32 to remove partial registration. Recovery files remain at $InstallRollbackDirectory."
+        DetailPrint "$ApoRollbackStatus"
+        Return
+      ${ElseIf} $ApoRollbackUnregistrationCode != 0
+        StrCpy $ApoRollbackStatus "Automatic rollback could not remove partial registration (regsvr32 exit code: $ApoRollbackUnregistrationCode). Recovery files remain at $InstallRollbackDirectory."
+        DetailPrint "$ApoRollbackStatus"
+        Return
+      ${EndIf}
+    ${EndIf}
+    StrCpy $NewApoRegistrationAttempted "0"
+  ${EndIf}
+
+  Call RemoveInstalledProductFiles
+
+  nsExec::ExecToLog '"$SYSDIR\robocopy.exe" "$InstallRollbackFiles" "$INSTDIR" /E /COPY:DATS /DCOPY:DAT /R:1 /W:1 /XJ /NFL /NDL /NJH /NJS /NP'
+  Pop $InstallRollbackCopyCode
+  ${If} $InstallRollbackCopyCode == "error"
+    StrCpy $ApoRollbackStatus "Automatic rollback could not restore all previous application files. User configuration was preserved and recovery files remain at $InstallRollbackDirectory."
+    DetailPrint "$ApoRollbackStatus"
+    Return
+  ${ElseIf} $InstallRollbackCopyCode >= 8
+    StrCpy $ApoRollbackStatus "Automatic rollback could not restore all previous application files (robocopy exit code: $InstallRollbackCopyCode). User configuration was preserved and recovery files remain at $InstallRollbackDirectory."
+    DetailPrint "$ApoRollbackStatus"
+    Return
+  ${EndIf}
+
+  ${If} $PreviousApoPresent == "1"
+    ${IfNot} ${FileExists} "$INSTDIR\EqualizerAPO.dll"
+      StrCpy $ApoRollbackStatus "Previous application files were copied back, but EqualizerAPO.dll is missing. User configuration was preserved and recovery files remain at $InstallRollbackDirectory."
+      DetailPrint "$ApoRollbackStatus"
+      Return
+    ${EndIf}
+
+    Call BeginProtectedAudioOverride
+    ${If} $ProtectedAudioOverrideActive != "1"
+      StrCpy $ApoRollbackStatus "The previous application files were restored, but the protected-audio recovery journal could not be created. User configuration was preserved and recovery files remain at $InstallRollbackDirectory."
+      DetailPrint "$ApoRollbackStatus"
+      Return
+    ${EndIf}
+    ClearErrors
+    StrCpy $ApoRollbackRegistrationCode "process did not start"
+    ExecWait '"$SYSDIR\regsvr32.exe" /s "$INSTDIR\EqualizerAPO.dll"' $ApoRollbackRegistrationCode
+    ${If} ${Errors}
+      Call RestoreProtectedAudioSetting
+      StrCpy $ApoRollbackStatus "The previous application files were restored, but regsvr32 could not be started to re-register the previous APO. User configuration was preserved and recovery files remain at $InstallRollbackDirectory."
+      DetailPrint "$ApoRollbackStatus"
+      Return
+    ${EndIf}
+    Call RestoreProtectedAudioSetting
+    ${If} $ProtectedAudioOverrideActive == "1"
+      StrCpy $ApoRollbackStatus "The previous application files and APO registration were restored, but the protected-audio setting could not be restored. User configuration was preserved and recovery files remain at $InstallRollbackDirectory."
+      DetailPrint "$ApoRollbackStatus"
+      Return
+    ${ElseIf} $ApoRollbackRegistrationCode != 0
+      StrCpy $ApoRollbackStatus "The previous application files were restored, but APO re-registration failed (regsvr32 exit code: $ApoRollbackRegistrationCode). User configuration was preserved and recovery files remain at $InstallRollbackDirectory."
+      DetailPrint "$ApoRollbackStatus"
+      Return
+    ${EndIf}
+    StrCpy $ApoRollbackStatus "The previous application files were restored and the previous APO was re-registered. User configuration was preserved."
+  ${Else}
+    StrCpy $ApoRollbackStatus "The new application files were removed. User configuration was preserved."
+    RMDir "$INSTDIR"
+  ${EndIf}
+
+  DetailPrint "$ApoRollbackStatus"
+  Call DiscardRenamedProductFiles
+  StrCpy $InstallRollbackState "0"
+FunctionEnd
+
+Function CommitInstallTransaction
+  ; Registration is the commit point. Registry metadata, shortcuts, ACLs and
+  ; audio-device changes are intentionally performed only after this call. Keep
+  ; the rename manifest until the audio service releases the old files.
+  Call CloseRenameManifest
+  StrCpy $NewApoRegistrationAttempted "0"
+  StrCpy $InstallRollbackState "0"
+  DetailPrint "Application-file transaction committed."
+FunctionEnd
+
+Function .onInstFailed
+  ; Also covers extraction/verification failures before the registration check.
+  Call RollbackInstallTransaction
 FunctionEnd
 
 Function VerifyRequiredAssets
@@ -261,6 +697,7 @@ Function VerifyRequiredAssets
   !insertmacro RequireInstalledAsset "$INSTDIR\UpdateChecker.exe"
   !insertmacro RequireInstalledAsset "$INSTDIR\Editor.exe"
   !insertmacro RequireInstalledAsset "$INSTDIR\NOTICE.md"
+  !insertmacro RequireInstalledAsset "$INSTDIR\LICENSE.txt"
   !insertmacro RequireInstalledAsset "$INSTDIR\libfftw3.dll"
   !insertmacro RequireInstalledAsset "$INSTDIR\sndfile.dll"
   !insertmacro RequireInstalledAsset "$INSTDIR\Qt6Core.dll"
@@ -277,6 +714,7 @@ Function VerifyRequiredAssets
   ${IfNot} ${Silent}
     MessageBox MB_ICONSTOP|MB_OK $(AssetValidationError)
   ${EndIf}
+  Call RollbackInstallTransaction
   Abort
 FunctionEnd
 
@@ -288,17 +726,19 @@ LangString SecCheckForUpdates ${LANG_TRADCHINESE} "自動檢查更新"
 LangString SecCheckForUpdates ${LANG_SIMPCHINESE} "自动检查更新"
 LangString SecCheckForUpdates ${LANG_GERMAN} "Automatisch auf Updates prüfen"
 
-Section $(SecCheckForUpdates) SecCheckForUpdates
+Section /o $(SecCheckForUpdates) SecCheckForUpdates
 SectionEnd
 
 Section "-Install"
   SetOutPath "$INSTDIR"
   Call CreateRestorePoint
   Call CloseRunningApplications
+  ; Snapshot every installed application file before deleting or replacing it.
+  Call PrepareInstallTransaction
 
-  ;Possibly remove files from previous installation
+  ; Read the previous shortcut location now, but do not remove it until the new
+  ; APO has registered successfully.
   !insertmacro MUI_STARTMENU_GETFOLDER Application $OldStartMenuFolder
-  !insertmacro DeleteProductShortcuts $OldStartMenuFolder
 
   ;Migrate the versioned default folder while preserving custom folder names.
   StrCpy $0 "$OldStartMenuFolder" 14
@@ -318,6 +758,17 @@ Section "-Install"
   
   ;Rename before delete as these files may be in use
   !insertmacro RenameAndDelete "$INSTDIR\EqualizerAPO.dll"
+  ${If} $PreviousApoPresent == "1"
+    ${If} ${FileExists} "$INSTDIR\EqualizerAPO.dll"
+      ; The active DLL could not be moved, so do not attempt to overwrite it.
+      Call RollbackInstallTransaction
+      DetailPrint "The existing EqualizerAPO.dll could not be moved aside."
+      ${IfNot} ${Silent}
+        MessageBox MB_ICONSTOP|MB_OK "The existing EqualizerAPO.dll is still in use and could not be replaced safely. Installation will stop."
+      ${EndIf}
+      Abort
+    ${EndIf}
+  ${EndIf}
   !insertmacro RenameAndDelete "$INSTDIR\libfftw3-3.dll"
   !insertmacro RenameAndDelete "$INSTDIR\libfftw3.dll"
   !insertmacro RenameAndDelete "$INSTDIR\fftw3.dll"
@@ -360,6 +811,7 @@ Section "-Install"
   File "${BINPATH}\VoicemeeterClient.exe"
   File "${BINPATH}\UpdateChecker.exe"
   File /oname=NOTICE.md "..\NOTICE.md"
+  File /oname=LICENSE.txt "..\LICENSE"
   File "${BINPATH_EDITOR}\Editor.exe"
   
   File "${LIBPATH}\libfftw3.dll"
@@ -423,28 +875,69 @@ Section "-Install"
   ; Do not make persistent system changes when the installer payload is incomplete.
   Call VerifyRequiredAssets
 
-  ;Grant write access to the config directory for all users
+  Call BeginProtectedAudioOverride
+  ${If} $ProtectedAudioOverrideActive != "1"
+    StrCpy $FailedRegistrationCode "protected-audio recovery journal could not be created"
+    Goto apoRegistrationFailed
+  ${EndIf}
+  ; RegDLL does not work for 64-bit DLLs. Treat process-creation failure as a
+  ; hard failure; ExecWait's result variable is undefined in that case.
+  ClearErrors
+  StrCpy $1 "process did not start"
+  ExecWait '"$SYSDIR\regsvr32.exe" /s "$INSTDIR\EqualizerAPO.dll"' $1
+  ${If} ${Errors}
+    StrCpy $FailedRegistrationCode "process did not start"
+    Call RestoreProtectedAudioSetting
+    Goto apoRegistrationFailed
+  ${EndIf}
+  StrCpy $NewApoRegistrationAttempted "1"
+  Call RestoreProtectedAudioSetting
+  ${If} $ProtectedAudioOverrideActive == "1"
+    StrCpy $FailedRegistrationCode "protected-audio setting could not be restored"
+    Goto apoRegistrationFailed
+  ${EndIf}
+  ${If} $1 != 0
+    StrCpy $FailedRegistrationCode "$1"
+    Goto apoRegistrationFailed
+  ${EndIf}
+  Goto apoRegistrationSucceeded
+
+  apoRegistrationFailed:
+  Call RollbackInstallTransaction
+  ${IfNot} ${Silent}
+    MessageBox MB_ICONSTOP|MB_OK "Equalizer APO could not be registered. Installation will stop before modifying audio devices.$\r$\n$\r$\nThis usually means a required runtime DLL is missing or incompatible.$\r$\n$\r$\nregsvr32 result: $FailedRegistrationCode$\r$\n$\r$\n$ApoRollbackStatus"
+  ${EndIf}
+  Abort
+
+  apoRegistrationSucceeded:
+  ; Registration is the commit point. Only now may setup change persistent
+  ; metadata, shortcuts, permissions or audio-device registrations.
+  Call CommitInstallTransaction
+
+  ; Grant write access to the config directory for all users.
   nsExec::ExecToLog '"$SYSDIR\icacls.exe" "$INSTDIR\config" /grant *S-1-5-32-545:(OI)(CI)F /T /C'
 
   ReadRegStr $OLDINSTDIR HKLM ${REGPATH} "InstallPath"
   WriteRegStr HKLM ${REGPATH} "InstallPath" "$INSTDIR"
-  
-  ;Write ConfigPath if non-existing or if InstallPath has changed
+
+  ; Write ConfigPath if non-existing or if InstallPath has changed.
   ReadRegStr $0 HKLM ${REGPATH} "ConfigPath"
   ${If} $0 == ""
   ${OrIf} $INSTDIR != $OLDINSTDIR
-	WriteRegStr HKLM ${REGPATH} "ConfigPath" "$INSTDIR\config"
+    WriteRegStr HKLM ${REGPATH} "ConfigPath" "$INSTDIR\config"
   ${EndIf}
-	
+
   ReadRegStr $0 HKLM ${REGPATH} "EnableTrace"
   ${If} $0 == ""
-	WriteRegStr HKLM ${REGPATH} "EnableTrace" "false"
+    WriteRegStr HKLM ${REGPATH} "EnableTrace" "false"
   ${EndIf}
 
   WriteUninstaller "$INSTDIR\Uninstall.exe"
-  
+
+  ; Replace only the product shortcuts after registration succeeds. Unrelated
+  ; shortcuts in the same custom folder remain untouched.
+  !insertmacro DeleteProductShortcuts $OldStartMenuFolder
   !insertmacro MUI_STARTMENU_WRITE_BEGIN Application
-  ;Create shortcuts
   CreateDirectory "$SMPROGRAMS\$StartMenuFolder"
   CreateShortCut "$SMPROGRAMS\$StartMenuFolder\Equalizer APO Configuration Editor.lnk" "$INSTDIR\Editor.exe"
   CreateShortCut "$SMPROGRAMS\$StartMenuFolder\Configuration tutorial (online).lnk" "$INSTDIR\Configuration tutorial (online).url"
@@ -454,24 +947,12 @@ Section "-Install"
   CreateShortCut "$SMPROGRAMS\$StartMenuFolder\Check for updates.lnk" "$INSTDIR\UpdateChecker.exe"
   CreateShortCut "$SMPROGRAMS\$StartMenuFolder\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
   !insertmacro MUI_STARTMENU_WRITE_END
-  
+
   WriteRegStr HKLM ${UNINST_REGPATH} "DisplayName" "Equalizer APO"
   WriteRegStr HKLM ${UNINST_REGPATH} "DisplayVersion" "${VERSION}"
   WriteRegStr HKLM ${UNINST_REGPATH} "UninstallString" '"$INSTDIR\Uninstall.exe"'
   WriteRegDWORD HKLM ${UNINST_REGPATH} "NoModify" 1
   WriteRegDWORD HKLM ${UNINST_REGPATH} "NoRepair" 1
-
-  Call SaveProtectedAudioSetting
-  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Audio" "DisableProtectedAudioDG" 1
-  ;RegDLL doesn't work for 64 bit dlls
-  ExecWait '"$SYSDIR\regsvr32.exe" /s "$INSTDIR\EqualizerAPO.dll"' $1
-  Call RestoreProtectedAudioSetting
-  ${If} $1 != 0
-    ${IfNot} ${Silent}
-      MessageBox MB_ICONSTOP|MB_OK "Equalizer APO could not be registered. Installation will stop before modifying audio devices.$\r$\n$\r$\nThis usually means a required runtime DLL is missing or incompatible.$\r$\n$\r$\nregsvr32 exit code: $1"
-    ${EndIf}
-    Abort
-  ${EndIf}
 
   ${If} ${Silent}
     ; Preserve existing endpoint registrations and restart AudioSrv without opening dialogs.
@@ -494,9 +975,9 @@ Section "-Install"
     ${EndIf}
   ${EndIf}
 
-  ;Hopefully, the renamed files can be deleted without reboot after the Device Selector has restarted the audio service
-  Delete /REBOOTOK "$INSTDIR\*.old"
-  Delete /REBOOTOK "$INSTDIR\*.old.*"
+  ; The audio service has restarted; discard only installer-owned rename
+  ; artifacts, never every *.old file in the installation directory.
+  Call DiscardRenamedProductFiles
   
   ${If} $0 == "0"
     SetRebootFlag false
@@ -572,6 +1053,16 @@ Section "-un.Uninstall"
   Delete "$INSTDIR\Editor.exe"
   Delete "$INSTDIR\qt.conf"
   Delete "$INSTDIR\NOTICE.md"
+  Delete "$INSTDIR\LICENSE.txt"
+
+  Delete /REBOOTOK "$INSTDIR\FLAC.dll"
+  Delete /REBOOTOK "$INSTDIR\libmp3lame.dll"
+  Delete /REBOOTOK "$INSTDIR\mpg123.dll"
+  Delete /REBOOTOK "$INSTDIR\ogg.dll"
+  Delete /REBOOTOK "$INSTDIR\opus.dll"
+  Delete /REBOOTOK "$INSTDIR\vorbis.dll"
+  Delete /REBOOTOK "$INSTDIR\vorbisenc.dll"
+  Delete /REBOOTOK "$INSTDIR\vorbisfile.dll"
   
   Delete "$INSTDIR\UpdateChecker.exe"
   Delete "$INSTDIR\VoicemeeterClient.exe"

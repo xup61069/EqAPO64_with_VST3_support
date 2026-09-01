@@ -21,6 +21,8 @@
 
 #include <QDialog>
 #include <QBuffer>
+#include <QTimer>
+#include <string>
 
 namespace Ui {
 class LoudnessCorrectionFilterGUIDialog;
@@ -31,7 +33,10 @@ class LoudnessCorrectionFilterGUIDialog : public QDialog
 	Q_OBJECT
 
 public:
-	explicit LoudnessCorrectionFilterGUIDialog(QWidget* parent = 0);
+	explicit LoudnessCorrectionFilterGUIDialog(
+		const std::wstring& endpointId,
+		bool automaticVolumeAvailable,
+		QWidget* parent = 0);
 	~LoudnessCorrectionFilterGUIDialog();
 
 	int getMeasuredLevel();
@@ -47,4 +52,7 @@ private slots:
 private:
 	Ui::LoudnessCorrectionFilterGUIDialog* ui;
 	QBuffer buffer;
+	std::wstring endpointId;
+	bool playbackUsesSelectedEndpoint;
+	QTimer endpointGuardTimer;
 };

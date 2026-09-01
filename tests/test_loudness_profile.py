@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression tests for the data-driven loudness-correction profile."""
+"""Regression tests for the formula-driven loudness-correction profile."""
 
 from __future__ import annotations
 
@@ -15,61 +15,105 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 CSV_PATH = ROOT / "filters" / "loudnessCorrection" / "loudness_profile.csv"
 HEADER_PATH = ROOT / "filters" / "loudnessCorrection" / "LoudnessProfile.h"
 FILTER_HEADER_PATH = ROOT / "filters" / "loudnessCorrection" / "LoudnessCorrectionFilter.h"
+FILTER_CPP_PATH = ROOT / "filters" / "loudnessCorrection" / "LoudnessCorrectionFilter.cpp"
+GUI_FACTORY_PATH = ROOT / "Editor" / "guis" / "LoudnessCorrectionFilterGUIFactory.cpp"
+LEGACY_GUI_PATH = ROOT / "Editor" / "guis" / "LegacyLoudnessCorrectionFilterGUI.cpp"
 PHON_LEVELS = tuple(range(0, 101, 10))
 REFERENCE_INDEX = 17
 FILTER_Q = 3.0
 SAMPLE_RATE = 48_000.0
 
+EXPECTED_PARAMETERS = [
+	(20.0, 0.635, -31.5, 78.1),
+	(25.0, 0.602, -27.2, 68.7),
+	(31.5, 0.569, -23.1, 59.5),
+	(40.0, 0.537, -19.3, 51.1),
+	(50.0, 0.509, -16.1, 44.0),
+	(63.0, 0.482, -13.1, 37.5),
+	(80.0, 0.456, -10.4, 31.5),
+	(100.0, 0.433, -8.2, 26.5),
+	(125.0, 0.412, -6.3, 22.1),
+	(160.0, 0.391, -4.6, 17.9),
+	(200.0, 0.373, -3.2, 14.4),
+	(250.0, 0.357, -2.1, 11.4),
+	(315.0, 0.343, -1.2, 8.6),
+	(400.0, 0.330, -0.5, 6.2),
+	(500.0, 0.320, 0.0, 4.4),
+	(630.0, 0.311, 0.4, 3.0),
+	(800.0, 0.303, 0.5, 2.2),
+	(1000.0, 0.300, 0.0, 2.4),
+	(1250.0, 0.295, -2.7, 3.5),
+	(1600.0, 0.292, -4.2, 1.7),
+	(2000.0, 0.290, -1.2, -1.3),
+	(2500.0, 0.290, 1.4, -4.2),
+	(3150.0, 0.289, 2.3, -6.0),
+	(4000.0, 0.289, 1.0, -5.4),
+	(5000.0, 0.289, -2.3, -1.5),
+	(6300.0, 0.293, -7.2, 6.0),
+	(8000.0, 0.303, -11.2, 12.6),
+	(10000.0, 0.323, -10.9, 13.9),
+	(12500.0, 0.354, -3.5, 12.3),
+]
 
-def load_csv() -> list[tuple[float, float, list[float]]]:
+
+def load_csv() -> list[tuple[float, float, float, float]]:
 	with CSV_PATH.open(newline="", encoding="utf-8") as handle:
 		rows = list(csv.DictReader(handle))
 	return [
 		(
 			float(row["freq_Hz"]),
-			float(row["hearing_threshold_dB"]),
-			[float(row[f"spl_{phon}phon_dB"]) for phon in PHON_LEVELS],
+			float(row["alpha_f"]),
+			float(row["Lu_dB"]),
+			float(row["Tf_dB"]),
 		)
 		for row in rows
 	]
 
 
-def load_header_table() -> list[tuple[float, float, list[float]]]:
+def load_header_table() -> list[tuple[float, float, float, float]]:
 	text = HEADER_PATH.read_text(encoding="utf-8")
 	pattern = re.compile(
 		r"\{\s*([0-9]+(?:\.[0-9]+)?),\s*"
+		r"([0-9]+(?:\.[0-9]+)?),\s*"
 		r"(-?[0-9]+(?:\.[0-9]+)?),\s*"
-		r"\{([^{}]+)\}\s*\}"
+		r"(-?[0-9]+(?:\.[0-9]+)?)\s*\}"
 	)
-	result: list[tuple[float, float, list[float]]] = []
+	result: list[tuple[float, float, float, float]] = []
 	for match in pattern.finditer(text):
-		values = [float(value.strip()) for value in match.group(3).split(",")]
-		if len(values) == len(PHON_LEVELS):
-			result.append((float(match.group(1)), float(match.group(2)), values))
+		result.append(tuple(float(match.group(index)) for index in range(1, 5)))
 	return result
 
 
-def interpolate(values: list[float], phon: float) -> float:
-	phon = min(100.0, max(0.0, phon))
-	if phon >= 100.0:
-		return values[-1]
-	position = phon / 10.0
-	lower = int(math.floor(position))
-	fraction = position - lower
-	return values[lower] + fraction * (values[lower + 1] - values[lower])
+def compute_spl(parameters: tuple[float, float, float, float], phon: float) -> float:
+	_frequency, alpha, lu, tf = parameters
+	argument = (4.0e-10) ** (0.3 - alpha) * (
+		10.0 ** (0.03 * phon) - 10.0**0.072
+	) + 10.0 ** (alpha * (tf + lu) / 10.0)
+	return (10.0 / alpha) * math.log10(argument) - lu
+
+
+def compute_loudness(parameters: tuple[float, float, float, float], spl: float) -> float:
+	_frequency, alpha, lu, tf = parameters
+	argument = (
+		10.0 ** (alpha * (spl + lu) / 10.0)
+		- 10.0 ** (alpha * (tf + lu) / 10.0)
+	) / (4.0e-10) ** (0.3 - alpha) + 10.0**0.072
+	return (100.0 / 3.0) * math.log10(argument)
 
 
 def contour_delta(
-	table: list[tuple[float, float, list[float]]],
+	parameters: list[tuple[float, float, float, float]],
 	phon: float,
 	reference: float,
 	index: int,
 ) -> float:
-	current = interpolate(table[index][2], phon) - interpolate(
-		table[REFERENCE_INDEX][2], phon
+	# Production evaluates the formula directly, including between 10-phon
+	# anchors. Test against the same continuous values rather than interpolation.
+	current = compute_spl(parameters[index], phon) - compute_spl(
+		parameters[REFERENCE_INDEX], phon
 	)
-	baseline = interpolate(table[index][2], reference) - interpolate(
-		table[REFERENCE_INDEX][2], reference
+	baseline = compute_spl(parameters[index], reference) - compute_spl(
+		parameters[REFERENCE_INDEX], reference
 	)
 	return current - baseline
 
@@ -121,45 +165,73 @@ def multiply(matrix: list[list[float]], vector: list[float]) -> list[float]:
 class LoudnessProfileTests(unittest.TestCase):
 	@classmethod
 	def setUpClass(cls) -> None:
-		cls.csv_table = load_csv()
-		cls.header_table = load_header_table()
-		frequencies = [row[0] for row in cls.csv_table]
+		cls.csv_parameters = load_csv()
+		cls.header_parameters = load_header_table()
+		frequencies = [row[0] for row in cls.csv_parameters]
 		unit_response = [
 			[peaking_response_db(center, 1.0, frequency) for center in frequencies]
 			for frequency in frequencies
 		]
 		cls.response_inverse = invert(unit_response)
 
-	def test_embedded_table_exactly_matches_csv(self) -> None:
-		self.assertEqual(len(self.csv_table), 29)
-		self.assertEqual(self.header_table, self.csv_table)
+	def test_all_parameters_exactly_match_csv_and_header(self) -> None:
+		self.assertEqual(len(self.csv_parameters), 29)
+		self.assertEqual(self.csv_parameters, EXPECTED_PARAMETERS)
+		self.assertEqual(self.header_parameters, EXPECTED_PARAMETERS)
+
+	def test_runtime_path_calls_formula_with_row_parameters(self) -> None:
+		text = HEADER_PATH.read_text(encoding="utf-8")
+		self.assertRegex(
+			text,
+			r"return computeSPLFromFormula\(clampedLevel,\s*parameters\.alpha,"
+			r"\s*parameters\.Lu, parameters\.Tf\);",
+		)
+
+	def test_formula_golden_values(self) -> None:
+		golden_values = (
+			(0, 20.0, 89.544478418546),
+			(7, 80.0, 92.460642396735),
+			(28, 80.0, 85.605878244606),
+		)
+		for index, phon, expected in golden_values:
+			self.assertAlmostEqual(
+				compute_spl(self.csv_parameters[index], phon),
+				expected,
+				places=10,
+			)
 
 	def test_one_kilohertz_row_is_phon_reference(self) -> None:
-		self.assertEqual(self.csv_table[REFERENCE_INDEX][0], 1000.0)
-		self.assertEqual(self.csv_table[REFERENCE_INDEX][2], list(PHON_LEVELS))
+		self.assertEqual(self.csv_parameters[REFERENCE_INDEX][0], 1000.0)
 		for phon in range(101):
 			self.assertAlmostEqual(
-				contour_delta(self.csv_table, phon, 80.0, REFERENCE_INDEX),
+				compute_spl(self.csv_parameters[REFERENCE_INDEX], float(phon)),
+				float(phon),
+				places=10,
+			)
+			self.assertAlmostEqual(
+				contour_delta(self.csv_parameters, phon, 80.0, REFERENCE_INDEX),
 				0.0,
 				places=12,
 			)
 
-	def test_loudness_formula_has_exact_one_kilohertz_identity(self) -> None:
-		# alpha=0.3, L_U=0 and T_f=2.4 make the two terms collapse to
-		# 10**(0.03*L_N), so the supplied equation returns L_N exactly.
-		for phon in PHON_LEVELS:
-			argument = (4.0e-10) ** (0.3 - 0.3) * (
-				10.0 ** (0.03 * phon) - 10.0**0.072
-			) + 10.0 ** (0.3 * 2.4 / 10.0)
-			result = (10.0 / 0.3) * math.log10(argument)
-			self.assertAlmostEqual(result, phon, places=10)
+	def test_formula_round_trips_all_frequencies_in_supported_range(self) -> None:
+		for parameters in self.csv_parameters:
+			upper_level = 90 if parameters[0] <= 4000.0 else 80
+			for phon in range(20, upper_level + 1):
+				spl = compute_spl(parameters, float(phon))
+				self.assertTrue(math.isfinite(spl))
+				self.assertAlmostEqual(
+					compute_loudness(parameters, spl),
+					float(phon),
+					places=10,
+				)
 
 	def test_four_pass_filter_fit_matches_all_csv_anchors(self) -> None:
-		frequencies = [row[0] for row in self.csv_table]
+		frequencies = [row[0] for row in self.csv_parameters]
 		maximum_error = 0.0
 		for phon in PHON_LEVELS:
 			target = [
-				contour_delta(self.csv_table, float(phon), 80.0, index)
+				contour_delta(self.csv_parameters, float(phon), 80.0, index)
 				for index in range(len(frequencies))
 			]
 			gains = multiply(self.response_inverse, target)
@@ -192,50 +264,24 @@ class LoudnessProfileTests(unittest.TestCase):
 
 		self.assertLessEqual(maximum_error, 0.02)
 
-	def test_headroom_normalization_prevents_positive_gain(self) -> None:
-		frequencies = [row[0] for row in self.csv_table]
-		scan = [
-			20.0 * (20_000.0 / 20.0) ** (index / 255.0)
-			for index in range(256)
-		]
-		for phon in PHON_LEVELS:
-			target = [
-				contour_delta(self.csv_table, float(phon), 80.0, index)
-				for index in range(len(frequencies))
-			]
-			gains = multiply(self.response_inverse, target)
-			for _ in range(3):
-				actual = [
-					sum(
-						peaking_response_db(center, gain, frequency)
-						for center, gain in zip(frequencies, gains)
-					)
-					for frequency in frequencies
-				]
-				correction = multiply(
-					self.response_inverse,
-					[wanted - measured for wanted, measured in zip(target, actual)],
-				)
-				gains = [
-					max(-48.0, min(48.0, gain + change))
-					for gain, change in zip(gains, correction)
-				]
-
-			maximum = max(
-				sum(
-					peaking_response_db(center, gain, frequency)
-					for center, gain in zip(frequencies, gains)
-				)
-				for frequency in scan
-			)
-			headroom_db = max(0.0, maximum) + (0.1 if maximum > 0.0 else 0.0)
-			self.assertLessEqual(maximum - headroom_db, 1.0e-12)
-
-	def test_previous_release_entries_open_as_disabled_drafts(self) -> None:
+	def test_headroom_uses_dense_refined_peak_search(self) -> None:
 		filter_header = FILTER_HEADER_PATH.read_text(encoding="utf-8")
-		self.assertIn("NeutralVolumeDb", filter_header)
-		self.assertIn("state = false;", filter_header)
-		self.assertIn("return false;", filter_header)
+		filter_cpp = FILTER_CPP_PATH.read_text(encoding="utf-8")
+		self.assertIn("HEADROOM_MARGIN_DB = 1.0", filter_header)
+		self.assertIn("RESPONSE_SCAN_POINTS = 4097", filter_header)
+		self.assertIn("RESPONSE_REFINEMENT_ITERATIONS = 32", filter_header)
+		self.assertIn("goldenRatioConjugate", filter_cpp)
+		self.assertIn("0.499 * static_cast<double>(_sampleRate)", filter_cpp)
+
+	def test_previous_release_requires_explicit_enabled_migration(self) -> None:
+		filter_header = FILTER_HEADER_PATH.read_text(encoding="utf-8")
+		factory = GUI_FACTORY_PATH.read_text(encoding="utf-8")
+		legacy_gui = LEGACY_GUI_PATH.read_text(encoding="utf-8")
+		self.assertNotIn("NeutralVolumeDb", filter_header)
+		self.assertIn("parseGenericV2Parameters", factory)
+		self.assertIn("if (!migrated)", legacy_gui)
+		self.assertIn("parameters = originalParameters", legacy_gui)
+		self.assertIn("State 1 ReferenceLevel 80 ReferenceOffset", legacy_gui)
 
 
 if __name__ == "__main__":

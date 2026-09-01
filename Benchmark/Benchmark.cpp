@@ -35,8 +35,248 @@
 #include "../helpers/StringHelper.h"
 #include "../helpers/PrecisionTimer.h"
 #include "../helpers/MemoryHelper.h"
+#include "../filters/loudnessCorrection/LoudnessCorrectionFilter.h"
 
 using namespace std;
+
+class LoudnessCorrectionFilterTestAccess
+{
+public:
+	static void publishVolumeUpdate(
+		LoudnessCorrectionFilter& filter,
+		double volume)
+	{
+		vector<double> scratchGains;
+		filter.publishVolumeUpdate(volume, scratchGains);
+	}
+
+	static void beginRuntimeBypass(LoudnessCorrectionFilter& filter)
+	{
+		filter._recoveryPending.store(false, std::memory_order_release);
+		filter._runtimeBypass.store(true, std::memory_order_release);
+	}
+
+	static void publishRuntimeRecovery(
+		LoudnessCorrectionFilter& filter,
+		double volume)
+	{
+		publishVolumeUpdate(filter, volume);
+		filter._recoveryPending.store(true, std::memory_order_release);
+	}
+};
+
+namespace
+{
+	bool checkLoudnessFormulaValue(
+		const char* name,
+		size_t frequencyIndex,
+		double phon,
+		double expected)
+	{
+		double actual = LoudnessProfile::computeSPL(phon, frequencyIndex);
+		double error = std::abs(actual - expected);
+		printf("Loudness formula %s: %.12f dB\n", name, actual);
+		if (!std::isfinite(actual) || error > 1.0e-9)
+		{
+			fprintf(stderr,
+				"%s formula mismatch: expected %.12f dB, got %.12f dB.\n",
+				name, expected, actual);
+			return false;
+		}
+		return true;
+	}
+
+	bool runLoudnessFormulaTests()
+	{
+		bool passed = true;
+		passed = checkLoudnessFormulaValue(
+			"20Hz-20phon", 0, 20.0, 89.544478418546) && passed;
+		passed = checkLoudnessFormulaValue(
+			"100Hz-80phon", 7, 80.0, 92.460642396735) && passed;
+		passed = checkLoudnessFormulaValue(
+			"12500Hz-80phon", 28, 80.0, 85.605878244606) && passed;
+		return passed;
+	}
+
+	bool runLoudnessTransitionCase(
+		const char* name,
+		unsigned sampleRate,
+		double frequency,
+		double initialVolume,
+		double targetVolume)
+	{
+		const unsigned batchSize = 256;
+		const unsigned switchFrame = sampleRate * 2;
+		const unsigned totalFrames = sampleRate * 4;
+		LoudnessCorrectionFilter::FilterParameters parameters;
+		parameters.state = true;
+		parameters.referenceLevel = 80.0f;
+		parameters.referenceOffset = 0.0f;
+		parameters.attenuation = 1.0f;
+		parameters.useManualVolume = true;
+		parameters.manualVolume = static_cast<float>(initialVolume);
+
+		LoudnessCorrectionFilter filter(parameters);
+		vector<wstring> channels(1, L"C");
+		filter.initialize(static_cast<float>(sampleRate), batchSize, channels);
+
+		double inputStorage[batchSize];
+		double outputStorage[batchSize];
+		double* inputChannels[] = { inputStorage };
+		double* outputChannels[] = { outputStorage };
+		double maximumOutput = 0.0;
+		unsigned frame = 0;
+		while (frame < totalFrames)
+		{
+			if (frame == switchFrame)
+			{
+				LoudnessCorrectionFilterTestAccess::publishVolumeUpdate(
+					filter, targetVolume);
+			}
+
+			unsigned frameCount = (std::min)(batchSize, totalFrames - frame);
+			if (frame < switchFrame && frame + frameCount > switchFrame)
+				frameCount = switchFrame - frame;
+
+			for (unsigned index = 0; index < frameCount; ++index)
+			{
+				double time = static_cast<double>(frame + index) /
+					static_cast<double>(sampleRate);
+				inputStorage[index] = std::sin(2.0 * M_PI * frequency * time);
+				outputStorage[index] = 0.0;
+			}
+			filter.process(outputChannels, inputChannels, frameCount);
+			for (unsigned index = 0; index < frameCount; ++index)
+			{
+				double magnitude = std::abs(outputStorage[index]);
+				if (!std::isfinite(magnitude))
+				{
+					fprintf(stderr, "%s produced a non-finite sample.\n", name);
+					return false;
+				}
+				maximumOutput = (std::max)(maximumOutput, magnitude);
+			}
+			frame += frameCount;
+		}
+
+		printf("Loudness transition %s: maximum output %.9f\n", name, maximumOutput);
+		if (maximumOutput > 1.000001)
+		{
+			fprintf(stderr, "%s exceeded full scale.\n", name);
+			return false;
+		}
+		return true;
+	}
+
+	bool runLoudnessRecoveryCase()
+	{
+		const unsigned sampleRate = 8000;
+		const unsigned batchSize = 256;
+		const unsigned warmupFrames = sampleRate / 10;
+		LoudnessCorrectionFilter::FilterParameters parameters;
+		parameters.state = true;
+		parameters.referenceLevel = 80.0f;
+		parameters.referenceOffset = 0.0f;
+		parameters.attenuation = 1.0f;
+		parameters.useManualVolume = true;
+		parameters.manualVolume = -100.0f;
+
+		LoudnessCorrectionFilter filter(parameters);
+		vector<wstring> channels(1, L"C");
+		filter.initialize(static_cast<float>(sampleRate), batchSize, channels);
+
+		double inputStorage[batchSize];
+		double outputStorage[batchSize];
+		double* inputChannels[] = { inputStorage };
+		double* outputChannels[] = { outputStorage };
+		unsigned absoluteFrame = 0;
+		auto processFrames = [&](unsigned frameCount, bool requirePassthrough,
+			double& maximumOutput, double& deviation)
+		{
+			for (unsigned index = 0; index < frameCount; ++index)
+			{
+				double time = static_cast<double>(absoluteFrame + index) /
+					static_cast<double>(sampleRate);
+				inputStorage[index] = std::sin(2.0 * M_PI * 20.0 * time);
+				outputStorage[index] = 0.0;
+			}
+			filter.process(outputChannels, inputChannels, frameCount);
+			for (unsigned index = 0; index < frameCount; ++index)
+			{
+				double magnitude = std::abs(outputStorage[index]);
+				maximumOutput = (std::max)(maximumOutput, magnitude);
+				double difference = std::abs(outputStorage[index] - inputStorage[index]);
+				deviation += difference;
+				if (requirePassthrough && difference > 1.0e-12)
+					return false;
+			}
+			absoluteFrame += frameCount;
+			return true;
+		};
+
+		double maximumOutput = 0.0;
+		double ignoredDeviation = 0.0;
+		for (unsigned remaining = sampleRate; remaining > 0;)
+		{
+			unsigned count = (std::min)(batchSize, remaining);
+			if (!processFrames(count, false, maximumOutput, ignoredDeviation))
+				return false;
+			remaining -= count;
+		}
+
+		LoudnessCorrectionFilterTestAccess::beginRuntimeBypass(filter);
+		for (unsigned remaining = sampleRate / 5; remaining > 0;)
+		{
+			unsigned count = (std::min)(batchSize, remaining);
+			if (!processFrames(count, true, maximumOutput, ignoredDeviation))
+			{
+				fprintf(stderr, "Runtime bypass was not bit-transparent.\n");
+				return false;
+			}
+			remaining -= count;
+		}
+
+		LoudnessCorrectionFilterTestAccess::publishRuntimeRecovery(filter, -100.0);
+		double settledDeviation = 0.0;
+		unsigned recoveryFrame = 0;
+		const unsigned recoveryFrames = sampleRate * 2 / 5;
+		while (recoveryFrame < recoveryFrames)
+		{
+			unsigned count = (std::min)(batchSize, recoveryFrames - recoveryFrame);
+			bool requirePassthrough = recoveryFrame + count <= warmupFrames;
+			double& deviation = recoveryFrame >= sampleRate / 4 ?
+				settledDeviation : ignoredDeviation;
+			if (!processFrames(count, requirePassthrough, maximumOutput, deviation))
+			{
+				fprintf(stderr, "Runtime recovery warm-up was not passthrough.\n");
+				return false;
+			}
+			recoveryFrame += count;
+		}
+
+		printf("Loudness runtime recovery: maximum output %.9f\n", maximumOutput);
+		if (maximumOutput > 1.000001 || settledDeviation <= 1.0e-3)
+		{
+			fprintf(stderr,
+				"Runtime recovery clipped or did not return to corrected output.\n");
+			return false;
+		}
+		return true;
+	}
+
+	int runLoudnessTransitionTests()
+	{
+		bool passed = runLoudnessFormulaTests();
+		passed = runLoudnessTransitionCase(
+			"8k-minus100-to-0", 8000, 20.0, -100.0, 0.0) && passed;
+		passed = runLoudnessTransitionCase(
+			"8k-0-to-minus100", 8000, 20.0, 0.0, -100.0) && passed;
+		passed = runLoudnessTransitionCase(
+			"48k-inter-bin", 48000, 20.216, -40.0, 0.0) && passed;
+		passed = runLoudnessRecoveryCase() && passed;
+		return passed ? 0 : 1;
+	}
+}
 
 int main(int argc, char** argv)
 {
@@ -52,6 +292,9 @@ int main(int argc, char** argv)
 
 		TCLAP::SwitchArg noPauseArg("", "nopause", "Do not wait for key press at the end", cmd);
 		TCLAP::SwitchArg verboseArg("v", "verbose", "Print trace and error messages to console instead of logfile", cmd);
+		TCLAP::SwitchArg loudnessTransitionTestArg(
+			"", "loudness-transition-test",
+			"Run native loudness coefficient-transition safety regressions", cmd);
 		TCLAP::ValueArg<string> configArg("", "config", "Configuration file to load instead of the installed config.txt", false, "", "path", cmd);
 		TCLAP::ValueArg<string> guidArg("", "guid", "Endpoint GUID to use when parsing configuration (Default: <empty>)", false, "", "string", cmd);
 		TCLAP::ValueArg<string> connectionnameArg("", "connectionname", "Connection name to use when parsing configuration (Default: File output)", false, "File output", "string", cmd);
@@ -69,6 +312,8 @@ int main(int argc, char** argv)
 
 		bool verbose = verboseArg.getValue();
 		LogHelper::set(stderr, verbose, true, true);
+		if (loudnessTransitionTestArg.getValue())
+			return runLoudnessTransitionTests();
 #ifdef _DEBUG
 		_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 		// _CrtSetBreakAlloc(3318);
