@@ -1,0 +1,84 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - architecture: x64
+            os: windows-2025
+            build_type: Release
+            variant: sse2
+          - architecture: x64
+            os: windows-2025
+            build_type: Debug
+            variant: sse2
+          - architecture: x64
+            os: windows-2025
+            build_type: Release
+            variant: avx2
+          - architecture: x64
+            os: windows-2025
+            build_type: Debug
+            variant: avx2
+          - architecture: x64
+            os: windows-2025
+            build_type: Release
+            variant: avx512
+          - architecture: x64
+            os: windows-2025
+            build_type: Debug
+            variant: avx512
+          - architecture: x64
+            os: windows-2025
+            build_type: Release
+            variant: avx10
+          - architecture: x64
+            os: windows-2025
+            build_type: Debug
+            variant: avx10
+          - architecture: ARM64
+            os: windows-11-arm
+            build_type: Release
+            variant: ""
+          - architecture: ARM64
+            os: windows-11-arm
+            build_type: Debug
+            variant: ""
+
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Configure CMake
+      run: |
+        if ("${{ matrix.variant }}" -eq "sse2") {
+          cmake -S . -B build -A ${{ matrix.architecture }} -DUSE_WIDE_STRING=ON -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        } elseif ("${{ matrix.variant }}" -eq "avx2") {
+          cmake -S . -B build -A ${{ matrix.architecture }} -DUSE_WIDE_STRING=ON -DUSE_AVX2=ON -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        } elseif ("${{ matrix.variant }}" -eq "avx512") {
+          cmake -S . -B build -A ${{ matrix.architecture }} -DUSE_WIDE_STRING=ON -DUSE_AVX512=ON -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        } elseif ("${{ matrix.variant }}" -eq "avx10") {
+          cmake -S . -B build -A ${{ matrix.architecture }} -DUSE_WIDE_STRING=ON -DUSE_AVX10_1=ON -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        } else {
+          cmake -S . -B build -A ${{ matrix.architecture }} -DUSE_WIDE_STRING=ON -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        }
+
+    - name: Build
+      run: cmake --build build --config ${{ matrix.build_type }}
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: muparserx-msvc-${{ matrix.build_type }}-${{ matrix.architecture }}${{ matrix.variant && format('-{0}', matrix.variant) || '' }}
+        path: |
+          build/${{ matrix.build_type }}/*.lib
+          build/${{ matrix.build_type }}/*.pdb
+          parser/*.h
+          parser/*.cpp

@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+"""Validate the shipped Traditional Chinese Qt translations."""
+
+from __future__ import annotations
+
+import collections
+import pathlib
+import re
+import unittest
+import xml.etree.ElementTree as ET
+
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+TRANSLATION_FILES = (
+    ROOT / "Editor" / "translations" / "Editor_zh_TW.ts",
+    ROOT / "DeviceSelector" / "translations" / "DeviceSelector_zh_TW.ts",
+    ROOT / "UpdateChecker" / "translations" / "UpdateChecker_zh_TW.ts",
+)
+PLACEHOLDER_PATTERN = re.compile(r"%(?:\d+|n)")
+NON_TAIWAN_UI_TERMS = (
+    "配置",
+    "訪問",
+    "出錯",
+    "許可權",
+    "外掛模組",
+    "錄音 / 擷取",
+    "全域性",
+    "首選項",
+    "打開面板",
+)
+
+
+def active_messages(path: pathlib.Path):
+    root = ET.parse(path).getroot()
+    if root.get("language") != "zh_TW":
+        raise AssertionError(f"{path} language is not zh_TW")
+
+    for context in root.findall("context"):
+        context_name = context.findtext("name", default="<unknown>")
+        for message in context.findall("message"):
+            translation = message.find("translation")
+            if translation is not None and translation.get("type") in {
+                "obsolete",
+                "vanished",
+            }:
+                continue
+            yield context_name, message, translation
+
+
+class TraditionalChineseTranslationTests(unittest.TestCase):
+    def test_qt_base_traditional_chinese_is_not_simplified_alias(self) -> None:
+        for app in ("Editor", "DeviceSelector", "UpdateChecker"):
+            translations = ROOT / app / "translations"
+            traditional = (translations / "qtbase_zh_TW.qm").read_bytes()
+            simplified = (translations / "qtbase_zh_CN.qm").read_bytes()
+            self.assertNotEqual(
+                traditional,
+                simplified,
+                f"{app} embeds the Simplified Chinese Qt catalog as zh_TW",
+            )
+
+    def test_every_active_message_is_translated(self) -> None:
+        for path in TRANSLATION_FILES:
+            for context, message, translation in active_messages(path):
+                source = message.findtext("source", default="")
+                with self.subTest(file=path.name, context=context, source=source):
+                    self.assertIsNotNone(translation)
+                    self.assertNotEqual(translation.get("type"), "unfinished")
+                    self.assertTrue("".join(translation.itertext()).strip())
+
+    def test_placeholders_are_preserved(self) -> None:
+        for path in TRANSLATION_FILES:
+            for context, message, translation in active_messages(path):
+                source = message.findtext("source", default="")
+                translated = "".join(translation.itertext())
+                with self.subTest(file=path.name, context=context, source=source):
+                    self.assertEqual(
+                        collections.Counter(PLACEHOLDER_PATTERN.findall(source)),
+                        collections.Counter(PLACEHOLDER_PATTERN.findall(translated)),
+                    )
+
+    def test_rich_text_translations_are_well_formed(self) -> None:
+        for path in TRANSLATION_FILES:
+            for context, message, translation in active_messages(path):
+                source = message.findtext("source", default="")
+                if not source.lstrip().startswith("<html"):
+                    continue
+                translated = "".join(translation.itertext())
+                with self.subTest(file=path.name, context=context, source=source):
+                    ET.fromstring(translated)
+
+    def test_active_ui_uses_taiwan_terminology(self) -> None:
+        for path in TRANSLATION_FILES:
+            for context, message, translation in active_messages(path):
+                source = message.findtext("source", default="")
+                translated = "".join(translation.itertext())
+                with self.subTest(file=path.name, context=context, source=source):
+                    for term in NON_TAIWAN_UI_TERMS:
+                        self.assertNotIn(term, translated)
+
+
+if __name__ == "__main__":
+    unittest.main()

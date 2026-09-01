@@ -1,0 +1,7 @@
+1. Set the three-part release version in version.h and vcpkg.json.
+2. Run: python -m unittest discover -s tests -p "test_*.py" -v
+3. Run: .\scripts\build-installer-x64.ps1 -Configuration Release
+4. Run: .\scripts\test-runtime-loudness.ps1 -Configuration Release
+5. Confirm the installer contains NOTICE.md and verify its .sha256 file.
+6. Confirm README, release title, update endpoint, and source files call the feature "Loudness Correction" and make no standards-conformance claim.
+7. Commit the verified source, push main, create the matching annotated vX.Y.Z tag, and let the release workflow publish the installer, checksum, and NOTICE.md.
