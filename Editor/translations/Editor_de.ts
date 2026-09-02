@@ -1509,6 +1509,16 @@ Alexander Walch</translation>
         <translation>Analysepanel</translation>
     </message>
     <message>
+        <location filename="../MainWindow.ui" line="416"/>
+        <source>Reset view</source>
+        <translation>Ansicht zurücksetzen</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.ui" line="419"/>
+        <source>Reset analysis zoom and position</source>
+        <translation>Zoom und Position der Analyseansicht zurücksetzen</translation>
+    </message>
+    <message>
         <location filename="../MainWindow.ui" line="163"/>
         <source>Resolution:</source>
         <translation>Auflösung:</translation>

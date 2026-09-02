@@ -45,6 +45,9 @@ public:
 	void zoom(int deltaX, int deltaY, int mouseX, int mouseY);
 	void setScrollOffsets(int x, int y);
 
+public slots:
+	void resetView();
+
 protected:
 	void changeEvent(QEvent* event) override;
 	void wheelEvent(QWheelEvent* event) override;

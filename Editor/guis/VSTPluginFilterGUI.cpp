@@ -28,6 +28,7 @@
 #include "helpers/aeffectx.h"
 #include "helpers/StringHelper.h"
 #include "Editor/helpers/GUIHelper.h"
+#include "helpers/UiSnapshot.h"
 #include "Editor/MainWindow.h"
 #include "VSTPluginFilterGUIDialog.h"
 #include "VSTPluginFilterGUI.h"
@@ -46,6 +47,10 @@ VSTPluginFilterGUI::VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library
 	ui->selectButton->setToolTip(tr("Select VST plugin"));
 	ui->selectButton->setAccessibleName(tr("Select VST plugin"));
 	ui->warningTextEdit->setProperty("statusLevel", "warning");
+	ui->warningTextEdit->setReadOnly(true);
+	ui->warningTextEdit->setLineWrapMode(QPlainTextEdit::WidgetWidth);
+	ui->warningTextEdit->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+	ui->warningTextEdit->setMinimumWidth(0);
 	ui->frame->setVisible(false);
 	updatePermissionWarning();
 
@@ -100,6 +105,13 @@ void VSTPluginFilterGUI::store(QString& command, QString& parameters)
 void VSTPluginFilterGUI::loadPreferences(const QVariantMap& prefs)
 {
 	autoApplyDialog = prefs.value("autoApplyDialog").toBool();
+#ifdef EQAPO_ENABLE_UI_SNAPSHOTS
+	// Snapshot fixtures are deliberately synthetic. Never let a coincidental
+	// file in the working directory turn a visual regression capture into
+	// plug-in execution.
+	if (UiSnapshot::requested())
+		return;
+#endif
 	initPlugin();
 }
 
@@ -344,8 +356,6 @@ void VSTPluginFilterGUI::updatePermissionWarning()
 		QString text = tr("The library is not readable by the audio service.\nChange the file permissions or copy the file to the VSTPlugins directory.");
 
 		ui->warningTextEdit->setPlainText(text);
-		QSize textSize = ui->warningTextEdit->fontMetrics().size(0, text);
-		ui->warningTextEdit->setFixedSize(textSize + GUIHelper::scale(QSize(40, 15)));
 		ui->warningTextEdit->setVisible(true);
 		return;
 	}
@@ -392,8 +402,6 @@ void VSTPluginFilterGUI::updatePermissionWarning()
 				"%0\n"
 				"Change the file permissions or copy the files to the config directory.").arg(files.join("\n"));
 		ui->warningTextEdit->setPlainText(text);
-		QSize textSize = ui->warningTextEdit->fontMetrics().size(0, text);
-		ui->warningTextEdit->setFixedSize(textSize + GUIHelper::scale(QSize(40, 15)));
 		ui->warningTextEdit->setVisible(true);
 	}
 }

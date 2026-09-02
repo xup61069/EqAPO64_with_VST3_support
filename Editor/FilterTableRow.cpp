@@ -23,10 +23,70 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QScrollBar>
+#include <QStyle>
+#include <QStyleOption>
+
+#include <algorithm>
 
 #include "Editor/helpers/GUIHelper.h"
 #include "FilterTableRow.h"
 #include "ui_FilterTableRow.h"
+
+namespace
+{
+	class ElidingCommandLabel final : public QLabel
+	{
+	public:
+		explicit ElidingCommandLabel(const QString& command, QWidget* parent = nullptr)
+			: QLabel(command, parent)
+		{
+			setObjectName(QStringLiteral("elidingCommandLabel"));
+			setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+			setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+			setMinimumWidth(0);
+			setToolTip(command);
+			setAccessibleName(command);
+		}
+
+		QSize sizeHint() const override
+		{
+			QSize size = QLabel::sizeHint();
+			const int preferredWidth = fontMetrics().horizontalAdvance(QLatin1Char('M')) * 48;
+			size.setWidth((std::min)(size.width(), preferredWidth));
+			return size;
+		}
+
+		QSize minimumSizeHint() const override
+		{
+			QSize size = QLabel::minimumSizeHint();
+			size.setWidth(0);
+			return size;
+		}
+
+	protected:
+		void paintEvent(QPaintEvent*) override
+		{
+			QPainter painter(this);
+			QStyleOption option;
+			option.initFrom(this);
+			style()->drawPrimitive(QStyle::PE_Widget, &option, &painter, this);
+
+			QRect textRect = rect().marginsRemoved(contentsMargins());
+			const int labelMargin = margin();
+			textRect.adjust(labelMargin, labelMargin, -labelMargin, -labelMargin);
+			const QString displayText = fontMetrics().elidedText(
+				text(), Qt::ElideMiddle, (std::max)(0, textRect.width()));
+			style()->drawItemText(
+				&painter,
+				textRect,
+				alignment(),
+				palette(),
+				isEnabled(),
+				displayText,
+				foregroundRole());
+		}
+	};
+}
 
 FilterTableRow::FilterTableRow(FilterTable* table, int number, FilterTable::Item* item, IFilterGUI* gui)
 	: QWidget(table),
@@ -41,7 +101,7 @@ FilterTableRow::FilterTableRow(FilterTable* table, int number, FilterTable::Item
 	ui->horizontalLayout->setContentsMargins(
 		0,
 		GUIHelper::scale(1),
-		GUIHelper::scale(8),
+		GUIHelper::scale(6),
 		0);
 	QFont numberFont = font();
 	numberFont.setWeight(QFont::DemiBold);
@@ -56,13 +116,15 @@ FilterTableRow::FilterTableRow(FilterTable* table, int number, FilterTable::Item
 	ui->toolBar->addAction(ui->actionAdd);
 	ui->toolBar->addAction(ui->actionRemove);
 	ui->toolBar->addAction(ui->actionEditText);
+	ui->toolBar->setOrientation(Qt::Horizontal);
 	ui->toolBar->updateMaximumHeight();
+	ui->horizontalLayout->setAlignment(ui->toolBar, Qt::AlignTop);
 
 	ui->stackedWidget->setContentsMargins(
 		GUIHelper::scale(4),
-		GUIHelper::scale(7),
+		GUIHelper::scale(4),
 		GUIHelper::scale(2),
-		GUIHelper::scale(7));
+		GUIHelper::scale(4));
 
 	if (gui != NULL)
 	{
@@ -71,7 +133,7 @@ FilterTableRow::FilterTableRow(FilterTable* table, int number, FilterTable::Item
 	}
 	else
 	{
-		ui->stackedWidget->addWidget(new QLabel(item->text));
+		ui->stackedWidget->addWidget(new ElidingCommandLabel(item->text, ui->stackedWidget));
 	}
 	ui->stackedWidget->setCurrentIndex(1);
 }
@@ -92,15 +154,6 @@ void FilterTableRow::editText()
 {
 	if (!ui->actionEditText->isChecked())
 		ui->actionEditText->trigger();
-}
-
-QSize FilterTableRow::sizeHint() const
-{
-	QSize size = QWidget::minimumSizeHint();
-	int preferredWidth = table->getPreferredWidth();
-	if (size.width() < preferredWidth)
-		size = QSize(preferredWidth, size.height());
-	return size;
 }
 
 void FilterTableRow::mouseDoubleClickEvent(QMouseEvent*)

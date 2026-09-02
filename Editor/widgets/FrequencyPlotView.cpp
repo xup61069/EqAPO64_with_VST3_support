@@ -205,6 +205,25 @@ void FrequencyPlotView::setScrollOffsets(int x, int y)
 	presetScrollY = y;
 }
 
+void FrequencyPlotView::resetView()
+{
+	FrequencyPlotScene* s = scene();
+	if (s == NULL)
+		return;
+
+	const double defaultZoom = GUIHelper::scaleZoom(1.0);
+	s->setZoom(defaultZoom, defaultZoom);
+	presetScrollX = -1;
+	presetScrollY = -1;
+	horizontalScrollBar()->setValue(qRound(s->hzToX(20.0)));
+	verticalScrollBar()->setValue(qRound(s->dbToY(22.0)));
+
+	resetCachedContent();
+	viewport()->update();
+	hRuler->update();
+	vRuler->update();
+}
+
 void FrequencyPlotView::changeEvent(QEvent* event)
 {
 	QGraphicsView::changeEvent(event);

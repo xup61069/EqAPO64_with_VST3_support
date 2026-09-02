@@ -200,7 +200,7 @@ namespace
 		{
 			return {
 				canvas.name(), surface.name(), "#323232", "#3D3D3D",
-				"#626262", "#F5F5F5", "#B5B5B5", "#777777",
+				"#626262", "#F5F5F5", "#B5B5B5", "#9A9A9A",
 				accent.name(), accentHover.name(), accentSoft.name(), accentText.name(),
 				"#F2C879", "#FF8A86", "#111111"
 			};
@@ -208,7 +208,7 @@ namespace
 
 		return {
 			canvas.name(), surface.name(), "#ECECEC", "#D8D8D8",
-			"#A8A8A8", "#1A1A1A", "#666666", "#929292",
+			"#A8A8A8", "#1A1A1A", "#666666", "#6F6F6F",
 			accent.name(), accentHover.name(), accentSoft.name(), accentText.name(),
 			"#8A5A00", "#B3261E", "#B8B8B8"
 		};
@@ -616,6 +616,34 @@ QDockWidget#analysisDockWidget QGraphicsView#graphicsView {
 	border: 1px solid @border;
 }
 
+QToolButton#resetAnalysisViewButton {
+	background-color: @raised;
+	color: @text;
+	border: 1px solid @borderStrong;
+	min-height: @controlHeightpx;
+	padding: 0 9px;
+}
+
+QToolButton#resetAnalysisViewButton:hover {
+	color: @accent;
+	border-color: @accent;
+}
+
+QToolButton#resetAnalysisViewButton:focus {
+	border-color: @accent;
+}
+
+QToolButton#resetAnalysisViewButton:pressed {
+	background-color: @accentSoft;
+	border-color: @accent;
+}
+
+QToolButton#resetAnalysisViewButton:disabled {
+	background-color: @canvas;
+	color: @disabled;
+	border-color: @border;
+}
+
 QScrollArea {
 	background-color: @canvas;
 	border: none;
@@ -629,6 +657,24 @@ FilterTable, FilterTableRow, FilterTableRow QStackedWidget {
 FilterTableRow QLabel#labelNumber {
 	color: @accent;
 	font-weight: 600;
+}
+
+DeviceFilterGUI QTreeWidget[deviceMatchState="missing"] {
+	color: @danger;
+	border-color: @danger;
+}
+
+DeviceFilterGUI QTreeWidget[deviceMatchState="missing"]:disabled {
+	color: @disabled;
+	border-color: @border;
+}
+
+LoudnessCorrectionFilterGUI QLabel#label {
+	font-weight: 600;
+}
+
+LoudnessCorrectionFilterGUI QLabel#label_2 {
+	color: @muted;
 }
 
 FilterTableRow QToolBar {
@@ -985,7 +1031,8 @@ QToolTip {
 QToolBar#mainToolBar QToolButton,
 QToolBar#workspaceToolBar QToolButton,
 FilterTableRow QToolButton,
-QToolBar#filterAddBar QToolButton {
+QToolBar#filterAddBar QToolButton,
+QToolButton#resetAnalysisViewButton {
 	background-color: palette(button);
 	border: 1px solid palette(window-text);
 	color: palette(button-text);

@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <QResizeEvent>
+
 #include "Editor/IFilterGUI.h"
 #include "DeviceFilterGUIFactory.h"
 
@@ -39,7 +41,12 @@ public:
 private slots:
 	void on_pushButton_clicked();
 
+protected:
+	void resizeEvent(QResizeEvent* event) override;
+
 private:
+	void updateColumnWidths();
+
 	Ui::DeviceFilterGUI* ui;
 	DeviceFilterGUIFactory* factory;
 	QString pattern;

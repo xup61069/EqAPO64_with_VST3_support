@@ -50,11 +50,17 @@ int main(int argc, char* argv[])
 		application.setStyle(new CustomStyle(application.style()));
 		ModernTheme::install(application);
 
-		QSettings settings(QString::fromWCharArray(EDITOR_REGPATH), QSettings::NativeFormat);
+		const bool snapshotMode = UiSnapshot::requested();
+		QVariant languageValue;
+		if (!snapshotMode)
+		{
+			QSettings settings(
+				QString::fromWCharArray(EDITOR_REGPATH), QSettings::NativeFormat);
+			languageValue = settings.value("language");
+		}
 
-		QVariant languageValue = settings.value("language");
-		if (UiSnapshot::requested())
-			QLocale::setDefault(QLocale(QStringLiteral("en")));
+		if (snapshotMode)
+			QLocale::setDefault(QLocale(UiSnapshot::localeName()));
 		else if (languageValue.isValid())
 		{
 			QString localeName = languageValue.toString();
@@ -78,19 +84,25 @@ int main(int argc, char* argv[])
 		if (editorTranslator.load(QLocale(), ":/translations/Editor", "_"))
 			application.installTranslator(&editorTranslator);
 
-		QString configPath = QDir::currentPath();
-		if (RegistryHelper::keyExists(APP_REGPATH) && RegistryHelper::valueExists(APP_REGPATH, L"ConfigPath"))
-			configPath = QString::fromStdWString(RegistryHelper::readValue(APP_REGPATH, L"ConfigPath"));
+		QString configPath = QStringLiteral(":/snapshot");
+		if (!snapshotMode)
+		{
+			configPath = QDir::currentPath();
+			if (RegistryHelper::keyExists(APP_REGPATH)
+				&& RegistryHelper::valueExists(APP_REGPATH, L"ConfigPath"))
+			{
+				configPath = QString::fromStdWString(
+					RegistryHelper::readValue(APP_REGPATH, L"ConfigPath"));
+			}
+
+			if (!RegistryHelper::keyExists(USER_REGPATH))
+				RegistryHelper::createKey(USER_REGPATH);
+			if (!RegistryHelper::keyExists(EDITOR_REGPATH))
+				RegistryHelper::createKey(EDITOR_REGPATH);
+			if (!RegistryHelper::keyExists(EDITOR_PER_FILE_REGPATH))
+				RegistryHelper::createKey(EDITOR_PER_FILE_REGPATH);
+		}
 		QDir configDir(configPath);
-
-		if (!RegistryHelper::keyExists(USER_REGPATH))
-			RegistryHelper::createKey(USER_REGPATH);
-
-		if (!RegistryHelper::keyExists(EDITOR_REGPATH))
-			RegistryHelper::createKey(EDITOR_REGPATH);
-
-		if (!RegistryHelper::keyExists(EDITOR_PER_FILE_REGPATH))
-			RegistryHelper::createKey(EDITOR_PER_FILE_REGPATH);
 
 		MainWindow w(configDir);
 		w.show();
@@ -98,14 +110,22 @@ int main(int argc, char* argv[])
 		QCommandLineParser parser;
 		parser.process(application);
 		QStringList args = parser.positionalArguments();
-		if (args.isEmpty() && w.isEmpty() && !UiSnapshot::requested())
+		if (args.isEmpty() && w.isEmpty() && !snapshotMode)
 			args = QStringList("config.txt");
 
 		for (const QString& arg : args)
 			w.load(configDir.absoluteFilePath(arg));
 
-		if (UiSnapshot::requested())
-			UiSnapshot::schedule(w, application);
+		if (snapshotMode)
+		{
+			const QString scenario = UiSnapshot::scenario();
+			if (!scenario.isEmpty() && !w.loadSnapshotScenario(scenario))
+				return 87;
+			UiSnapshot::schedule(w, application, [&w]
+			{
+				return w.snapshotLayoutIsValid();
+			});
+		}
 		else
 			w.doChecks();
 

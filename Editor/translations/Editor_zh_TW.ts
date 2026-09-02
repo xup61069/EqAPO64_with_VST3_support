@@ -1508,6 +1508,16 @@ Alexander Walch</source>
         <translation>分析面板</translation>
     </message>
     <message>
+        <location filename="../MainWindow.ui" line="416"/>
+        <source>Reset view</source>
+        <translation>重設檢視</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.ui" line="419"/>
+        <source>Reset analysis zoom and position</source>
+        <translation>重設分析圖的縮放與位置</translation>
+    </message>
+    <message>
         <location filename="../MainWindow.ui" line="163"/>
         <source>Resolution:</source>
         <translation>解析度：</translation>

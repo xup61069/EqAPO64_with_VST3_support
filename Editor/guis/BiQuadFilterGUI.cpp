@@ -19,7 +19,11 @@
 
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <QHBoxLayout>
+#include <QLayoutItem>
+#include <QSizePolicy>
 #include <QStandardItemModel>
+#include <QVBoxLayout>
 
 #include "Editor/helpers/GUIHelper.h"
 #include "BiQuadFilterGUI.h"
@@ -37,9 +41,55 @@ BiQuadFilterGUI::BiQuadFilterGUI(BiQuadFilter* filter)
 {
 	ui->setupUi(this);
 
-	ui->freqDial->setFixedSize(GUIHelper::scale(QSize(100, 66)));
-	ui->gainDial->setFixedSize(GUIHelper::scale(QSize(100, 66)));
-	ui->qDial->setFixedSize(GUIHelper::scale(QSize(100, 66)));
+	// The original single-row form had a minimum width well above a narrow
+	// Editor viewport once translated text or Windows text scaling was active.
+	// Keep the same controls, but arrange them as a compact two-by-two grid.
+	while (QLayoutItem* item = ui->gridLayout->takeAt(0))
+		delete item;
+
+	const QSize compactDialSize = GUIHelper::scale(QSize(72, 66));
+	ui->freqDial->setFixedSize(compactDialSize);
+	ui->gainDial->setFixedSize(compactDialSize);
+	ui->qDial->setFixedSize(compactDialSize);
+
+	const int compactSpacing = GUIHelper::scale(8);
+	auto parameterLayout = [compactSpacing](
+		QWidget* dial, QWidget* labelOrCombo, QWidget* value)
+	{
+		QHBoxLayout* row = new QHBoxLayout;
+		row->setContentsMargins(0, 0, 0, 0);
+		row->setSpacing(compactSpacing);
+		row->addWidget(dial, 0, Qt::AlignTop);
+
+		QVBoxLayout* values = new QVBoxLayout;
+		values->setContentsMargins(0, 0, 0, 0);
+		values->setSpacing(GUIHelper::scale(4));
+		values->addWidget(labelOrCombo);
+		values->addWidget(value);
+		values->addStretch(1);
+		row->addLayout(values, 1);
+		return row;
+	};
+
+	QVBoxLayout* typeLayout = new QVBoxLayout;
+	typeLayout->setContentsMargins(0, 0, 0, 0);
+	typeLayout->addWidget(ui->typeComboBox);
+	typeLayout->addStretch(1);
+
+	ui->gridLayout->setContentsMargins(0, 0, 0, 0);
+	ui->gridLayout->setHorizontalSpacing(compactSpacing);
+	ui->gridLayout->setVerticalSpacing(GUIHelper::scale(6));
+	ui->gridLayout->addLayout(typeLayout, 0, 0);
+	ui->gridLayout->addLayout(parameterLayout(
+		ui->freqDial, ui->freqComboBox, ui->freqSpinBox), 0, 1);
+	ui->gridLayout->addLayout(parameterLayout(
+		ui->gainDial, ui->gainLabel, ui->gainSpinBox), 1, 0);
+	ui->gridLayout->addLayout(parameterLayout(
+		ui->qDial, ui->qComboBox, ui->qSpinBox), 1, 1);
+	ui->gridLayout->setColumnStretch(0, 1);
+	ui->gridLayout->setColumnStretch(1, 1);
+	setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+	setMinimumWidth(0);
 
 	ui->typeComboBox->addItem(tr("Peaking filter"), BiQuad::PEAKING);
 	ui->typeComboBox->addItem(tr("Low-pass filter"), BiQuad::LOW_PASS);

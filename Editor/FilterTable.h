@@ -87,9 +87,6 @@ public:
 
 	void openConfig(QString path);
 
-	int getPreferredWidth();
-	void updateSizeHints();
-
 	QSize minimumSizeHint() const override;
 	void setMinimumHeightHint(int height);
 
@@ -126,7 +123,7 @@ private:
 	void disableWheelForWidgets();
 
 	MainWindow* mainWindow;
-	QScrollArea* scrollArea;
+	QScrollArea* scrollArea = nullptr;
 	QGridLayout* gridLayout;
 	QLabel* insertArrow;
 	QPoint dragStartPos;

@@ -38,6 +38,18 @@ $outputPrefix = $OutputDirectory.TrimEnd([System.IO.Path]::DirectorySeparatorCha
 $snapshotRecords = [System.Collections.Generic.List[object]]::new()
 
 $apps = @("Editor", "DeviceSelector", "UpdateChecker")
+$appStates = @{
+	Editor = @(
+		@{ Label = "default"; FilePrefix = "editor"; SnapshotScenario = ""; Locale = "en" },
+		@{ Label = "dense"; FilePrefix = "editor-dense-zh-tw"; SnapshotScenario = "dense"; Locale = "zh_TW" }
+	)
+	DeviceSelector = @(
+		@{ Label = "default"; FilePrefix = "deviceselector"; SnapshotScenario = ""; Locale = "en" }
+	)
+	UpdateChecker = @(
+		@{ Label = "default"; FilePrefix = "updatechecker"; SnapshotScenario = ""; Locale = "en" }
+	)
+}
 $scales = @(
 	@{ Label = "100"; Value = "1.0" },
 	@{ Label = "125"; Value = "1.25" },
@@ -58,11 +70,17 @@ $scenarios = @(
 	}
 )
 $expectedNames = foreach ($app in $apps) {
-	foreach ($theme in $themes) {
-		foreach ($scenario in $scenarios) {
-			"$($app.ToLowerInvariant())-$theme-$($scenario.Label).png"
+	foreach ($state in $appStates[$app]) {
+		foreach ($theme in $themes) {
+			foreach ($scenario in $scenarios) {
+				"$($state.FilePrefix)-$theme-$($scenario.Label).png"
+			}
 		}
 	}
+}
+if ($expectedNames.Count -ne 72 -or
+	@($expectedNames | Select-Object -Unique).Count -ne 72) {
+	throw "The UI snapshot matrix must define exactly 72 unique output names."
 }
 
 # Only replace files whose complete names are owned by this matrix. Any other
@@ -150,9 +168,10 @@ function Resolve-AppExecutable([string]$Name) {
 
 foreach ($appName in $apps) {
 	$executable = Resolve-AppExecutable $appName
-	foreach ($theme in $themes) {
-		foreach ($scenario in $scenarios) {
-			$fileName = "$($appName.ToLowerInvariant())-$theme-$($scenario.Label).png"
+	foreach ($state in $appStates[$appName]) {
+		foreach ($theme in $themes) {
+			foreach ($scenario in $scenarios) {
+			$fileName = "$($state.FilePrefix)-$theme-$($scenario.Label).png"
 			$target = [System.IO.Path]::GetFullPath((Join-Path $OutputDirectory $fileName))
 			if (!$target.StartsWith($outputPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
 				throw "Snapshot target escaped the output directory: $target"
@@ -175,6 +194,11 @@ foreach ($appName in $apps) {
 			$startInfo.EnvironmentVariables["EQAPO_UI_THEME"] = $theme
 			$startInfo.EnvironmentVariables["EQAPO_UI_SNAPSHOT"] = $target
 			$startInfo.EnvironmentVariables["EQAPO_UI_SNAPSHOT_DELAY_MS"] = "900"
+			$startInfo.EnvironmentVariables["EQAPO_UI_SNAPSHOT_LOCALE"] = $state.Locale
+			# ProcessStartInfo inherits the parent environment. Always overwrite the
+			# scenario so a previous manual dense capture cannot contaminate the
+			# default-state matrix entries.
+			$startInfo.EnvironmentVariables["EQAPO_UI_SNAPSHOT_SCENARIO"] = $state.SnapshotScenario
 			$startInfo.EnvironmentVariables["PATH"] = "$qtBin;$runtimeBin;$productBin;$($startInfo.EnvironmentVariables['PATH'])"
 
 			$process = [System.Diagnostics.Process]::new()
@@ -182,7 +206,7 @@ foreach ($appName in $apps) {
 			[void]$process.Start()
 			if (!$process.WaitForExit(25000)) {
 				$process.Kill($true)
-				throw "$appName timed out while capturing $theme/$($scenario.Label)."
+				throw "$appName timed out while capturing $($state.Label)/$theme/$($scenario.Label)."
 			}
 			$stdout = $process.StandardOutput.ReadToEnd()
 			$stderr = $process.StandardError.ReadToEnd()
@@ -211,6 +235,8 @@ foreach ($appName in $apps) {
 			}
 			$snapshotRecords.Add([pscustomobject]@{
 				app = $appName
+				state = $state.Label
+				locale = $state.Locale
 				theme = $theme
 				scenario = $scenario.Label
 				dpiScale = $scenario.DpiScale
@@ -220,6 +246,7 @@ foreach ($appName in $apps) {
 				height = $height
 				sha256 = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant()
 			})
+			}
 		}
 	}
 }
@@ -234,7 +261,7 @@ $unexpectedFiles = @($artifactFiles | Where-Object {
 	$expectedNames -notcontains $relativeName
 })
 $count = $expectedFiles.Count
-if ($count -ne ($apps.Count * $themes.Count * $scenarios.Count) -or $unexpectedFiles.Count -ne 0) {
+if ($count -ne 72 -or $snapshotRecords.Count -ne 72 -or $unexpectedFiles.Count -ne 0) {
 	$unexpectedSummary = if ($unexpectedFiles.Count -eq 0) {
 		"none"
 	} else {
@@ -242,7 +269,7 @@ if ($count -ne ($apps.Count * $themes.Count * $scenarios.Count) -or $unexpectedF
 			$_.FullName.Substring($outputPrefix.Length)
 		}) -join ", "
 	}
-	throw "Expected exactly 54 UI snapshots but found $count expected and $($unexpectedFiles.Count) unexpected file(s): $unexpectedSummary."
+	throw "Expected exactly 72 UI snapshots but found $count expected, $($snapshotRecords.Count) manifest records, and $($unexpectedFiles.Count) unexpected file(s): $unexpectedSummary."
 }
 
 $manifestPath = Join-Path $OutputDirectory "manifest.json"

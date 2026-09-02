@@ -26,6 +26,8 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPalette>
+#include <QResizeEvent>
+#include <QScreen>
 #include <QScopedValueRollback>
 #include <QSignalBlocker>
 #include <QStyle>
@@ -88,8 +90,16 @@ LoudnessCorrectionStudioDialog::LoudnessCorrectionStudioDialog(
 {
 	ui->setupUi(this);
 	setAttribute(Qt::WA_StyledBackground, true);
-	resize(GUIHelper::scale(1040), GUIHelper::scale(640));
-	setMinimumSize(GUIHelper::scale(860), GUIHelper::scale(570));
+	setMinimumSize(GUIHelper::scale(520), GUIHelper::scale(480));
+	QSize preferredSize = GUIHelper::scale(QSize(1040, 640));
+	if (QScreen* availableScreen = QGuiApplication::primaryScreen())
+	{
+		const QSize screenMargin = GUIHelper::scale(QSize(32, 32));
+		const QSize availableSize =
+			availableScreen->availableGeometry().size() - screenMargin;
+		preferredSize = preferredSize.boundedTo(availableSize);
+	}
+	resize(preferredSize.expandedTo(minimumSize()));
 
 	{
 		QSignalBlocker referenceSliderBlocker(ui->referenceSlider);
@@ -120,6 +130,7 @@ LoudnessCorrectionStudioDialog::LoudnessCorrectionStudioDialog(
 	ui->applyButton->setFixedHeight(footerButtonHeight);
 
 	ui->curvePreview->installEventFilter(this);
+	updateResponsiveLayout();
 	applyModernStyle();
 	updateModernUi();
 }
@@ -188,6 +199,67 @@ bool LoudnessCorrectionStudioDialog::eventFilter(QObject* watched, QEvent* event
 		return true;
 	}
 	return QDialog::eventFilter(watched, event);
+}
+
+void LoudnessCorrectionStudioDialog::resizeEvent(QResizeEvent* event)
+{
+	QDialog::resizeEvent(event);
+	updateResponsiveLayout();
+}
+
+void LoudnessCorrectionStudioDialog::updateResponsiveLayout()
+{
+	const bool useCompactLayout = width() < GUIHelper::scale(820);
+	if (responsiveLayoutInitialized && compactLayout == useCompactLayout)
+		return;
+
+	responsiveLayoutInitialized = true;
+	compactLayout = useCompactLayout;
+	ui->contentLayout->removeWidget(ui->curveCard);
+	ui->contentLayout->removeWidget(ui->volumeCard);
+	ui->contentLayout->removeWidget(ui->parametersCard);
+
+	if (compactLayout)
+	{
+		ui->contentLayout->addWidget(ui->curveCard, 0, 0);
+		ui->contentLayout->addWidget(ui->volumeCard, 1, 0);
+		ui->contentLayout->addWidget(ui->parametersCard, 2, 0);
+		ui->contentLayout->setColumnStretch(0, 1);
+		ui->contentLayout->setColumnStretch(1, 0);
+
+		ui->parametersLayout->setDirection(QBoxLayout::TopToBottom);
+		ui->parameterDivider1->setFrameShape(QFrame::HLine);
+		ui->parameterDivider2->setFrameShape(QFrame::HLine);
+		ui->heroLayout->setDirection(QBoxLayout::TopToBottom);
+		ui->curveHeaderLayout->setDirection(QBoxLayout::TopToBottom);
+		ui->footerLayout->setDirection(QBoxLayout::TopToBottom);
+		ui->profileSummaryLabel->setAlignment(
+			Qt::AlignLeft | Qt::AlignVCenter);
+		ui->curveMetaLabel->setAlignment(
+			Qt::AlignLeft | Qt::AlignVCenter);
+	}
+	else
+	{
+		ui->contentLayout->addWidget(ui->curveCard, 0, 0);
+		ui->contentLayout->addWidget(ui->volumeCard, 0, 1);
+		ui->contentLayout->addWidget(ui->parametersCard, 1, 0, 1, 2);
+		ui->contentLayout->setColumnStretch(0, 3);
+		ui->contentLayout->setColumnStretch(1, 2);
+
+		ui->parametersLayout->setDirection(QBoxLayout::LeftToRight);
+		ui->parameterDivider1->setFrameShape(QFrame::VLine);
+		ui->parameterDivider2->setFrameShape(QFrame::VLine);
+		ui->heroLayout->setDirection(QBoxLayout::LeftToRight);
+		ui->curveHeaderLayout->setDirection(QBoxLayout::LeftToRight);
+		ui->footerLayout->setDirection(QBoxLayout::LeftToRight);
+		ui->profileSummaryLabel->setAlignment(
+			Qt::AlignRight | Qt::AlignTrailing | Qt::AlignVCenter);
+		ui->curveMetaLabel->setAlignment(
+			Qt::AlignRight | Qt::AlignTrailing | Qt::AlignVCenter);
+	}
+
+	ui->contentScrollWidget->setMinimumWidth(0);
+	ui->contentScrollWidget->updateGeometry();
 }
 
 void LoudnessCorrectionStudioDialog::on_referenceSlider_valueChanged(int value)

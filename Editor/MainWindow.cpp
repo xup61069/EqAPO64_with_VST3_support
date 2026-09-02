@@ -22,8 +22,10 @@
 #include <cmath>
 #include <limits>
 #include <QAction>
+#include <QAbstractScrollArea>
 #include <QCryptographicHash>
 #include <QDateTime>
+#include <QDebug>
 #include <QDrag>
 #include <QElapsedTimer>
 #include <QFile>
@@ -448,6 +450,7 @@ MainWindow::MainWindow(QDir configDir, QWidget* parent)
 	temporaryRecoveryProcessStartedAt = processCreationToken(GetCurrentProcess());
 	const bool snapshotMode = UiSnapshot::requested();
 	noSavePreferences = snapshotMode;
+	noSaveFilePreferences = snapshotMode;
 
 	if (!snapshotMode)
 	{
@@ -472,6 +475,19 @@ MainWindow::MainWindow(QDir configDir, QWidget* parent)
 	ui->startFromComboBox->setAccessibleName(ui->startFromLabel->text());
 	ui->analysisChannelComboBox->setAccessibleName(ui->analysisChannelLabel->text());
 	ui->resolutionSpinBox->setAccessibleName(ui->resolutionLabel->text());
+	ui->actionResetAnalysisView->setIcon(
+		GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::Restore));
+	ui->resetAnalysisViewButton->setDefaultAction(ui->actionResetAnalysisView);
+	ui->resetAnalysisViewButton->setAccessibleName(
+		ui->actionResetAnalysisView->text());
+	ui->resetAnalysisViewButton->setAccessibleDescription(
+		ui->actionResetAnalysisView->toolTip());
+	addAction(ui->actionResetAnalysisView);
+	connect(
+		ui->actionResetAnalysisView,
+		SIGNAL(triggered()),
+		ui->graphicsView,
+		SLOT(resetView()));
 	resize(GUIHelper::scale(QSize(1024, 768)));
 	ui->mainToolBar->setIconSize(GUIHelper::scale(QSize(19, 19)));
 	ui->tabWidget->setElideMode(Qt::ElideMiddle);
@@ -3238,6 +3254,171 @@ FilterTable* MainWindow::addTab(QString title, QString tooltip, QString configPa
 	ui->tabWidget->setTabToolTip(tabIndex, tooltip);
 
 	return filterTable;
+}
+
+bool MainWindow::loadSnapshotScenario(const QString& scenario)
+{
+#ifdef EQAPO_ENABLE_UI_SNAPSHOTS
+	if (scenario != QStringLiteral("dense") || !isEmpty())
+		return false;
+
+	// Keep this representative configuration entirely in memory. In
+	// particular, do not call FilterTable::setLines(), because that method
+	// intentionally restores the real user's per-file QSettings.
+	const QList<QString> lines = {
+		QStringLiteral("LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 1 ReferenceLevel 80 ReferenceOffset 40 Attenuation 1.0 Volume -38.0"),
+		QStringLiteral("Filter: ON PK Fc 1000 Hz Gain -3 dB Q 1"),
+		QStringLiteral("UnsupportedSnapshotCommand: this-deliberately-long-unknown-command-keeps-the-raw-text-middle-elision-and-tooltip-path-covered"),
+		QStringLiteral("VSTPlugin: Library snapshot-memory\\plugins\\this-deliberately-long-vst-plugin-library-name-keeps-real-world-path-layout-covered-without-loading-a-file.dll"),
+		QStringLiteral("Device: SNAPSHOT-MISSING-PLAYBACK-DEVICE-{0A47-4739-4500-4250-93BA-6A6095B56AEC}"),
+		QStringLiteral("# Preamp: -10.30 dB"),
+		QStringLiteral("Convolution: snapshot-memory\\impulses\\missing-reference-response.wav"),
+		QStringLiteral("Include: snapshot-memory\\profiles\\this-intentionally-long-missing-configuration-name-keeps-real-world-path-layout-covered.txt"),
+		QStringLiteral("Preamp: -12.20 dB"),
+		QStringLiteral("# Convolution: snapshot-memory\\impulses\\disabled-reference-response.wav"),
+		QStringLiteral("# Include: snapshot-memory\\profiles\\disabled-reference-profile.txt"),
+		QStringLiteral("Device: all"),
+		QStringLiteral("Preamp: -10.40 dB"),
+		QStringLiteral("Convolution: snapshot-memory\\impulses\\missing-secondary-reference-response.wav"),
+		QStringLiteral("Include: snapshot-memory\\profiles\\missing-secondary-reference-profile.txt"),
+		QStringLiteral("Device: SNAPSHOT-MISSING-CAPTURE-DEVICE-{B3D1-48C7-A2F0-118D-98B737227C61}"),
+		QStringLiteral("# Preamp: -13.70 dB"),
+		QStringLiteral("Include: snapshot-memory\\profiles\\another-deliberately-long-missing-profile-name-for-horizontal-overflow-regression.txt")
+	};
+
+	QScrollArea* scrollArea = new QScrollArea(ui->tabWidget);
+	scrollArea->setWidgetResizable(true);
+	FilterTable* filterTable = new FilterTable(this);
+	scrollArea->setWidget(filterTable);
+	filterTable->setAcceptDrops(true);
+	filterTable->setFocusPolicy(Qt::WheelFocus);
+
+	shared_ptr<AbstractAPOInfo> selectedDevice;
+	int channelMask;
+	getDeviceAndChannelMask(&selectedDevice, &channelMask);
+	filterTable->updateDeviceAndChannelMask(selectedDevice, channelMask);
+	filterTable->initialize(scrollArea, outputDevices, inputDevices);
+	filterTable->setConfigPath(QStringLiteral(":/snapshot/dense-real-world.txt"));
+	for (const QString& line : lines)
+		filterTable->addLine(line);
+	filterTable->updateGuis();
+
+	const int tabIndex = ui->tabWidget->addTab(
+		scrollArea, QStringLiteral("dense-real-world.txt"));
+	ui->tabWidget->setTabToolTip(
+		tabIndex, QStringLiteral("In-memory UI regression scenario"));
+	ui->tabWidget->setCurrentIndex(tabIndex);
+	connect(filterTable, SIGNAL(linesChanged()), this, SLOT(linesChanged()));
+
+	// Fail the capture instead of silently accepting another empty-workspace
+	// image when a parser or GUI factory stops recognizing the fixture.
+	const auto objectCount = [this](const QString& objectName)
+	{
+		return findChildren<QWidget*>(objectName).size();
+	};
+	const bool complete = filterTable->getLines().size() == lines.size()
+		&& objectCount(QStringLiteral("FilterTableRow")) == lines.size()
+		&& objectCount(QStringLiteral("DeviceFilterGUI")) == 3
+		&& objectCount(QStringLiteral("PreampFilterGUI")) == 4
+		&& objectCount(QStringLiteral("ConvolutionFilterGUI")) == 3
+		&& objectCount(QStringLiteral("IncludeFilterGUI")) == 4
+		&& objectCount(QStringLiteral("BiQuadFilterGUI")) == 1
+		&& objectCount(QStringLiteral("LoudnessCorrectionFilterGUI")) == 1
+		&& objectCount(QStringLiteral("VSTPluginFilterGUI")) == 1
+		&& objectCount(QStringLiteral("elidingCommandLabel")) == 1;
+	if (!complete)
+		return false;
+
+	refreshWorkspaceActionState();
+	return true;
+#else
+	Q_UNUSED(scenario);
+	return false;
+#endif
+}
+
+bool MainWindow::snapshotLayoutIsValid() const
+{
+#ifdef EQAPO_ENABLE_UI_SNAPSHOTS
+	if (UiSnapshot::scenario() != QStringLiteral("dense"))
+		return true;
+
+	QScrollArea* scrollArea = qobject_cast<QScrollArea*>(
+		ui->tabWidget->currentWidget());
+	if (scrollArea == NULL || scrollArea->horizontalScrollBar() == NULL
+		|| scrollArea->horizontalScrollBar()->maximum() != 0)
+		return false;
+
+	const QList<QWidget*> deviceRows = findChildren<QWidget*>(
+		QStringLiteral("DeviceFilterGUI"));
+	if (deviceRows.size() != 3)
+		return false;
+	for (QWidget* deviceRow : deviceRows)
+	{
+		QAbstractScrollArea* tree = deviceRow->findChild<QAbstractScrollArea*>(
+			QStringLiteral("treeWidget"));
+		if (tree == NULL || tree->horizontalScrollBar() == NULL
+			|| tree->horizontalScrollBar()->maximum() != 0)
+			return false;
+	}
+
+	// The table deliberately accepts a zero horizontal minimum so wide text
+	// can compress instead of forcing an outer scrollbar. A zero scrollbar
+	// range alone therefore cannot prove that a child was not clipped. Check
+	// the representative GUIs and every visible descendant against the actual
+	// geometry allocated by its immediate parent.
+	const auto fitsInsideParent = [](QWidget* widget)
+	{
+		QWidget* parent = widget == NULL ? NULL : widget->parentWidget();
+		const bool fits = parent != NULL
+			&& widget->width() > 0 && widget->height() > 0
+			&& parent->rect().contains(widget->geometry());
+		if (!fits)
+		{
+			qWarning().noquote()
+				<< "Dense snapshot geometry violation:"
+				<< (widget == NULL
+					? QStringLiteral("<null>")
+					: QString::fromLatin1(widget->metaObject()->className()))
+				<< (widget == NULL ? QString() : widget->objectName())
+				<< "geometry" << (widget == NULL ? QRect() : widget->geometry())
+				<< "parentRect" << (parent == NULL ? QRect() : parent->rect());
+		}
+		return fits;
+	};
+	const QStringList denseGuiObjectNames = {
+		QStringLiteral("DeviceFilterGUI"),
+		QStringLiteral("PreampFilterGUI"),
+		QStringLiteral("ConvolutionFilterGUI"),
+		QStringLiteral("IncludeFilterGUI"),
+		QStringLiteral("BiQuadFilterGUI"),
+		QStringLiteral("LoudnessCorrectionFilterGUI"),
+		QStringLiteral("VSTPluginFilterGUI"),
+		QStringLiteral("elidingCommandLabel")
+	};
+	for (const QString& objectName : denseGuiObjectNames)
+	{
+		const QList<QWidget*> guis = findChildren<QWidget*>(objectName);
+		if (guis.isEmpty())
+			return false;
+		for (QWidget* gui : guis)
+		{
+			if (!fitsInsideParent(gui))
+				return false;
+			for (QWidget* child : gui->findChildren<QWidget*>())
+			{
+				if (child->isVisible() && !child->isWindow()
+					&& !fitsInsideParent(child))
+				{
+					return false;
+				}
+			}
+		}
+	}
+	return true;
+#else
+	return true;
+#endif
 }
 
 void MainWindow::getDeviceAndChannelMask(shared_ptr<AbstractAPOInfo>* selectedDevice, int* channelMask)

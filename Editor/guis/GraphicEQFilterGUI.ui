@@ -118,7 +118,7 @@
         </size>
        </property>
        <property name="sizeAdjustPolicy">
-        <enum>QAbstractScrollArea::SizeAdjustPolicy::AdjustToContents</enum>
+        <enum>QAbstractScrollArea::SizeAdjustPolicy::AdjustIgnored</enum>
        </property>
        <property name="horizontalScrollMode">
         <enum>QAbstractItemView::ScrollMode::ScrollPerPixel</enum>

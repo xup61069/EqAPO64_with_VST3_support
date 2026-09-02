@@ -17,10 +17,14 @@
 	51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+#include <algorithm>
+#include <cmath>
 #include <vector>
 #include <QEvent>
 #include <QFileDialog>
+#include <QScreen>
 #include <QScrollBar>
+#include <QTimer>
 #include <QTextStream>
 
 #include "helpers/GainIterator.h"
@@ -33,15 +37,18 @@
 
 static const double DEFAULT_TABLE_WIDTH = 119;
 static const double DEFAULT_VIEW_HEIGHT = 150;
+static const int TABLE_RESIZE_ORIGIN = 10000;
 
 using namespace std;
 
 QRegularExpression GraphicEQFilterGUI::numberRegEx("[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?");
 
 GraphicEQFilterGUI::GraphicEQFilterGUI(GraphicEQFilter* filter, QString configPath, FilterTable* filterTable)
-	: ui(new Ui::GraphicEQFilterGUI), configPath(configPath)
+	: ui(new Ui::GraphicEQFilterGUI), scene(nullptr), configPath(configPath), filterTable(filterTable)
 {
 	ui->setupUi(this);
+	if (filterTable != nullptr)
+		filterTable->installEventFilter(this);
 	ui->actionImport->setIcon(GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::Import));
 	ui->actionExport->setIcon(GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::Export));
 	updateThemeIcons();
@@ -54,13 +61,14 @@ GraphicEQFilterGUI::GraphicEQFilterGUI(GraphicEQFilter* filter, QString configPa
 	ui->graphicsView->setScene(scene);
 
 	ResizeCorner* cornerWidget = new ResizeCorner(filterTable,
-			QSize(0, ui->graphicsView->minimumHeight()), QSize(10000 - ui->tableWidget->minimumWidth(), INT_MAX),
+			QSize(0, ui->graphicsView->minimumHeight()),
+			QSize(TABLE_RESIZE_ORIGIN - minimumTableWidth(), INT_MAX),
 			[this]() {
-		return QSize(10000 - ui->tableWidget->width(), ui->graphicsView->height());
+		return QSize(TABLE_RESIZE_ORIGIN - ui->tableWidget->width(), ui->graphicsView->height());
 	},
 			[this](QSize size) {
-		ui->tableWidget->setFixedWidth(10000 - size.width());
-		ui->graphicsView->setFixedHeight(size.height());
+		setTableWidth(TABLE_RESIZE_ORIGIN - size.width());
+		setViewHeight(size.height());
 	}, ui->graphicsView);
 	ui->graphicsView->setCornerWidget(cornerWidget);
 
@@ -97,6 +105,8 @@ GraphicEQFilterGUI::GraphicEQFilterGUI(GraphicEQFilter* filter, QString configPa
 
 GraphicEQFilterGUI::~GraphicEQFilterGUI()
 {
+	if (filterTable != nullptr)
+		filterTable->removeEventFilter(this);
 	delete ui;
 }
 
@@ -108,6 +118,139 @@ void GraphicEQFilterGUI::changeEvent(QEvent* event)
 		event->type() == QEvent::ThemeChange)
 	{
 		updateThemeIcons();
+	}
+	if (event->type() == QEvent::FontChange ||
+		event->type() == QEvent::ApplicationFontChange)
+	{
+		setTableWidth(ui->tableWidget->width());
+	}
+}
+
+bool GraphicEQFilterGUI::eventFilter(QObject* watched, QEvent* event)
+{
+	if (watched == filterTable &&
+		(event->type() == QEvent::Resize || event->type() == QEvent::Show ||
+			event->type() == QEvent::LayoutRequest))
+	{
+		// The row layout settles after the scroll viewport resizes. Re-clamp on
+		// the next turn so a previously valid width cannot recreate an outer
+		// horizontal scrollbar on a smaller window or monitor.
+		QTimer::singleShot(0, this, [this]() {
+			setTableWidth(ui->tableWidget->width());
+			setViewHeight(ui->graphicsView->height());
+		});
+	}
+
+	return IFilterGUI::eventFilter(watched, event);
+}
+
+int GraphicEQFilterGUI::minimumTableWidth() const
+{
+	// Do not derive this from minimumWidth(): setFixedWidth() updates that
+	// property, which would otherwise make every wider value a new minimum.
+	return GUIHelper::scale(96);
+}
+
+int GraphicEQFilterGUI::maximumTableWidth() const
+{
+	int availableWidth = width();
+	if (filterTable != nullptr)
+	{
+		int viewportWidth = filterTable->width();
+		if (QWidget* viewport = filterTable->parentWidget())
+		{
+			if (viewport->width() > 0)
+				viewportWidth = viewportWidth > 0
+					? (std::min)(viewportWidth, viewport->width())
+					: viewport->width();
+		}
+
+		if (filterTable->isAncestorOf(this))
+		{
+			const int rowChromeWidth = mapTo(filterTable, QPoint(0, 0)).x();
+			if (rowChromeWidth > 0 && rowChromeWidth < viewportWidth)
+				viewportWidth -= rowChromeWidth;
+		}
+
+		if (viewportWidth > 0)
+			availableWidth = viewportWidth;
+	}
+
+	if (QScreen* currentScreen = screen())
+	{
+		const int screenWidth = currentScreen->availableGeometry().width();
+		availableWidth = availableWidth > 0
+			? (std::min)(availableWidth, screenWidth)
+			: screenWidth;
+	}
+
+	if (availableWidth <= 0)
+		availableWidth = GUIHelper::scale(623);
+
+	const int selectorWidth = ui->verticalLayout->sizeHint().width();
+	const int graphWidth = GUIHelper::scale(160);
+	const int spacing = (std::max)(0, ui->horizontalLayout->spacing()) * 2;
+	const int edgeAllowance = GUIHelper::scale(12);
+	return (std::max)(minimumTableWidth(),
+		availableWidth - selectorWidth - graphWidth - spacing - edgeAllowance);
+}
+
+void GraphicEQFilterGUI::setTableWidth(int width)
+{
+	const int boundedWidth = qBound(minimumTableWidth(), width, maximumTableWidth());
+	if (ui->tableWidget->width() != boundedWidth ||
+		ui->tableWidget->minimumWidth() != boundedWidth ||
+		ui->tableWidget->maximumWidth() != boundedWidth)
+	{
+		ui->tableWidget->setFixedWidth(boundedWidth);
+	}
+}
+
+int GraphicEQFilterGUI::minimumViewHeight() const
+{
+	return GUIHelper::scale(100);
+}
+
+int GraphicEQFilterGUI::maximumViewHeight() const
+{
+	int availableHeight = height();
+	if (filterTable != nullptr)
+	{
+		int viewportHeight = filterTable->height();
+		if (QWidget* viewport = filterTable->parentWidget())
+		{
+			if (viewport->height() > 0)
+				viewportHeight = viewportHeight > 0
+					? (std::min)(viewportHeight, viewport->height())
+					: viewport->height();
+		}
+		if (viewportHeight > 0)
+			availableHeight = viewportHeight;
+	}
+
+	if (QScreen* currentScreen = screen())
+	{
+		const int screenHeight = currentScreen->availableGeometry().height();
+		availableHeight = availableHeight > 0
+			? (std::min)(availableHeight, screenHeight)
+			: screenHeight;
+	}
+
+	if (availableHeight <= 0)
+		availableHeight = GUIHelper::scale(480);
+
+	const int surroundingRows = GUIHelper::scale(140);
+	return (std::max)(minimumViewHeight(), availableHeight - surroundingRows);
+}
+
+void GraphicEQFilterGUI::setViewHeight(int height)
+{
+	const int boundedHeight = qBound(minimumViewHeight(), height, maximumViewHeight());
+	if (ui->graphicsView->height() != boundedHeight ||
+		ui->graphicsView->minimumHeight() != boundedHeight ||
+		ui->graphicsView->maximumHeight() != boundedHeight)
+	{
+		ui->graphicsView->setFixedHeight(boundedHeight);
 	}
 }
 
@@ -139,8 +282,24 @@ void GraphicEQFilterGUI::store(QString& command, QString& parameters)
 
 void GraphicEQFilterGUI::loadPreferences(const QVariantMap& prefs)
 {
-	ui->tableWidget->setFixedWidth(GUIHelper::scale(prefs.value("tableWidth", DEFAULT_TABLE_WIDTH).toDouble()));
-	ui->graphicsView->setFixedHeight(GUIHelper::scale(prefs.value("viewHeight", DEFAULT_VIEW_HEIGHT).toDouble()));
+	bool validTableWidth = false;
+	double storedTableWidth = prefs.value("tableWidth", DEFAULT_TABLE_WIDTH).toDouble(&validTableWidth);
+	if (!validTableWidth || !std::isfinite(storedTableWidth))
+		storedTableWidth = DEFAULT_TABLE_WIDTH;
+	storedTableWidth = qBound(
+		GUIHelper::invScale(minimumTableWidth()),
+		storedTableWidth,
+		GUIHelper::invScale(maximumTableWidth()));
+	setTableWidth(GUIHelper::scale(storedTableWidth));
+	bool validViewHeight = false;
+	double storedViewHeight = prefs.value("viewHeight", DEFAULT_VIEW_HEIGHT).toDouble(&validViewHeight);
+	if (!validViewHeight || !std::isfinite(storedViewHeight))
+		storedViewHeight = DEFAULT_VIEW_HEIGHT;
+	storedViewHeight = qBound(
+		GUIHelper::invScale(minimumViewHeight()),
+		storedViewHeight,
+		GUIHelper::invScale(maximumViewHeight()));
+	setViewHeight(GUIHelper::scale(storedViewHeight));
 	double zoomX = GUIHelper::scaleZoom(prefs.value("zoomX", 1.0).toDouble());
 	double zoomY = GUIHelper::scaleZoom(prefs.value("zoomY", 1.0).toDouble());
 	scene->setZoom(zoomX, zoomY);

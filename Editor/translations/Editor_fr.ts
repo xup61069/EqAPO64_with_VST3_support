@@ -1520,6 +1520,16 @@ Alexander Walch</translation>
         <translation>Panneau d&apos;analyse</translation>
     </message>
     <message>
+        <location filename="../MainWindow.ui" line="416"/>
+        <source>Reset view</source>
+        <translation>Réinitialiser la vue</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.ui" line="419"/>
+        <source>Reset analysis zoom and position</source>
+        <translation>Réinitialiser le zoom et la position de la vue d’analyse</translation>
+    </message>
+    <message>
         <location filename="../MainWindow.ui" line="163"/>
         <source>Resolution:</source>
         <translation>Résolution:</translation>

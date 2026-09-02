@@ -64,6 +64,8 @@ public:
 	bool isEmpty();
 	bool shouldRestart();
 	void startAnalysis();
+	bool loadSnapshotScenario(const QString& scenario);
+	bool snapshotLayoutIsValid() const;
 
 protected:
 	void closeEvent(QCloseEvent* event) override;

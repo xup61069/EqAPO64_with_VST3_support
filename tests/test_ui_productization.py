@@ -12,6 +12,7 @@ import xml.etree.ElementTree as ET
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 EDITOR_MAIN = (ROOT / "Editor" / "main.cpp").read_text(encoding="utf-8")
 MAIN_WINDOW = (ROOT / "Editor" / "MainWindow.cpp").read_text(encoding="utf-8")
+MAIN_WINDOW_UI = (ROOT / "Editor" / "MainWindow.ui").read_text(encoding="utf-8")
 MODERN_THEME = (ROOT / "Editor" / "ModernTheme.cpp").read_text(encoding="utf-8")
 DEVICE_SELECTOR = (ROOT / "DeviceSelector" / "DeviceSelector.cpp").read_text(
     encoding="utf-8"
@@ -30,6 +31,9 @@ FREQUENCY_PLOT_HRULER = (
 ).read_text(encoding="utf-8")
 FREQUENCY_PLOT_VIEW = (
     ROOT / "Editor" / "widgets" / "FrequencyPlotView.cpp"
+).read_text(encoding="utf-8")
+FREQUENCY_PLOT_VIEW_HEADER = (
+    ROOT / "Editor" / "widgets" / "FrequencyPlotView.h"
 ).read_text(encoding="utf-8")
 
 
@@ -58,6 +62,9 @@ class UiProductizationTests(unittest.TestCase):
         test_build, production_build = snapshot.split("#else", 1)
         production_build = production_build.split("#endif", 1)[0]
         self.assertIn('qEnvironmentVariable("EQAPO_UI_SNAPSHOT")', test_build)
+        self.assertIn('"EQAPO_UI_SNAPSHOT_SCENARIO"', test_build)
+        self.assertIn('"EQAPO_UI_SNAPSHOT_LOCALE"', test_build)
+        self.assertIn("validator && !validator()", test_build)
         self.assertNotIn("EQAPO_UI_SNAPSHOT", production_build)
         self.assertRegex(
             production_build,
@@ -116,8 +123,17 @@ class UiProductizationTests(unittest.TestCase):
         self.assertIn('"text-150"', script)
         self.assertIn('"1.5"', script)
         self.assertIn("EQAPO_UI_FONT_SCALE", script)
-        self.assertIn("Expected exactly 54 UI snapshots", script)
-        self.assertIn("app.ToLowerInvariant()", script)
+        self.assertIn("Expected exactly 72 UI snapshots", script)
+        self.assertIn('FilePrefix = "editor-dense-zh-tw"', script)
+        self.assertIn('SnapshotScenario = "dense"', script)
+        self.assertIn('Locale = "zh_TW"', script)
+        self.assertIn("state.FilePrefix", script)
+        self.assertIn(
+            'EnvironmentVariables["EQAPO_UI_SNAPSHOT_SCENARIO"] = '
+            "$state.SnapshotScenario",
+            script,
+        )
+        self.assertNotIn('if ($state.SnapshotScenario -ne "")', script)
         self.assertIn("scenario.Label", script)
         self.assertIn("Remove-Item -LiteralPath $target", script)
         self.assertIn('"manifest.json"', script)
@@ -158,11 +174,115 @@ class UiProductizationTests(unittest.TestCase):
         self.assertIn("$expectedNames -notcontains $relativeName", exact_set_check)
         self.assertIn("$expectedNames -contains $relativeName", exact_set_check)
         self.assertIn("-or $unexpectedFiles.Count -ne 0", exact_set_check)
-        self.assertIn("Expected exactly 54 UI snapshots", exact_set_check)
+        self.assertIn("Expected exactly 72 UI snapshots", exact_set_check)
 
         self.assertIn("capture-ui-regression.ps1", workflow)
         self.assertIn("ui-regression/*.png", workflow)
         self.assertIn("ui-regression/manifest.json", workflow)
+
+    def test_dense_editor_snapshot_is_in_memory_isolated_and_self_validating(self) -> None:
+        header = (ROOT / "Editor" / "MainWindow.h").read_text(encoding="utf-8")
+        snapshot = (ROOT / "helpers" / "UiSnapshot.h").read_text(encoding="utf-8")
+        capture = (ROOT / "scripts" / "capture-ui-regression.ps1").read_text(
+            encoding="utf-8"
+        )
+        vst_library = (ROOT / "helpers" / "VSTPluginLibrary.cpp").read_text(
+            encoding="utf-8"
+        )
+        vst_gui = (
+            ROOT / "Editor" / "guis" / "VSTPluginFilterGUI.cpp"
+        ).read_text(encoding="utf-8")
+        loudness_factory = (
+            ROOT / "Editor" / "guis" / "LoudnessCorrectionFilterGUIFactory.cpp"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("bool loadSnapshotScenario(const QString& scenario);", header)
+        self.assertIn("bool snapshotLayoutIsValid() const;", header)
+        self.assertIn("noSaveFilePreferences = snapshotMode;", MAIN_WINDOW)
+        self.assertIn("QDir configDir(configPath);", EDITOR_MAIN)
+        self.assertIn('QStringLiteral(":/snapshot")', EDITOR_MAIN)
+        self.assertIn("if (!snapshotMode)", EDITOR_MAIN)
+        self.assertIn("UiSnapshot::localeName()", EDITOR_MAIN)
+        self.assertIn("w.loadSnapshotScenario(scenario)", EDITOR_MAIN)
+        self.assertIn("w.snapshotLayoutIsValid()", EDITOR_MAIN)
+
+        dense = MAIN_WINDOW[
+            MAIN_WINDOW.index("bool MainWindow::loadSnapshotScenario") :
+            MAIN_WINDOW.index("bool MainWindow::snapshotLayoutIsValid")
+        ]
+        self.assertIn("#ifdef EQAPO_ENABLE_UI_SNAPSHOTS", dense)
+        self.assertIn("const QList<QString> lines", dense)
+        self.assertIn("filterTable->addLine(line)", dense)
+        self.assertNotIn("filterTable->setLines(", dense)
+        self.assertNotIn("QSettings settings", dense)
+        self.assertNotIn("QFile", dense)
+        for command in (
+            "LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single",
+            "Volume -38.0",
+            "Filter: ON PK Fc 1000 Hz Gain -3 dB Q 1",
+            "UnsupportedSnapshotCommand: this-deliberately-long-unknown-command",
+            "VSTPlugin: Library snapshot-memory",
+            "Device: SNAPSHOT-MISSING-PLAYBACK-DEVICE",
+            "# Preamp: -10.30 dB",
+            "Convolution: snapshot-memory",
+            "Include: snapshot-memory",
+        ):
+            with self.subTest(command=command):
+                self.assertIn(command, dense)
+        for object_name in (
+            "FilterTableRow",
+            "DeviceFilterGUI",
+            "PreampFilterGUI",
+            "ConvolutionFilterGUI",
+            "IncludeFilterGUI",
+            "BiQuadFilterGUI",
+            "LoudnessCorrectionFilterGUI",
+            "VSTPluginFilterGUI",
+            "elidingCommandLabel",
+        ):
+            with self.subTest(object_name=object_name):
+                self.assertIn(object_name, dense)
+
+        layout_contract = MAIN_WINDOW[
+            MAIN_WINDOW.index("bool MainWindow::snapshotLayoutIsValid") :
+            MAIN_WINDOW.index("void MainWindow::getDeviceAndChannelMask")
+        ]
+        self.assertIn('UiSnapshot::scenario() != QStringLiteral("dense")', layout_contract)
+        self.assertGreaterEqual(layout_contract.count("horizontalScrollBar()->maximum() != 0"), 2)
+        self.assertIn('QStringLiteral("treeWidget")', layout_contract)
+        self.assertIn("denseGuiObjectNames", layout_contract)
+        self.assertIn("parent->rect().contains(widget->geometry())", layout_contract)
+        self.assertIn("gui->findChildren<QWidget*>()", layout_contract)
+
+        test_snapshot, production_snapshot = snapshot.split("#else", 1)
+        production_snapshot = production_snapshot.split("#endif", 1)[0]
+        self.assertIn("std::function<bool()>", test_snapshot)
+        self.assertNotIn("EQAPO_UI_SNAPSHOT", production_snapshot)
+        self.assertNotIn("dense-real-world.txt", capture)
+        self.assertNotIn("snapshot-memory", capture)
+
+        vst_test_branch = vst_library[
+            vst_library.index("#ifdef EQAPO_ENABLE_UI_SNAPSHOTS") :
+            vst_library.index("#else", vst_library.index("#ifdef EQAPO_ENABLE_UI_SNAPSHOTS"))
+        ]
+        self.assertIn('return L"";', vst_test_branch)
+        self.assertNotIn("RegistryHelper", vst_test_branch)
+
+        vst_load_preferences = vst_gui[
+            vst_gui.index("void VSTPluginFilterGUI::loadPreferences") :
+            vst_gui.index("void VSTPluginFilterGUI::storePreferences")
+        ]
+        vst_snapshot_guard = vst_load_preferences[
+            vst_load_preferences.index("#ifdef EQAPO_ENABLE_UI_SNAPSHOTS") :
+            vst_load_preferences.index("#endif")
+        ]
+        self.assertIn("UiSnapshot::requested()", vst_snapshot_guard)
+        self.assertIn("return;", vst_snapshot_guard)
+        self.assertGreater(
+            vst_load_preferences.index("initPlugin();"),
+            vst_load_preferences.index("#endif"),
+        )
+        self.assertIn("timer == NULL && !UiSnapshot::requested()", loudness_factory)
 
     def test_palette_icons_render_on_a_transparent_surface(self) -> None:
         icon_engine = (ROOT / "Editor" / "helpers" / "GUIHelper.cpp").read_text(
@@ -197,7 +317,7 @@ class UiProductizationTests(unittest.TestCase):
             "return qBound(halfTextWidth, center, maxTextCenter);",
             FREQUENCY_PLOT_HRULER,
         )
-        self.assertEqual(FREQUENCY_PLOT_HRULER.count("clampTextCenter("), 3)
+        self.assertEqual(FREQUENCY_PLOT_HRULER.count("clampTextCenter("), 2)
 
         self.assertIn(
             'metrics.boundingRect(QStringLiteral("-100.0")).width()',
@@ -213,6 +333,75 @@ class UiProductizationTests(unittest.TestCase):
             FREQUENCY_PLOT_VIEW,
         )
         self.assertEqual(FREQUENCY_PLOT_VIEW.count("updateRulerGeometry();"), 2)
+
+    def test_analysis_plot_bands_and_reset_remain_collision_safe_and_accessible(self) -> None:
+        for token in (
+            "struct TickLabel",
+            "const qreal labelGap = GUIHelper::scale(6)",
+            "const auto appendLabel",
+            "labels.first().draw = true",
+            "reserveRightBoundary",
+            "candidate.occupiedRect.left() >= occupiedRight",
+            "candidate.occupiedRect.right() <= rightBoundary",
+        ):
+            with self.subTest(collision_contract=token):
+                self.assertIn(token, FREQUENCY_PLOT_HRULER)
+        self.assertEqual(FREQUENCY_PLOT_HRULER.count("appendLabel("), 2)
+        self.assertNotIn("metrics.size(0, text).width() + 2", FREQUENCY_PLOT_HRULER)
+
+        self.assertIn("public slots:\n\tvoid resetView();", FREQUENCY_PLOT_VIEW_HEADER)
+        reset_view = FREQUENCY_PLOT_VIEW[
+            FREQUENCY_PLOT_VIEW.index("void FrequencyPlotView::resetView()") :
+            FREQUENCY_PLOT_VIEW.index("void FrequencyPlotView::changeEvent")
+        ]
+        for token in (
+            "GUIHelper::scaleZoom(1.0)",
+            "s->setZoom(defaultZoom, defaultZoom)",
+            "s->hzToX(20.0)",
+            "s->dbToY(22.0)",
+            "resetCachedContent()",
+            "viewport()->update()",
+            "hRuler->update()",
+            "vRuler->update()",
+        ):
+            with self.subTest(reset_contract=token):
+                self.assertIn(token, reset_view)
+
+        ui_root = ET.fromstring(MAIN_WINDOW_UI)
+        reset_action = ui_root.find(".//action[@name='actionResetAnalysisView']")
+        self.assertIsNotNone(reset_action)
+        self.assertEqual(
+            reset_action.findtext("./property[@name='shortcut']/string"),
+            "Ctrl+0",
+        )
+        shortcut_occurrences = sum(
+            path.read_text(encoding="utf-8").count("Ctrl+0")
+            for suffix in ("*.cpp", "*.h", "*.ui")
+            for path in (ROOT / "Editor").rglob(suffix)
+        )
+        self.assertEqual(shortcut_occurrences, 1)
+        reset_button = ui_root.find(".//widget[@name='resetAnalysisViewButton']")
+        self.assertIsNotNone(reset_button)
+        self.assertIn("GUIHelper::ThemeIcon::Restore", MAIN_WINDOW)
+        self.assertIn("setDefaultAction(ui->actionResetAnalysisView)", MAIN_WINDOW)
+        self.assertIn("setAccessibleName", MAIN_WINDOW)
+        self.assertIn("setAccessibleDescription", MAIN_WINDOW)
+        self.assertIn("SLOT(resetView())", MAIN_WINDOW)
+        reset_button_style = MODERN_THEME[
+            MODERN_THEME.index("QToolButton#resetAnalysisViewButton {") :
+            MODERN_THEME.index("QScrollArea {")
+        ]
+        for token in (
+            "background-color: @raised",
+            "border: 1px solid @borderStrong",
+            "min-height: @controlHeightpx",
+            "QToolButton#resetAnalysisViewButton:hover",
+            "QToolButton#resetAnalysisViewButton:focus",
+            "QToolButton#resetAnalysisViewButton:pressed",
+        ):
+            with self.subTest(reset_style_contract=token):
+                self.assertIn(token, reset_button_style)
+        self.assertNotIn("border-radius", reset_button_style)
 
     def test_product_ui_has_no_decorative_rounded_corners(self) -> None:
         ui_sources = []

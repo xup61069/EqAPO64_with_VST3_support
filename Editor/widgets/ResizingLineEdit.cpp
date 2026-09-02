@@ -52,7 +52,26 @@ QSize ResizingLineEdit::sizeHint() const
 	initStyleOption(&opt);
 
 	QSize size = style()->sizeFromContents(QStyle::CT_LineEdit, &opt, contentSize, this);
+	if (!forceWidth)
+	{
+		// Path editors should prefer enough room to identify a value, but their
+		// contents must never become a minimum width for the complete filter row.
+		// QLineEdit already scrolls its text internally while it has focus.
+		const int preferredTextWidth = metrics.horizontalAdvance(QLatin1Char('M')) * 36;
+		const int maximumPreferredWidth = qMax(originalSize.width(), preferredTextWidth);
+		size.setWidth(qBound(originalSize.width(), size.width(), maximumPreferredWidth));
+	}
 	return QSize(size.width(), originalSize.height());
+}
+
+QSize ResizingLineEdit::minimumSizeHint() const
+{
+	if (forceWidth)
+		return sizeHint();
+
+	QSize size = QLineEdit::minimumSizeHint();
+	size.setWidth(0);
+	return size;
 }
 
 void ResizingLineEdit::readjustSize()
@@ -60,5 +79,8 @@ void ResizingLineEdit::readjustSize()
 	if (forceWidth)
 		setFixedWidth(sizeHint().width());
 	else
-		setMinimumWidth(sizeHint().width());
+	{
+		setMinimumWidth(0);
+		updateGeometry();
+	}
 }

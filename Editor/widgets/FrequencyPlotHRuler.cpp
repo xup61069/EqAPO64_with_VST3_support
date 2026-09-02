@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <QPainter>
 #include <QMouseEvent>
+#include <QVector>
 
 #include "Editor/helpers/GUIHelper.h"
 #include "FrequencyPlotView.h"
@@ -53,6 +54,39 @@ void FrequencyPlotHRuler::paintEvent(QPaintEvent*)
 	int offsetLeft = view->viewportMargins().left();
 	double fromHz = s->xToHz(topLeft.x());
 	double toHz = s->xToHz(bottomRight.x());
+	struct TickLabel
+	{
+		QString text;
+		qreal center;
+		QRectF occupiedRect;
+		bool draw = false;
+	};
+	QVector<TickLabel> labels;
+	const qreal labelGap = GUIHelper::scale(6);
+	const auto appendLabel = [&](double hz)
+	{
+		const double x = s->hzToX(hz);
+		if (x == -1)
+			return;
+
+		const QString text = hz < 1000
+			? QString("%0").arg(hz)
+			: QString("%0k").arg(hz / 1000);
+		const qreal center = clampTextCenter(
+			x - topLeft.x() + offsetLeft + 1,
+			text);
+		const qreal halfWidth = metrics.horizontalAdvance(text) / 2.0;
+		labels.append({
+			text,
+			center,
+			QRectF(
+				center - halfWidth - labelGap / 2.0,
+				0,
+				halfWidth * 2.0 + labelGap,
+				height())
+		});
+	};
+
 	const vector<double>& bands = s->getBands();
 	if (bands.empty())
 	{
@@ -63,20 +97,7 @@ void FrequencyPlotHRuler::paintEvent(QPaintEvent*)
 			hzBase *= 10;
 		for (double hz = fromHz; hz <= toHz;)
 		{
-			double x = s->hzToX(hz);
-			if (x != -1)
-			{
-				QString text;
-				if (hz < 1000)
-					text = QString("%0").arg(hz);
-				else
-					text = QString("%0k").arg(hz / 1000);
-				if (metrics.size(0, text).width() + 2 < s->hzToX(hz + hzBase) - x)
-				{
-					const qreal center = clampTextCenter(x - topLeft.x() + offsetLeft + 1, text);
-					painter.drawText(qRound(center), 0, 0, height(), Qt::TextDontClip | Qt::AlignCenter, text);
-				}
-			}
+			appendLabel(hz);
 
 			hz += hzBase;
 			if (round(hz / hzBase) >= 10)
@@ -87,18 +108,47 @@ void FrequencyPlotHRuler::paintEvent(QPaintEvent*)
 	{
 		vector<double>::const_iterator it = lower_bound(bands.cbegin(), bands.cend(), fromHz);
 		for (; it != bands.cend() && *it < toHz; it++)
+			appendLabel(*it);
+	}
+
+	if (!labels.isEmpty())
+	{
+		// Keep the first visible tick and reserve the last visible tick when
+		// both fit. Fill the space between them without allowing adjacent
+		// label bounds (including a scaled readability gap) to overlap.
+		labels.first().draw = true;
+		qreal occupiedRight = labels.first().occupiedRect.right();
+		const qsizetype lastIndex = labels.size() - 1;
+		const bool reserveRightBoundary = lastIndex > 0
+			&& labels.last().occupiedRect.left() >= occupiedRight;
+		if (reserveRightBoundary)
+			labels.last().draw = true;
+		const qreal rightBoundary = reserveRightBoundary
+			? labels.last().occupiedRect.left()
+			: static_cast<qreal>(width()) + labelGap;
+
+		for (qsizetype index = 1; index < lastIndex; ++index)
 		{
-			double hz = *it;
-			double x = s->hzToX(hz);
-			if (x != -1)
+			TickLabel& candidate = labels[index];
+			if (candidate.occupiedRect.left() >= occupiedRight
+				&& candidate.occupiedRect.right() <= rightBoundary)
 			{
-				QString text;
-				if (hz < 1000)
-					text = QString("%0").arg(hz);
-				else
-					text = QString("%0k").arg(hz / 1000);
-				const qreal center = clampTextCenter(x - topLeft.x() + offsetLeft + 1, text);
-				painter.drawText(qRound(center), 0, 0, height(), Qt::TextDontClip | Qt::AlignCenter, text);
+				candidate.draw = true;
+				occupiedRight = candidate.occupiedRect.right();
+			}
+		}
+
+		for (const TickLabel& label : labels)
+		{
+			if (label.draw)
+			{
+				painter.drawText(
+					qRound(label.center),
+					0,
+					0,
+					height(),
+					Qt::TextDontClip | Qt::AlignCenter,
+					label.text);
 			}
 		}
 	}
