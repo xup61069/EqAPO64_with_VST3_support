@@ -28,6 +28,7 @@ struct FilterRuntimeContext
 {
 	bool flowKnown = false;
 	bool isCapture = false;
+	bool offlineAnalysis = false;
 	std::wstring endpointId;
 };
 

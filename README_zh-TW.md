@@ -54,7 +54,7 @@ Get-Content .\EqualizerAPO-x64-*.exe.sha256
 
 1. 開啟 **Equalizer APO Configuration Editor**，選取實際要使用的播放端點。
 2. 新增 **高階過濾器 → 響度校正**。
-3. 選擇「**單一端點**」可跟隨目前執行 APO 的實際播放端點；若像 VB-Audio Matrix 一樣，需要所有響度校正實例共用 Windows 預設 Multimedia 播放音量，則選擇「**全域（Windows 預設）**」。
+3. 選擇「**單一端點**」可跟隨目前執行 APO 的實際播放端點；只有刻意讓所有響度校正實例共用 Windows 預設 Multimedia 端點的主音量時，才選擇「**全域（Windows 預設）**」。
 4. 要自動追蹤時關閉「手動音量」；若 Windows 無法代表真實聆聽音量，則啟用手動音量。
 5. 設定參考響度與補償強度；只有在備有合適聲壓計時才進行校準。
 6. 確認儲存的命令已啟用，且包含 `State 1`。
@@ -100,7 +100,7 @@ clamp(ReferenceLevel + Volume - ReferenceOffset, 0, 100)
 自動模式有兩種明確綁定：
 
 - **單一端點**（`Binding Single`）跟隨該 APO 實例實際執行所在的播放端點，絕不退回 Windows 預設裝置或改追蹤其他裝置。一般實體輸出，或每個端點必須跟隨各自音量時使用此模式。
-- **全域（Windows 預設）**（`Binding All`）讓所有響度校正實例共同跟隨目前 Windows 預設 `eRender`／`eMultimedia` 端點的主音量。VB-Audio Matrix 或類似路由需要多個 APO 實例共用同一音量控制時使用。控制器至少每兩秒確認一次預設端點；偵測到變更後，會先丟棄舊端點再綁定新端點。重新綁定失敗時會依下述 10 ms 淡化失效安全地停止校正，不會退回舊端點。
+- **全域（Windows 預設）**（`Binding All`）讓所有響度校正實例共同跟隨目前 Windows 預設 `eRender`／`eMultimedia` 端點的主音量。Matrix 類路由只有在該預設主音量確實是預期的共用控制時才使用此模式；若虛擬預設端點為靜音、固定在最小值，或它並不代表實際聆聽音量，請改用 `Binding Single` 或手動音量。控制器至少每兩秒確認一次預設端點；偵測到變更後，會先丟棄舊端點再綁定新端點。重新綁定失敗時會依下述 10 ms 淡化失效安全地停止校正，不會退回舊端點。
 
 需要的端點消失、切換失敗或無法讀取音量時，自動校正會失效安全地暫停。冷啟動交接前維持原始輸入直通；已進入 A 域時，則只把校正殘差在 10 ms 內淡到未校正的 `A = L + H` 路徑。指定來源恢復後，目標濾波器會先靜音預熱 250 ms，再以 100 ms 淡回校正；若冷啟動交接仍未完成，則在可安全交接前維持未校正。`Binding Single` 在 Windows 無法確認 APO 位於播放流程時維持略過；`Binding All` 則保留原始 Mixomo 行為，直接讀取預設 `eRender`／`eMultimedia` 端點，不依賴目前 APO 的端點中繼資料。
 
@@ -138,7 +138,7 @@ LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 1 Refe
 LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0
 ```
 
-VB-Audio Matrix 這類共用音量路由請使用 `Binding All`，並省略 `Volume`：
+若 Matrix 類路由確實以 Windows 預設 Multimedia 主音量作為共用控制，請使用 `Binding All` 並省略 `Volume`：
 
 ```text
 LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding All State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0
@@ -195,7 +195,7 @@ v3.0.0 可能已把舊項目重寫為沒有標記的公式格式 `State 0 Refere
 |---|---|
 | 完全沒有音訊處理效果 | 確認已在裝置選擇器啟用該端點、命令沒有被註解，而且包含 `State 1`。變更裝置註冊後，請重新啟動 Windows 音訊服務或電腦。 |
 | 響度校正保持平直 | 確認 `Attenuation` 大於零，而且目前估計響度與參考輪廓不同。 |
-| 無法使用自動音量 | 每個裝置分開追蹤時，在可讀且可辨識的播放端點使用 `Binding Single`；Matrix 類共用控制則使用 `Binding All`，並把音量來源設為 Windows 預設 Multimedia 播放端點。全域模式不需要目前 APO 的端點中繼資料。 |
+| 自動音量無法使用或卡在下限 | 每個裝置分開追蹤時，在可讀且可辨識的播放端點使用 `Binding Single`。只有 Windows 預設 Multimedia 主音量確實是預期的共用控制時才用 `Binding All`；若 Matrix 端點為靜音或固定音量，請用 `Binding Single` 或手動音量。全域模式不需要目前 APO 的端點中繼資料。 |
 | 跟到錯誤端點音量 | 要跟 APO 實際端點時使用 `Binding Single`；只有刻意讓所有實例共用 Windows 預設 Multimedia 音量時才使用 `Binding All`。 |
 | 校準按鈕無法播放 | 將所選端點設為 Windows 預設 Console 播放裝置並確認音量可讀；使用 `Binding All` 時，它也必須是預設 Multimedia 裝置。之後重新開啟校準。 |
 | 校準不會跟隨硬體旋鈕 | 改用手動音量，並在類比增益改變時更新數值；Windows 無法偵測該旋鈕。 |

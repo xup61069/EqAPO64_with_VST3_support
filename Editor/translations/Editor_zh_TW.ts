@@ -969,8 +969,8 @@ Alexander Walch</source>
     </message>
     <message>
         <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="333"/>
-        <source>Single follows the current APO playback endpoint. Global follows the Windows default Multimedia playback volume across all APO instances; use Global for VB-Audio Matrix.</source>
-        <translation>「單一端點」會跟隨目前的 APO 播放端點。「全域」會讓所有 APO 執行個體跟隨 Windows 預設的「多媒體」播放音量；使用 VB-Audio Matrix 時請選擇「全域」。</translation>
+        <source>Single follows the current APO playback endpoint. Global follows the Windows default Multimedia playback volume across all instances; use Global only when that master volume is the intended shared control. If a Matrix endpoint is muted or fixed, use Single or manual volume.</source>
+        <translation>「單一端點」會跟隨目前的 APO 播放端點。「全域」會讓所有執行個體跟隨 Windows 預設的「多媒體」播放音量；只有該主音量確實是預期的共用控制時才使用「全域」。若 Matrix 端點為靜音或固定音量，請使用「單一端點」或手動音量。</translation>
     </message>
     <message>
         <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="337"/>
@@ -1203,8 +1203,8 @@ Alexander Walch</source>
     </message>
     <message>
         <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="322"/>
-        <source>Single follows the current APO playback endpoint. Global follows the Windows default Multimedia playback volume across all APO instances; use Global for VB-Audio Matrix.</source>
-        <translation>「單一端點」會跟隨目前的 APO 播放端點。「全域」會讓所有 APO 執行個體跟隨 Windows 預設的「多媒體」播放音量；使用 VB-Audio Matrix 時請選擇「全域」。</translation>
+        <source>Single follows the current APO playback endpoint. Global follows the Windows default Multimedia playback volume across all instances; use Global only when that master volume is the intended shared control. If a Matrix endpoint is muted or fixed, use Single or manual volume.</source>
+        <translation>「單一端點」會跟隨目前的 APO 播放端點。「全域」會讓所有執行個體跟隨 Windows 預設的「多媒體」播放音量；只有該主音量確實是預期的共用控制時才使用「全域」。若 Matrix 端點為靜音或固定音量，請使用「單一端點」或手動音量。</translation>
     </message>
     <message>
         <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="326"/>

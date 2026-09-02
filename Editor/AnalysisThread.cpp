@@ -162,6 +162,7 @@ void AnalysisThread::run()
 		qint64 startTime = timer.nsecsElapsed();
 
 		FilterEngine engine;
+		engine.setOfflineAnalysis(true);
 		engine.setDeviceInfo(device->isInput(), true, device->getDeviceName(), device->getConnectionName(), device->getDeviceGuid(), device->getDeviceString());
 		engine.initialize(sampleRate, channelCount, channelCount, channelCount, channelMask, frameCount, configPath.toStdWString());
 		double initializationTime = (timer.nsecsElapsed() - startTime) / 1e6;

@@ -536,6 +536,80 @@ namespace
 		return passed;
 	}
 
+	bool runLoudnessOfflineAnalysisTests()
+	{
+		const unsigned sampleRate = 48000;
+		const unsigned frameCount = 65536;
+		auto renderFirstWindow = [=](
+			bool state,
+			float referenceOffset,
+			bool manualVolume,
+			vector<double>& output)
+		{
+			LoudnessCorrectionFilter::FilterParameters parameters;
+			parameters.state = state;
+			parameters.referenceLevel = 80.0f;
+			parameters.referenceOffset = referenceOffset;
+			parameters.attenuation = 1.0f;
+			parameters.binding =
+				LoudnessCorrectionFilter::FilterParameters::BINDING_SINGLE;
+			parameters.useManualVolume = manualVolume;
+			parameters.manualVolume = 0.0f;
+
+			LoudnessCorrectionFilter filter(parameters);
+			FilterRuntimeContext context;
+			context.offlineAnalysis = true;
+			filter.setRuntimeContext(context);
+			vector<wstring> channels(1, L"C");
+			filter.initialize(static_cast<float>(sampleRate), frameCount, channels);
+
+			vector<double> input(frameCount, 0.0);
+			input[0] = 1.0;
+			output.assign(frameCount, 0.0);
+			double* inputChannels[] = { input.data() };
+			double* outputChannels[] = { output.data() };
+			filter.process(outputChannels, inputChannels, frameCount);
+			return input;
+		};
+
+		vector<double> offset0;
+		vector<double> offset40;
+		vector<double> disabled;
+		vector<double> unavailableAutomatic;
+		vector<double> input = renderFirstWindow(true, 0.0f, true, offset0);
+		(void)renderFirstWindow(true, 40.0f, true, offset40);
+		(void)renderFirstWindow(false, 40.0f, true, disabled);
+		(void)renderFirstWindow(true, 40.0f, false, unavailableAutomatic);
+
+		double maximumOffsetDifference = 0.0;
+		double maximumDisabledError = 0.0;
+		double maximumUnavailableError = 0.0;
+		bool finite = true;
+		for (unsigned frame = 0; frame < frameCount; ++frame)
+		{
+			finite = finite && std::isfinite(offset0[frame]) &&
+				std::isfinite(offset40[frame]) && std::isfinite(disabled[frame]) &&
+				std::isfinite(unavailableAutomatic[frame]);
+			maximumOffsetDifference = (std::max)(maximumOffsetDifference,
+				std::abs(offset0[frame] - offset40[frame]));
+			maximumDisabledError = (std::max)(maximumDisabledError,
+				std::abs(disabled[frame] - input[frame]));
+			maximumUnavailableError = (std::max)(maximumUnavailableError,
+				std::abs(unavailableAutomatic[frame] - input[frame]));
+		}
+
+		bool passed = finite && maximumOffsetDifference > 1.0e-6 &&
+			maximumDisabledError <= 1.0e-12 &&
+			maximumUnavailableError <= 1.0e-12;
+		printf(
+			"Loudness offline first window: offset delta %.9g, State0 error %.9g, unavailable error %.9g, %s\n",
+			maximumOffsetDifference,
+			maximumDisabledError,
+			maximumUnavailableError,
+			passed ? "passed" : "failed");
+		return passed;
+	}
+
 	bool runFilterEngineDeviceInfoReuseTests()
 	{
 		FilterEngine engine;
@@ -1458,6 +1532,7 @@ namespace
 		bool passed = runLoudnessFormulaTests();
 		passed = runLoudnessParameterCodecTests() && passed;
 		passed = runLoudnessRuntimeContextTests() && passed;
+		passed = runLoudnessOfflineAnalysisTests() && passed;
 		passed = runFilterEngineDeviceInfoReuseTests() && passed;
 		passed = runLoudnessCrossoverCoefficientTests() && passed;
 		passed = runLoudnessAnchorFitCase(48000) && passed;

@@ -15,6 +15,9 @@ FILTER_ENGINE_HEADER = (ROOT / "FilterEngine.h").read_text(encoding="utf-8")
 EQUALIZER_APO_SOURCE = (
     ROOT / "EqualizerAPO" / "EqualizerAPO.cpp"
 ).read_text(encoding="utf-8")
+ANALYSIS_THREAD_SOURCE = (
+    ROOT / "Editor" / "AnalysisThread.cpp"
+).read_text(encoding="utf-8")
 FILTER_INTERFACE = (ROOT / "IFilter.h").read_text(encoding="utf-8")
 FILTER_HEADER = (
     ROOT / "filters" / "loudnessCorrection" / "LoudnessCorrectionFilter.h"
@@ -149,6 +152,22 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         self.assertIn("runtimeContext.endpointId = deviceGuid;", FILTER_ENGINE)
         self.assertNotIn('L"{0.0.0.00000000}."', FILTER_ENGINE)
         self.assertNotIn('L"{0.0.1.00000000}."', FILTER_ENGINE)
+
+    def test_editor_analysis_explicitly_bypasses_realtime_cold_start(self) -> None:
+        self.assertIn("bool offlineAnalysis = false;", FILTER_INTERFACE)
+        self.assertIn("void setOfflineAnalysis(bool offlineAnalysis);", FILTER_ENGINE_HEADER)
+        self.assertIn("runtimeContext.offlineAnalysis = offlineAnalysis;", FILTER_ENGINE)
+        self.assertNotIn("setOfflineAnalysis", EQUALIZER_APO_SOURCE)
+        self.assertLess(
+            ANALYSIS_THREAD_SOURCE.index("engine.setOfflineAnalysis(true);"),
+            ANALYSIS_THREAD_SOURCE.index("engine.initialize("),
+        )
+        self.assertIn("_runtimeContext.offlineAnalysis", FILTER_SOURCE)
+        polling_block = FILTER_SOURCE.split(
+            "// Manual mode is immutable for the lifetime of a filter instance", 1
+        )[1].split("return channelNames;", 1)[0]
+        self.assertIn("!_runtimeContext.offlineAnalysis", polling_block)
+        self.assertIn("runLoudnessOfflineAnalysisTests", BENCHMARK_SOURCE)
 
     def test_apo_reuse_clears_stale_device_identity_before_lookup(self) -> None:
         self.assertIn("void clearDeviceInfo();", FILTER_ENGINE_HEADER)
@@ -340,7 +359,11 @@ class LoudnessSafetyContractTests(unittest.TestCase):
             "Global (Windows default)",
             gui_ui,
         )
-        self.assertIn("use Global for VB-Audio Matrix", gui_ui)
+        self.assertIn(
+            "use Global only when that master volume is the intended shared control",
+            gui_ui,
+        )
+        self.assertIn("If a Matrix endpoint is muted or fixed", gui_ui)
         self.assertIn("new VolumeController(requestedEndpointId)", gui_source)
         self.assertIn("endpointId = volumeController->getEndpointId()", gui_source)
         refresh_body = gui_source.split(
@@ -447,7 +470,7 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         release_workflow = (
             ROOT / ".github" / "workflows" / "release.yml"
         ).read_text(encoding="utf-8")
-        self.assertEqual(version, "3.0.3")
+        self.assertEqual(version, "3.0.4")
         self.assertEqual(manifest["version-string"], version)
         self.assertIn(f'default: "v{version}"', release_workflow)
 

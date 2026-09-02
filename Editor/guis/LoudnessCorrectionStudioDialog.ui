@@ -319,7 +319,7 @@
            </size>
           </property>
           <property name="toolTip">
-           <string>Single follows the current APO playback endpoint. Global follows the Windows default Multimedia playback volume across all APO instances; use Global for VB-Audio Matrix.</string>
+            <string>Single follows the current APO playback endpoint. Global follows the Windows default Multimedia playback volume across all instances; use Global only when that master volume is the intended shared control. If a Matrix endpoint is muted or fixed, use Single or manual volume.</string>
           </property>
           <item>
            <property name="text">

@@ -67,6 +67,7 @@ static_assert(std::atomic<FilterConfiguration*>::is_always_lock_free,
 FilterEngine::FilterEngine()
 	: allocatedFrameCount(0),
 	  preMix(false),
+	  offlineAnalysis(false),
 	  deviceInfoKnown(false),
 	  capture(false),
 	  postMixInstalled(true),
@@ -166,6 +167,11 @@ void FilterEngine::resizeBuffers(unsigned frameCount) {
 void FilterEngine::setPreMix(bool preMix)
 {
 	this->preMix = preMix;
+}
+
+void FilterEngine::setOfflineAnalysis(bool offlineAnalysis)
+{
+	this->offlineAnalysis = offlineAnalysis;
 }
 
 void FilterEngine::clearDeviceInfo()
@@ -757,6 +763,7 @@ void FilterEngine::addFilters(vector<IFilter*> filters)
 		FilterRuntimeContext runtimeContext;
 		runtimeContext.flowKnown = deviceInfoKnown;
 		runtimeContext.isCapture = capture;
+		runtimeContext.offlineAnalysis = offlineAnalysis;
 		if (!deviceGuid.empty())
 			runtimeContext.endpointId = deviceGuid;
 		filter->setRuntimeContext(runtimeContext);

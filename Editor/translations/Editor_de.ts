@@ -1026,7 +1026,7 @@ Alexander Walch</translation>
     </message>
     <message>
         <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="333"/>
-        <source>Single follows the current APO playback endpoint. Global follows the Windows default Multimedia playback volume across all APO instances; use Global for VB-Audio Matrix.</source>
+        <source>Single follows the current APO playback endpoint. Global follows the Windows default Multimedia playback volume across all instances; use Global only when that master volume is the intended shared control. If a Matrix endpoint is muted or fixed, use Single or manual volume.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1256,7 +1256,7 @@ Alexander Walch</translation>
     </message>
     <message>
         <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="322"/>
-        <source>Single follows the current APO playback endpoint. Global follows the Windows default Multimedia playback volume across all APO instances; use Global for VB-Audio Matrix.</source>
+        <source>Single follows the current APO playback endpoint. Global follows the Windows default Multimedia playback volume across all instances; use Global only when that master volume is the intended shared control. If a Matrix endpoint is muted or fixed, use Single or manual volume.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

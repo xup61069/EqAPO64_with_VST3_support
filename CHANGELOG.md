@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.4
+
+- Fixed Configuration Editor analysis so the first displayed response uses the saved loudness-correction settings; changing `ReferenceOffset` now changes the displayed curve immediately instead of being hidden by the realtime cold-start bypass.
+- Kept unavailable automatic-volume bindings fail-closed during offline analysis, and added native and runtime regressions that prove `ReferenceOffset` changes processed output while disabled or unavailable filters remain bit-transparent.
+- Corrected the Single/Global binding guidance for Matrix-style routing. Global is appropriate only when the Windows default Multimedia master volume is the intended shared control; muted or fixed virtual defaults require Single or manual volume.
+
 ## 3.0.3
 
 - Fixed the v3.0.2 installer recovery loop caused by NSIS append mode preserving a file without moving its write pointer to the end. The next installer now retires the corrupted protected manifest, keeps ambiguous `.old` backups untouched, finishes committed recovery cleanup, and continues installation.

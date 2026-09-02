@@ -43,6 +43,7 @@ public:
 	~FilterEngine();
 
 	void setPreMix(bool preMix);
+	void setOfflineAnalysis(bool offlineAnalysis);
 	void clearDeviceInfo();
 	void setDeviceInfo(bool capture, bool postMixInstalled, const std::wstring& deviceName, const std::wstring& connectionName, const std::wstring& deviceGuid, const std::wstring& deviceString);
 	void initialize(float sampleRate, unsigned inputChannelCount, unsigned realChannelCount, unsigned outputChannelCount, unsigned channelMask, unsigned maxFrameCount, const std::wstring& customPath = L"");
@@ -88,6 +89,7 @@ private:
 	unsigned allocatedFrameCount;
 
 	bool preMix;
+	bool offlineAnalysis;
 	bool deviceInfoKnown;
 	bool capture;
 	bool postMixInstalled;

@@ -26,9 +26,11 @@ $previousPath = $env:Path
 try {
 	$disabledConfig = Join-Path $resolvedTestDirectory "disabled.txt"
 	$enabledConfig = Join-Path $resolvedTestDirectory "enabled.txt"
+	$offsetConfig = Join-Path $resolvedTestDirectory "offset-40.txt"
 	$legacyConfig = Join-Path $resolvedTestDirectory "legacy-unmarked.txt"
 	$disabledOutput = Join-Path $resolvedTestDirectory "disabled.wav"
 	$enabledOutput = Join-Path $resolvedTestDirectory "enabled.wav"
+	$offsetOutput = Join-Path $resolvedTestDirectory "offset-40.wav"
 	$legacyOutput = Join-Path $resolvedTestDirectory "legacy-unmarked.wav"
 
 	$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
@@ -47,6 +49,12 @@ try {
 		$enabledConfig,
 		$integrationInputHeadroom +
 			"LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0",
+		$utf8NoBom
+	)
+	[System.IO.File]::WriteAllText(
+		$offsetConfig,
+		$integrationInputHeadroom +
+			"LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 1 ReferenceLevel 80 ReferenceOffset 40 Attenuation 1.0 Volume -38.0",
 		$utf8NoBom
 	)
 	# This deliberately overlaps the historical, unmarked syntax. It must not
@@ -79,6 +87,10 @@ try {
 	if ($LASTEXITCODE -ne 0) {
 		throw "Enabled runtime benchmark failed:`n$($enabledLog -join [Environment]::NewLine)"
 	}
+	$offsetLog = & $benchmark @commonArguments --config $offsetConfig --output $offsetOutput 2>&1
+	if ($LASTEXITCODE -ne 0) {
+		throw "Reference-offset runtime benchmark failed:`n$($offsetLog -join [Environment]::NewLine)"
+	}
 	$legacyLog = & $benchmark @commonArguments --config $legacyConfig --output $legacyOutput 2>&1
 	if ($LASTEXITCODE -ne 0) {
 		throw "Legacy fail-closed benchmark failed:`n$($legacyLog -join [Environment]::NewLine)"
@@ -86,14 +98,19 @@ try {
 
 	if (!(Test-Path -LiteralPath $disabledOutput) -or
 		!(Test-Path -LiteralPath $enabledOutput) -or
+		!(Test-Path -LiteralPath $offsetOutput) -or
 		!(Test-Path -LiteralPath $legacyOutput)) {
 		throw "Benchmark did not produce all expected WAV files."
 	}
 	$disabledHash = (Get-FileHash -LiteralPath $disabledOutput -Algorithm SHA256).Hash
 	$enabledHash = (Get-FileHash -LiteralPath $enabledOutput -Algorithm SHA256).Hash
+	$offsetHash = (Get-FileHash -LiteralPath $offsetOutput -Algorithm SHA256).Hash
 	$legacyHash = (Get-FileHash -LiteralPath $legacyOutput -Algorithm SHA256).Hash
 	if ($disabledHash -eq $enabledHash) {
 		throw "Loudness correction produced the same output as the disabled filter."
+	}
+	if ($offsetHash -eq $enabledHash) {
+		throw "ReferenceOffset 0 and ReferenceOffset 40 produced the same runtime output."
 	}
 	if ($legacyHash -ne $disabledHash) {
 		throw "Unmarked legacy loudness settings did not fail closed to bypass."
@@ -169,7 +186,7 @@ try {
 		Write-Host "$($safetyCase.Name): maximum output $maximumOutput"
 	}
 
-	Write-Host "Runtime loudness test passed: marked output differs, legacy settings fail closed, and all safety cases avoid clipping."
+	Write-Host "Runtime loudness test passed: ReferenceOffset changes output, legacy settings fail closed, and all safety cases avoid clipping."
 }
 finally {
 	$env:Path = $previousPath

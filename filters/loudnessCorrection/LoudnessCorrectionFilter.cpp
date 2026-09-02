@@ -299,12 +299,26 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 		}
 	}
 
-	// Every enabled instance first accumulates live fixed-crossover history,
-	// even when its initial correction is neutral or endpoint tracking starts
-	// in fail-closed bypass. A non-neutral target remains pending until that
-	// history is ready; this prevents an early volume update or recovery from
-	// copying a partially settled 25 Hz state into an audible transition.
-	if (_parameters.state && _parameters.attenuation > 0.0f &&
+	// Offline editor analysis has no realtime handoff to protect. Start from the
+	// configured bank so its first finite analysis window represents the saved
+	// settings instead of the realtime cold-start bypass.
+	if (_runtimeContext.offlineAnalysis)
+	{
+		// An unavailable automatic source must remain the same fail-closed raw
+		// path as realtime processing; otherwise analysis would briefly expose
+		// coefficients calculated from the placeholder 0 dB value.
+		if (!_runtimeBypass.load(std::memory_order_relaxed))
+		{
+			std::fill(_crossoverDomainActive.begin(), _crossoverDomainActive.end(), 1);
+			_crossoverDomainChannelCount = _channelCount;
+		}
+	}
+	// Every enabled realtime instance first accumulates live fixed-crossover
+	// history, even when its initial correction is neutral or endpoint tracking
+	// starts in fail-closed bypass. A non-neutral target remains pending until
+	// that history is ready; this prevents an early volume update or recovery
+	// from copying a partially settled 25 Hz state into an audible transition.
+	else if (_parameters.state && _parameters.attenuation > 0.0f &&
 		_activeBandCount > 0)
 	{
 		_bankIdentity[0] = true;
@@ -323,9 +337,11 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 	}
 
 	// Manual mode is immutable for the lifetime of a filter instance, so it
-	// needs no polling thread. A configuration edit creates a new instance.
+	// needs no polling thread. Offline analysis uses the one synchronous volume
+	// snapshot above; polling while rendering would make that snapshot depend on
+	// thread scheduling. A configuration edit creates a new instance.
 	if (_parameters.state && !_parameters.useManualVolume &&
-		canTrackAutomaticVolume())
+		!_runtimeContext.offlineAnalysis && canTrackAutomaticVolume())
 	{
 		_stopParameterUpdateThreadEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 		if (_stopParameterUpdateThreadEvent)

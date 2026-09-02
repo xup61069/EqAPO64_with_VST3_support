@@ -54,7 +54,7 @@ Setup keeps a persistent recovery journal outside the application directory whil
 
 1. Open **Equalizer APO Configuration Editor** and select the playback endpoint you intend to use.
 2. Add **Advanced filters → Loudness correction**.
-3. Choose **Single endpoint** to follow the playback endpoint on which this APO instance is running. Choose **Global (Windows default)** when every loudness-correction instance should share the Windows default Multimedia playback volume, as in a VB-Audio Matrix routing setup.
+3. Choose **Single endpoint** to follow the playback endpoint on which this APO instance is running. Choose **Global (Windows default)** only when every loudness-correction instance should deliberately share that default endpoint's master volume.
 4. Leave **Manual volume** off for automatic tracking, or enable it when Windows cannot represent the actual listening volume.
 5. Set the reference level and correction strength. Use calibration only if a suitable SPL meter is available.
 6. Confirm the stored command is enabled and contains `State 1`.
@@ -100,7 +100,7 @@ The UI permits a 1–100 phon reference and the runtime clamps the calculated cu
 Automatic mode has two explicit bindings:
 
 - **Single endpoint** (`Binding Single`) follows the actual playback endpoint on which that APO instance is running. It never falls back to the Windows default or another device. Use this for ordinary physical outputs and whenever each endpoint must follow its own volume.
-- **Global (Windows default)** (`Binding All`) makes every loudness-correction instance follow the master volume of the current Windows default `eRender`/`eMultimedia` endpoint. Use this when VB-Audio Matrix or a similar routing graph needs several APO instances to share one volume control. The controller checks the default identity at least once every two seconds; after it detects a change, it discards the old endpoint before binding the new one. A failed rebind fails closed through the 10 ms behavior below instead of returning to the old endpoint.
+- **Global (Windows default)** (`Binding All`) makes every loudness-correction instance follow the master volume of the current Windows default `eRender`/`eMultimedia` endpoint. Use it for a Matrix-style routing graph only when that default master volume is the intended shared control. If the virtual default is muted, fixed at its minimum, or is not the control that represents listening level, use `Binding Single` or manual volume instead. The controller checks the default identity at least once every two seconds; after it detects a change, it discards the old endpoint before binding the new one. A failed rebind fails closed through the 10 ms behavior below instead of returning to the old endpoint.
 
 If the required endpoint disappears, is replaced but cannot be rebound, or its volume cannot be read, automatic correction fails closed. Before the cold handoff, output remains raw. Once the A domain is active, only the correction residual is faded to the uncorrected `A = L + H` path over 10 ms. After the configured source recovers, the target bank warms silently for 250 ms and correction fades back in over 100 ms; if the cold handoff is still pending, recovery remains uncorrected until that handoff is safe. `Binding Single` remains bypassed when Windows cannot identify a playback APO context. `Binding All` preserves the original Mixomo behavior by reading the default `eRender`/`eMultimedia` endpoint directly, independently of the current APO's endpoint metadata.
 
@@ -138,7 +138,7 @@ Adding `Volume -38.0` selects manual mode:
 LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0
 ```
 
-For a VB-Audio Matrix-style shared-volume graph, use `Binding All` and omit `Volume`:
+For a Matrix-style graph whose Windows default Multimedia master volume is the shared control, use `Binding All` and omit `Volume`:
 
 ```text
 LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding All State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0
@@ -195,7 +195,7 @@ Configuration files and registry backups are preserved unless **Remove configura
 |---|---|
 | No audible processing | Confirm the endpoint is enabled in Device Selector, the command is not commented out, and it contains `State 1`. Restart the Windows audio service or reboot after device-registration changes. |
 | Loudness correction remains flat | Check that `Attenuation` is above zero and that the current level differs from the reference contour. |
-| Automatic volume is unavailable | For per-device tracking, use `Binding Single` on a readable, identified playback endpoint. For a Matrix-style shared control, use `Binding All` and make the intended volume source the Windows default Multimedia playback endpoint. Global mode does not require metadata for the current APO endpoint. |
+| Automatic volume is unavailable or stuck at the floor | For per-device tracking, use `Binding Single` on a readable, identified playback endpoint. Use `Binding All` only if the Windows default Multimedia master volume is the intended shared control; a muted or fixed Matrix endpoint requires `Binding Single` or manual volume. Global mode does not require metadata for the current APO endpoint. |
 | The wrong endpoint volume is followed | Use `Binding Single` to follow the APO's actual endpoint. Use `Binding All` only when every instance should deliberately share the Windows default Multimedia volume. |
 | Calibration is blocked | Make the selected endpoint the Windows default Console playback device and confirm its volume is readable. With `Binding All`, it must also be the default Multimedia device. Then reopen calibration. |
 | Calibration does not follow a hardware knob | Use manual volume and update it when the analog gain changes; Windows cannot observe that knob. |
