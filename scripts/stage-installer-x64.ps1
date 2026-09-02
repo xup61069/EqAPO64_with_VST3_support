@@ -1,6 +1,7 @@
 param(
 	[string]$Configuration = "Release",
-	[string]$QtRoot = ""
+	[string]$QtRoot = "",
+	[string]$VisualStudioEdition = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -9,6 +10,7 @@ $thirdParty = Join-Path $root "third_party"
 $triplet = "x64-windows"
 $outDir = Join-Path $root "x64\$Configuration"
 $libDir = Join-Path $root "Setup\lib64"
+Import-Module (Join-Path $PSScriptRoot "VisualStudioTools.psm1") -Force
 
 if (!(Test-Path -LiteralPath $outDir)) {
 	throw "Build output directory not found: $outDir"
@@ -16,7 +18,7 @@ if (!(Test-Path -LiteralPath $outDir)) {
 
 if ($QtRoot -eq "") {
 	$qtCandidates = Get-ChildItem -Path (Join-Path $thirdParty "Qt") -Filter windeployqt.exe -Recurse -ErrorAction SilentlyContinue |
-		Where-Object { $_.FullName -match "\\msvc2022_64\\bin\\windeployqt.exe$" } |
+		Where-Object { $_.FullName -match "\\msvc\d*_64\\bin\\windeployqt.exe$" } |
 		Sort-Object FullName
 	if ($qtCandidates.Count -eq 0) {
 		throw "Qt windeployqt.exe not found under third_party\Qt. Run scripts\bootstrap-third-party.ps1 -WithQt first."
@@ -84,31 +86,9 @@ $vcRuntimeDlls = @(
 	"vcruntime140_1.dll"
 )
 
-$vcRedistCandidates = Get-ChildItem -Path @(
-	(Join-Path ${env:ProgramFiles} "Microsoft Visual Studio\2022"),
-	(Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\2022")
-) -Recurse -Directory -ErrorAction SilentlyContinue |
-	Where-Object { $_.FullName -match "\\VC\\Redist\\MSVC\\[^\\]+\\x64\\Microsoft\.VC\d+\.CRT$" } |
-	Sort-Object FullName -Descending
-
-$vcRedistDir = $null
-foreach ($candidate in $vcRedistCandidates) {
-	$missing = $false
-	foreach ($dll in $vcRuntimeDlls) {
-		if (!(Test-Path -LiteralPath (Join-Path $candidate.FullName $dll))) {
-			$missing = $true
-			break
-		}
-	}
-	if (!$missing) {
-		$vcRedistDir = $candidate.FullName
-		break
-	}
-}
-
-if ($null -eq $vcRedistDir) {
-	throw "Visual C++ x64 runtime redistributable files were not found. Install Visual Studio 2022 C++ redistributables or build tools."
-}
+$vcRedistDir = Get-VisualStudioRedistDirectory `
+	-Edition $VisualStudioEdition `
+	-RequiredFiles $vcRuntimeDlls
 
 foreach ($dll in $vcRuntimeDlls) {
 	Copy-Item -LiteralPath (Join-Path $vcRedistDir $dll) -Destination (Join-Path $libDir $dll) -Force
@@ -121,7 +101,7 @@ New-Item -ItemType Directory -Force -Path $deployDir | Out-Null
 foreach ($app in $qtApps) {
 	$tempApp = Join-Path $deployDir $app
 	Copy-Item -LiteralPath (Join-Path $outDir $app) -Destination $tempApp -Force
-	& $windeployqt --release --no-translations --no-compiler-runtime --dir $deployDir $tempApp
+	& $windeployqt --release --no-translations --no-compiler-runtime --no-system-dxc-compiler --dir $deployDir $tempApp
 	if ($LASTEXITCODE -ne 0) {
 		throw "windeployqt failed for $app with exit code $LASTEXITCODE"
 	}
@@ -164,6 +144,41 @@ foreach ($plugin in $pluginFiles) {
 	$dest = Join-Path $libDir ("qt\" + $plugin)
 	New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dest) | Out-Null
 	Copy-Item -LiteralPath $src -Destination $dest -Force
+}
+
+# Keep this final preflight exhaustive: makensis must never receive a partial
+# payload and produce an installer that can reach elevated registration steps.
+$requiredInstallerAssets = @(
+	(Join-Path $outDir "EqualizerAPO.dll"),
+	(Join-Path $outDir "DeviceSelector.exe"),
+	(Join-Path $outDir "Benchmark.exe"),
+	(Join-Path $outDir "VoicemeeterClient.exe"),
+	(Join-Path $outDir "UpdateChecker.exe"),
+	(Join-Path $outDir "Editor.exe"),
+	(Join-Path $root "NOTICE.md"),
+	(Join-Path $root "Setup\\Configuration tutorial (online).url"),
+	(Join-Path $root "Setup\\Configuration reference (online).url"),
+	(Join-Path $root "Setup\\qt.conf"),
+	(Join-Path $root "Setup\\config\\config.txt"),
+	(Join-Path $root "Setup\\config\\example.txt"),
+	(Join-Path $root "Setup\\config\\demo.txt"),
+	(Join-Path $root "Setup\\config\\multichannel.txt"),
+	(Join-Path $root "Setup\\config\\iir_lowpass.txt"),
+	(Join-Path $root "Setup\\config\\selective_delay.txt")
+)
+$requiredInstallerAssets += $runtimeDlls | ForEach-Object { Join-Path $libDir $_ }
+$requiredInstallerAssets += $vcRuntimeDlls | ForEach-Object { Join-Path $libDir $_ }
+$requiredInstallerAssets += $qtDlls | ForEach-Object { Join-Path $libDir $_ }
+$requiredInstallerAssets += $pluginFiles | ForEach-Object { Join-Path $libDir ("qt\\" + $_) }
+$requiredInstallerAssets += (Join-Path $libDir "libfftw3.dll")
+
+foreach ($asset in $requiredInstallerAssets) {
+	if (!(Test-Path -LiteralPath $asset -PathType Leaf)) {
+		throw "Required installer asset not found after staging: $asset"
+	}
+	if ((Get-Item -LiteralPath $asset).Length -eq 0) {
+		throw "Required installer asset is empty after staging: $asset"
+	}
 }
 
 Write-Host "Installer staging is ready: $outDir and $libDir."

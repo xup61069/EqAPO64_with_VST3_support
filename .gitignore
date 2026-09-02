@@ -184,6 +184,8 @@ ClientBin/
 *.pfx
 *.publishsettings
 node_modules/
+__pycache__/
+*.py[cod]
 .codex-tools/
 _deps/
 _build/
@@ -199,7 +201,7 @@ third_party/**/install/
 third_party/downloads/
 third_party/packages/
 Setup/*.exe
-!Setup/EqualizerAPO-x64-1.4.2.exe
+Setup/*.sha256
 Setup/lib32/
 Setup/lib64/
 Setup/libARM64/
@@ -263,7 +265,3 @@ paket-files/
 # JetBrains Rider
 .idea/
 *.sln.iml
-
-# Python test caches
-__pycache__/
-*.py[cod]
