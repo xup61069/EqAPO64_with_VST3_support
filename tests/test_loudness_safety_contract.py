@@ -14,6 +14,9 @@ FILTER_ENGINE = (ROOT / "FilterEngine.cpp").read_text(encoding="utf-8")
 FILTER_HEADER = (
     ROOT / "filters" / "loudnessCorrection" / "LoudnessCorrectionFilter.h"
 ).read_text(encoding="utf-8")
+PARAMETER_ARCHIVE_HEADER = (
+    ROOT / "filters" / "loudnessCorrection" / "ParameterArchive.h"
+).read_text(encoding="utf-8")
 FILTER_SOURCE = (
     ROOT / "filters" / "loudnessCorrection" / "LoudnessCorrectionFilter.cpp"
 ).read_text(encoding="utf-8")
@@ -73,6 +76,22 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         self.assertIn("if (!(isFormulaSchema && isFormulaModel))", FILTER_HEADER)
         self.assertIn("if (referenceLevel <= 0.0f)", FILTER_HEADER)
         self.assertNotIn("referenceLevel = 80.0f;", FILTER_HEADER)
+
+    def test_wide_literal_field_names_round_trip_through_native_codec(self) -> None:
+        self.assertIn(
+            "to_WString_type_traits<wchar_t[size]>", PARAMETER_ARCHIVE_HEADER
+        )
+        self.assertIn("return std::wstring(input);", PARAMETER_ARCHIVE_HEADER)
+        self.assertIn(
+            '"Schema 1 Model FormulaLoudnessV1 ", 0', BENCHMARK_SOURCE
+        )
+        self.assertIn('checkCase("marked-round-trip"', BENCHMARK_SOURCE)
+        self.assertIn(
+            'checkCase("unmarked-formula-fails-closed"', BENCHMARK_SOURCE
+        )
+        self.assertIn(
+            'checkCase("unmarked-mixomo-legacy-fails-closed"', BENCHMARK_SOURCE
+        )
 
     def test_workflow_runtime_configs_are_marked_and_legacy_stays_bypassed(self) -> None:
         marker = "Schema 1 Model FormulaLoudnessV1"

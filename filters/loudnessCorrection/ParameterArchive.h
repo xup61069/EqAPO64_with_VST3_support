@@ -60,6 +60,11 @@ template<> struct to_WString_type_traits<std::wstring>
 	static inline std::wstring cast_ToWString(const std::wstring& input) {return input;}
 };
 
+template<size_t size> struct to_WString_type_traits<wchar_t[size]>
+{
+	static inline std::wstring cast_ToWString(const wchar_t (&input)[size]) {return std::wstring(input);}
+};
+
 template<typename type> struct from_WString_type_traits
 {
 	static inline type cast_fromWString(const std::wstring& input) {return (type)wcstod(input.c_str(), NULL);}

@@ -100,6 +100,13 @@ namespace
 
 	bool runLoudnessParameterCodecTests()
 	{
+		auto checkCase = [](const char* name, bool result)
+		{
+			if (!result)
+				fprintf(stderr, "Loudness parameter codec case '%s' failed.\n", name);
+			return result;
+		};
+
 		LoudnessCorrectionFilter::FilterParameters source;
 		source.state = false;
 		source.referenceLevel = 75.5f;
@@ -108,30 +115,47 @@ namespace
 		source.useManualVolume = true;
 		source.manualVolume = -24.5f;
 
-		LoudnessCorrectionFilter::FilterParameters roundTrip(source.serialize());
-		bool passed = roundTrip.isInitialized()
+		std::vector<char> serialized = source.serialize();
+		std::string serializedText(serialized.begin(), serialized.end());
+		LoudnessCorrectionFilter::FilterParameters roundTrip(serialized);
+		bool roundTripPassed = serializedText.rfind(
+			"Schema 1 Model FormulaLoudnessV1 ", 0) == 0
+			&& roundTrip.isInitialized()
 			&& !roundTrip.state
 			&& std::abs(roundTrip.referenceLevel - 75.5f) < 1.0e-6f
 			&& std::abs(roundTrip.referenceOffset + 2.25f) < 1.0e-6f
 			&& std::abs(roundTrip.attenuation - 0.75f) < 1.0e-6f
 			&& roundTrip.useManualVolume
 			&& std::abs(roundTrip.manualVolume + 24.5f) < 1.0e-6f;
+		bool passed = checkCase("marked-round-trip", roundTripPassed);
+		if (!roundTripPassed)
+		{
+			fprintf(stderr,
+				"Serialized codec payload: '%.*s'; decoded initialized=%d state=%d "
+				"referenceLevel=%.9g referenceOffset=%.9g attenuation=%.9g "
+				"useManualVolume=%d manualVolume=%.9g.\n",
+				static_cast<int>(serializedText.size()), serializedText.c_str(),
+				roundTrip.isInitialized(), roundTrip.state,
+				roundTrip.referenceLevel, roundTrip.referenceOffset,
+				roundTrip.attenuation, roundTrip.useManualVolume,
+				roundTrip.manualVolume);
+		}
 
 		LoudnessCorrectionFilter::FilterParameters commaDecimal(std::wstring(
 			L"Schema 1 Model FormulaLoudnessV1 State 0 ReferenceLevel 75,5 "
 			L"ReferenceOffset -2,25 Attenuation 0,75 Volume -24,5"));
-		passed = commaDecimal.isInitialized()
+		passed = checkCase("marked-comma-decimal", commaDecimal.isInitialized()
 			&& !commaDecimal.state
 			&& std::abs(commaDecimal.referenceLevel - 75.5f) < 1.0e-6f
 			&& std::abs(commaDecimal.referenceOffset + 2.25f) < 1.0e-6f
 			&& std::abs(commaDecimal.attenuation - 0.75f) < 1.0e-6f
 			&& commaDecimal.useManualVolume
-			&& std::abs(commaDecimal.manualVolume + 24.5f) < 1.0e-6f
-			&& passed;
+			&& std::abs(commaDecimal.manualVolume + 24.5f) < 1.0e-6f) && passed;
 
 		LoudnessCorrectionFilter::FilterParameters releasedFormula(std::wstring(
 			L"State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1"));
-		passed = !releasedFormula.isInitialized() && passed;
+		passed = checkCase("unmarked-formula-fails-closed",
+			!releasedFormula.isInitialized()) && passed;
 
 		LoudnessCorrectionFilter::FilterParameters mixomoLegacy(std::wstring(
 			L"State 1 ReferenceLevel 0 ReferenceOffset 0 Attenuation 1"));
@@ -143,11 +167,14 @@ namespace
 		LoudnessCorrectionFilter::FilterParameters duplicate(std::wstring(
 			L"Schema 1 Model FormulaLoudnessV1 State 1 State 0 "
 			L"ReferenceLevel 80 ReferenceOffset 0 Attenuation 1"));
-		passed = !mixomoLegacy.isInitialized()
-			&& !unknownModel.isInitialized()
-			&& !truncated.isInitialized()
-			&& !duplicate.isInitialized()
-			&& passed;
+		passed = checkCase("unmarked-mixomo-legacy-fails-closed",
+			!mixomoLegacy.isInitialized()) && passed;
+		passed = checkCase("unknown-model-fails-closed",
+			!unknownModel.isInitialized()) && passed;
+		passed = checkCase("truncated-input-fails-closed",
+			!truncated.isInitialized()) && passed;
+		passed = checkCase("duplicate-field-fails-closed",
+			!duplicate.isInitialized()) && passed;
 
 		printf("Loudness parameter codec: %s\n", passed ? "passed" : "failed");
 		return passed;
