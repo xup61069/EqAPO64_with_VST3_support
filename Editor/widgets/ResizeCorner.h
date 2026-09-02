@@ -31,8 +31,10 @@ class ResizeCorner : public QLabel
 public:
 	explicit ResizeCorner(FilterTable* filterTable, QSize minimumSize, QSize maximumSize,
 		std::function<QSize()> getFunc, std::function<void(QSize)> setFunc, QWidget* parent = 0);
+	QSize sizeHint() const override;
 
 protected:
+	void paintEvent(QPaintEvent* event) override;
 	void mousePressEvent(QMouseEvent* event) override;
 	void mouseMoveEvent(QMouseEvent* event) override;
 	void mouseReleaseEvent(QMouseEvent*) override;

@@ -113,10 +113,6 @@
    </property>
   </action>
   <action name="actionRemove">
-   <property name="icon">
-    <iconset resource="Editor.qrc">
-     <normaloff>:/icons/list-remove-red.ico</normaloff>:/icons/list-remove-red.ico</iconset>
-   </property>
    <property name="text">
     <string>Remove</string>
    </property>
@@ -124,10 +120,6 @@
   <action name="actionEditText">
    <property name="checkable">
     <bool>true</bool>
-   </property>
-   <property name="icon">
-    <iconset resource="Editor.qrc">
-     <normaloff>:/icons/accessories-text-editor.ico</normaloff>:/icons/accessories-text-editor.ico</iconset>
    </property>
    <property name="text">
     <string>Edit text</string>

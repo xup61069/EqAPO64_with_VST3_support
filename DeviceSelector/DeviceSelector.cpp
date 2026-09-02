@@ -21,10 +21,31 @@
 #include <DeviceAPOInfo.h>
 #include <helpers/RegistryHelper.h>
 #include <helpers/ServiceHelper.h>
+#include <helpers/UiSnapshot.h>
 #include <VoicemeeterAPOInfo.h>
 #include "DeviceTestDialog.h"
+#include "OpacityIconEngine.h"
 #include "../version.h"
 #include "DeviceSelector.h"
+
+namespace
+{
+	constexpr int DeviceInfoRole = Qt::UserRole;
+
+	bool hasPendingChange(const std::shared_ptr<AbstractAPOInfo>& apoInfo, bool checked)
+	{
+		return checked != apoInfo->isInstalled()
+			|| checked && apoInfo->isInstalled()
+			&& (apoInfo->canBeUpgraded() || apoInfo->hasChanges() || apoInfo->isEnhancementsDisabled());
+	}
+
+	void refreshDynamicStyle(QWidget* widget)
+	{
+		widget->style()->unpolish(widget);
+		widget->style()->polish(widget);
+		widget->update();
+	}
+}
 
 DeviceSelector::DeviceSelector(QWidget* parent)
 	: QDialog(parent)
@@ -37,36 +58,16 @@ DeviceSelector::DeviceSelector(QWidget* parent)
 	if (REVISION != 0)
 		version += QString(".%0").arg(REVISION);
 	setWindowTitle(QString("Equalizer APO %0 Device Selector").arg(version));
+	setAccessibleName(windowTitle());
+	setAccessibleDescription(ui.requestLabel->text());
 
-	try
-	{
-		QTreeWidgetItem* outputNode = new QTreeWidgetItem(ui.deviceTreeWidget, QStringList(tr("Playback devices")));
-		outputNode->setExpanded(true);
-		std::vector<std::shared_ptr<AbstractAPOInfo>> outputDevices = DeviceAPOInfo::loadAllInfos(false);
-		addDevices(outputDevices, outputNode);
-
-		QTreeWidgetItem* inputNode = new QTreeWidgetItem(ui.deviceTreeWidget, QStringList(tr("Capture devices")));
-		inputNode->setExpanded(true);
-		std::vector<std::shared_ptr<AbstractAPOInfo>> inputDevices = DeviceAPOInfo::loadAllInfos(true);
-		addDevices(inputDevices, inputNode);
-	}
-	catch (RegistryException e)
-	{
-		QMessageBox::critical(this, tr("Error while accessing the registry"), QString::fromStdWString(e.getMessage()));
-	}
-
-	for (int i = 0; i < ui.deviceTreeWidget->columnCount(); i++)
-		ui.deviceTreeWidget->resizeColumnToContents(i);
-
-	ui.deviceTreeWidget->setContextMenuPolicy(Qt::CustomContextMenu);
+	configureDeviceTree();
 
 	if (!RegistryHelper::isWindowsVersionAtLeast(6, 3)) // Windows 8.1
 	{
 		ui.installModeComboBox->removeItem(2);
 		ui.installModeComboBox->removeItem(1);
 	}
-
-	updateButtons();
 
 	connect(ui.deviceTreeWidget, &QTreeWidget::itemChanged, this, &DeviceSelector::onDeviceToggled);
 	connect(ui.deviceTreeWidget, &QTreeWidget::itemSelectionChanged, this, &DeviceSelector::onDeviceSelectionChanged);
@@ -86,20 +87,189 @@ DeviceSelector::DeviceSelector(QWidget* parent)
 	connect(ui.autoCheckBox, &QCheckBox::clicked, this, &DeviceSelector::onTroubleShootingOptionChanged);
 
 	ui.troubleshootingGroupBox->setChecked(false);
-	adjustSize();
-
-	// workaround for Qt 6 to not initially have scrollbars despite correct dialog size
-	ui.deviceTreeWidget->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-	QTimer::singleShot(0, [&] {ui.deviceTreeWidget->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded); });
-
-	bool fixedAudioDG = !DeviceAPOInfo::checkProtectedAudioDG(true);
-	bool fixedRegistration = !DeviceAPOInfo::checkAPORegistration(true);
-	if (fixedAudioDG || fixedRegistration)
+	onTroubleShootingToggled(false);
+	updateThemeAssets();
+	updateButtons();
+	const bool snapshotMode = UiSnapshot::requested();
+	if (snapshotMode)
 	{
-		QMessageBox::information(this, tr("Info"), tr("A registry value that is required for the operation of Equalizer APO was not set correctly. "
-			"This might have been caused by a driver installation or uninstallation. The value has been corrected. A reboot may be required so that the changes can take effect."));
-		askForReboot = true;
+		ui.deviceStack->setCurrentWidget(ui.emptyPage);
+		ui.emptyStateLabel->setFocus(Qt::OtherFocusReason);
 	}
+	else
+	{
+		QTimer::singleShot(0, this, &DeviceSelector::loadDevices);
+	}
+
+	if (!snapshotMode)
+	{
+		bool fixedAudioDG = !DeviceAPOInfo::checkProtectedAudioDG(true);
+		bool fixedRegistration = !DeviceAPOInfo::checkAPORegistration(true);
+		if (fixedAudioDG || fixedRegistration)
+		{
+			QMessageBox::information(this, tr("Info"), tr("A registry value that is required for the operation of Equalizer APO was not set correctly. "
+				"This might have been caused by a driver installation or uninstallation. The value has been corrected. A reboot may be required so that the changes can take effect."));
+			askForReboot = true;
+		}
+	}
+}
+
+void DeviceSelector::configureDeviceTree()
+{
+	ui.deviceTreeWidget->setContextMenuPolicy(Qt::CustomContextMenu);
+	ui.deviceTreeWidget->setIconSize(
+		QSize(style()->pixelMetric(QStyle::PM_SmallIconSize), style()->pixelMetric(QStyle::PM_SmallIconSize)));
+	ui.deviceTreeWidget->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+	ui.deviceTreeWidget->header()->setSectionResizeMode(1, QHeaderView::Stretch);
+	ui.deviceTreeWidget->header()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+	ui.deviceTreeWidget->setAccessibleName(tr("Audio devices"));
+	ui.deviceTreeWidget->setAccessibleDescription(ui.requestLabel->text());
+	ui.loadingProgressBar->setAccessibleName(tr("Loading audio devices"));
+	ui.selectionSummaryLabel->setAccessibleDescription(tr("Device selection summary"));
+	ui.changeStatusLabel->setAccessibleDescription(tr("Pending changes"));
+	ui.installModeComboBox->setAccessibleName(tr("APO install mode"));
+	ui.installModeComboBox->setAccessibleDescription(ui.autoCheckBox->toolTip());
+	ui.installPreMixCheckBox->setAccessibleName(
+		tr("Pre-mix:") + QStringLiteral(" ") + ui.installPreMixCheckBox->text());
+	ui.useOriginalAPOPreMixCheckBox->setAccessibleName(
+		tr("Pre-mix:") + QStringLiteral(" ") + ui.useOriginalAPOPreMixCheckBox->text());
+	ui.installPostMixCheckBox->setAccessibleName(
+		tr("Post-mix:") + QStringLiteral(" ") + ui.installPostMixCheckBox->text());
+	ui.useOriginalAPOPostMixCheckBox->setAccessibleName(
+		tr("Post-mix:") + QStringLiteral(" ") + ui.useOriginalAPOPostMixCheckBox->text());
+	ui.copyDeviceCommandAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+	ui.deviceTreeWidget->addAction(ui.copyDeviceCommandAction);
+	ui.errorStateLabel->setProperty("statusLevel", "danger");
+}
+
+void DeviceSelector::loadDevices()
+{
+	ui.deviceStack->setCurrentWidget(ui.loadingPage);
+	ui.deviceTreeWidget->clear();
+	QSignalBlocker treeSignalBlocker(ui.deviceTreeWidget);
+	QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+
+	try
+	{
+		QTreeWidgetItem* outputNode = new QTreeWidgetItem(ui.deviceTreeWidget, QStringList(tr("Playback devices")));
+		outputNode->setFlags(Qt::ItemIsEnabled);
+		outputNode->setFirstColumnSpanned(true);
+		outputNode->setExpanded(true);
+		QFont outputFont = outputNode->font(0);
+		outputFont.setWeight(QFont::DemiBold);
+		outputNode->setFont(0, outputFont);
+		std::vector<std::shared_ptr<AbstractAPOInfo>> outputDevices = DeviceAPOInfo::loadAllInfos(false);
+		addDevices(outputDevices, outputNode);
+
+		QTreeWidgetItem* inputNode = new QTreeWidgetItem(ui.deviceTreeWidget, QStringList(tr("Capture devices")));
+		inputNode->setFlags(Qt::ItemIsEnabled);
+		inputNode->setFirstColumnSpanned(true);
+		inputNode->setExpanded(true);
+		QFont inputFont = inputNode->font(0);
+		inputFont.setWeight(QFont::DemiBold);
+		inputNode->setFont(0, inputFont);
+		std::vector<std::shared_ptr<AbstractAPOInfo>> inputDevices = DeviceAPOInfo::loadAllInfos(true);
+		addDevices(inputDevices, inputNode);
+
+		if (outputDevices.empty())
+			delete outputNode;
+		if (inputDevices.empty())
+			delete inputNode;
+	}
+	catch (RegistryException e)
+	{
+		ui.deviceTreeWidget->clear();
+		const QString message = QString::fromStdWString(e.getMessage());
+		ui.errorStateLabel->setText(tr("Error while accessing the registry") + "\n" + message);
+		ui.deviceStack->setCurrentWidget(ui.errorPage);
+		ui.errorStateLabel->setFocus(Qt::OtherFocusReason);
+		updateButtons();
+		QMessageBox::critical(this, tr("Error while accessing the registry"), message);
+		return;
+	}
+
+	if (ui.deviceTreeWidget->topLevelItemCount() == 0)
+	{
+		ui.deviceStack->setCurrentWidget(ui.emptyPage);
+		ui.emptyStateLabel->setFocus(Qt::OtherFocusReason);
+	}
+	else
+	{
+		ui.deviceStack->setCurrentWidget(ui.devicesPage);
+		QTreeWidgetItem* preferredItem = nullptr;
+		for (int groupIndex = 0; groupIndex < ui.deviceTreeWidget->topLevelItemCount(); ++groupIndex)
+		{
+			QTreeWidgetItem* group = ui.deviceTreeWidget->topLevelItem(groupIndex);
+			for (int itemIndex = 0; itemIndex < group->childCount(); ++itemIndex)
+			{
+				QTreeWidgetItem* item = group->child(itemIndex);
+				std::shared_ptr<AbstractAPOInfo> apoInfo = item->data(0, DeviceInfoRole).value<std::shared_ptr<AbstractAPOInfo>>();
+				if (preferredItem == nullptr || apoInfo->isDefaultDevice())
+					preferredItem = item;
+				if (apoInfo->isDefaultDevice())
+					break;
+			}
+		}
+		if (preferredItem != nullptr)
+		{
+			ui.deviceTreeWidget->setCurrentItem(preferredItem);
+			preferredItem->setSelected(true);
+		}
+		ui.deviceTreeWidget->setFocus(Qt::OtherFocusReason);
+	}
+
+	updateButtons();
+}
+
+void DeviceSelector::changeEvent(QEvent* event)
+{
+	QDialog::changeEvent(event);
+	if (event->type() == QEvent::ApplicationPaletteChange
+		|| event->type() == QEvent::ApplicationFontChange
+		|| event->type() == QEvent::FontChange
+		|| event->type() == QEvent::PaletteChange
+		|| event->type() == QEvent::StyleChange
+		|| event->type() == QEvent::ThemeChange)
+	{
+		updateThemeAssets();
+	}
+}
+
+void DeviceSelector::updateThemeAssets()
+{
+	updateTypography();
+	const QIcon deviceIcon = createPaletteIcon(PaletteIconGlyph::device);
+	setWindowIcon(deviceIcon);
+	const int iconSize = qMax(24, style()->pixelMetric(QStyle::PM_LargeIconSize));
+	const int iconSlotSize = qMax(iconSize, fontMetrics().height() * 2);
+	ui.headerIconLabel->setFixedSize(iconSlotSize, iconSlotSize);
+	ui.headerIconLabel->setPixmap(deviceIcon.pixmap(iconSize, iconSize));
+	ui.deviceTreeWidget->setIconSize(
+		QSize(style()->pixelMetric(QStyle::PM_SmallIconSize), style()->pixelMetric(QStyle::PM_SmallIconSize)));
+
+	for (int groupIndex = 0; groupIndex < ui.deviceTreeWidget->topLevelItemCount(); ++groupIndex)
+	{
+		QTreeWidgetItem* group = ui.deviceTreeWidget->topLevelItem(groupIndex);
+		for (int itemIndex = 0; itemIndex < group->childCount(); ++itemIndex)
+			updateDeviceAppearance(group->child(itemIndex));
+	}
+}
+
+void DeviceSelector::updateTypography()
+{
+	QFont baseFont = font();
+	const qreal baseSize = baseFont.pointSizeF() > 0.0
+		? baseFont.pointSizeF() : QApplication::font().pointSizeF();
+
+	QFont productFont = baseFont;
+	productFont.setWeight(QFont::DemiBold);
+	productFont.setPointSizeF(qMax(8.0, baseSize * 0.86));
+	ui.productLabel->setFont(productFont);
+
+	QFont headingFont = baseFont;
+	headingFont.setWeight(QFont::DemiBold);
+	headingFont.setPointSizeF(baseSize * 1.28);
+	ui.requestLabel->setFont(headingFont);
 }
 
 void DeviceSelector::addDevices(std::vector<std::shared_ptr<AbstractAPOInfo>>& devices, QTreeWidgetItem* parentNode)
@@ -125,8 +295,47 @@ void DeviceSelector::addDevices(std::vector<std::shared_ptr<AbstractAPOInfo>>& d
 		QTreeWidgetItem* item = new QTreeWidgetItem(parentNode, values);
 
 		item->setCheckState(0, checked ? Qt::Checked : Qt::Unchecked);
-		item->setData(0, Qt::UserRole, QVariant::fromValue(apoInfo));
+		item->setData(0, DeviceInfoRole, QVariant::fromValue(apoInfo));
+		updateDeviceAppearance(item);
 	}
+}
+
+void DeviceSelector::updateDeviceAppearance(QTreeWidgetItem* item)
+{
+	if (item == nullptr || item->parent() == nullptr)
+		return;
+
+	std::shared_ptr<AbstractAPOInfo> apoInfo = item->data(0, DeviceInfoRole).value<std::shared_ptr<AbstractAPOInfo>>();
+	if (!apoInfo)
+		return;
+
+	const bool checked = item->checkState(0) == Qt::Checked;
+	const bool pending = hasPendingChange(apoInfo, checked);
+	const bool unavailable = apoInfo->isDisabled() || apoInfo->isUnplugged();
+
+	PaletteIconGlyph glyph = PaletteIconGlyph::device;
+	if (unavailable)
+		glyph = PaletteIconGlyph::unavailable;
+	else if (pending)
+		glyph = PaletteIconGlyph::waiting;
+	else if (checked)
+		glyph = PaletteIconGlyph::success;
+	else if (apoInfo->isExperimental())
+		glyph = PaletteIconGlyph::warning;
+
+	item->setIcon(2, createPaletteIcon(glyph));
+	QFont stateFont = item->font(2);
+	stateFont.setWeight(pending ? QFont::DemiBold : QFont::Normal);
+	item->setFont(2, stateFont);
+
+	QPalette::ColorGroup group = item->flags().testFlag(Qt::ItemIsEnabled)
+		? QPalette::Active : QPalette::Disabled;
+	QPalette::ColorRole role = QPalette::Text;
+	if (pending)
+		role = QPalette::Highlight;
+	else if (unavailable || apoInfo->isExperimental())
+		role = QPalette::PlaceholderText;
+	item->setForeground(2, palette().brush(group, role));
 }
 
 void DeviceSelector::onDeviceSelectionChanged()
@@ -136,6 +345,9 @@ void DeviceSelector::onDeviceSelectionChanged()
 
 void DeviceSelector::onDeviceToggled(QTreeWidgetItem* item)
 {
+	if (item == nullptr || item->parent() == nullptr)
+		return;
+
 	updateList(item);
 	updateButtons();
 }
@@ -157,7 +369,7 @@ void DeviceSelector::onDialogAccepted()
 		for (int i = 0; i < topItem->childCount(); i++)
 		{
 			QTreeWidgetItem* item = topItem->child(i);
-			std::shared_ptr<AbstractAPOInfo> info = item->data(0, Qt::UserRole).value<std::shared_ptr<AbstractAPOInfo>>();
+			std::shared_ptr<AbstractAPOInfo> info = item->data(0, DeviceInfoRole).value<std::shared_ptr<AbstractAPOInfo>>();
 			bool checked = item->checkState(0) == Qt::Checked;
 
 			try
@@ -267,7 +479,7 @@ void DeviceSelector::onCopyDeviceCommandClicked()
 		else
 			command += "; ";
 
-		std::shared_ptr<AbstractAPOInfo> info = item->data(0, Qt::UserRole).value<std::shared_ptr<AbstractAPOInfo>>();
+		std::shared_ptr<AbstractAPOInfo> info = item->data(0, DeviceInfoRole).value<std::shared_ptr<AbstractAPOInfo>>();
 		command += QString::fromStdWString(info->getDeviceString()).replace(';', ' ');
 	}
 
@@ -277,11 +489,6 @@ void DeviceSelector::onCopyDeviceCommandClicked()
 
 void DeviceSelector::onTroubleShootingToggled(bool on)
 {
-	if (on)
-		ui.troubleshootingGroupBox->setStyleSheet("");
-	else
-		ui.troubleshootingGroupBox->setStyleSheet("#" + ui.troubleshootingGroupBox->objectName() + " {border:0;}");
-
 	ui.stackedWidget->setVisible(on);
 }
 
@@ -293,7 +500,7 @@ void DeviceSelector::onTroubleShootingOptionChanged()
 		if (item->childCount() != 0)
 			continue;
 
-		std::shared_ptr<AbstractAPOInfo> info = item->data(0, Qt::UserRole).value<std::shared_ptr<AbstractAPOInfo>>();
+		std::shared_ptr<AbstractAPOInfo> info = item->data(0, DeviceInfoRole).value<std::shared_ptr<AbstractAPOInfo>>();
 		DeviceAPOInfo* deviceInfo = dynamic_cast<DeviceAPOInfo*>(info.get());
 		if (deviceInfo != NULL)
 		{
@@ -322,19 +529,73 @@ void DeviceSelector::onTroubleShootingOptionChanged()
 
 void DeviceSelector::updateList(QTreeWidgetItem* item)
 {
-	std::shared_ptr<AbstractAPOInfo> apoInfo = item->data(0, Qt::UserRole).value<std::shared_ptr<AbstractAPOInfo>>();
+	std::shared_ptr<AbstractAPOInfo> apoInfo = item->data(0, DeviceInfoRole).value<std::shared_ptr<AbstractAPOInfo>>();
 	bool checked = item->checkState(0) == Qt::Checked;
 
 	QString state = getStateText(apoInfo, checked);
 	item->setText(2, state);
-
-	ui.deviceTreeWidget->resizeColumnToContents(2);
+	updateDeviceAppearance(item);
 }
 
 void DeviceSelector::updateButtons()
 {
-	bool changed = isChanged();
-	if (changed || !isAnySelected())
+	const bool changed = isChanged();
+	const bool anySelected = isAnySelected();
+	int deviceCount = 0;
+	int enabledCount = 0;
+	int pendingCount = 0;
+	for (int groupIndex = 0; groupIndex < ui.deviceTreeWidget->topLevelItemCount(); ++groupIndex)
+	{
+		QTreeWidgetItem* group = ui.deviceTreeWidget->topLevelItem(groupIndex);
+		for (int itemIndex = 0; itemIndex < group->childCount(); ++itemIndex)
+		{
+			QTreeWidgetItem* item = group->child(itemIndex);
+			std::shared_ptr<AbstractAPOInfo> apoInfo = item->data(0, DeviceInfoRole).value<std::shared_ptr<AbstractAPOInfo>>();
+			if (!apoInfo)
+				continue;
+			const bool checked = item->checkState(0) == Qt::Checked;
+			++deviceCount;
+			if (checked)
+				++enabledCount;
+			if (hasPendingChange(apoInfo, checked))
+				++pendingCount;
+		}
+	}
+
+	if (deviceCount > 0)
+		ui.selectionSummaryLabel->setText(tr("%1 enabled · %2 pending").arg(enabledCount).arg(pendingCount));
+	else
+		ui.selectionSummaryLabel->clear();
+
+	const QByteArray statusLevel = pendingCount > 0 ? QByteArray("warning") : QByteArray("normal");
+	if (ui.selectionSummaryLabel->property("statusLevel").toByteArray() != statusLevel)
+	{
+		ui.selectionSummaryLabel->setProperty("statusLevel", statusLevel);
+		refreshDynamicStyle(ui.selectionSummaryLabel);
+	}
+
+	if (deviceCount == 0)
+		ui.changeStatusLabel->clear();
+	else if (pendingCount > 0)
+		ui.changeStatusLabel->setText(tr("Review the pending changes, then choose OK to apply them."));
+	else if (enabledCount > 0)
+		ui.changeStatusLabel->setText(tr("No pending changes."));
+	else
+		ui.changeStatusLabel->setText(tr("Select at least one device to enable Equalizer APO."));
+	if (ui.changeStatusLabel->property("statusLevel").toByteArray() != statusLevel)
+	{
+		ui.changeStatusLabel->setProperty("statusLevel", statusLevel);
+		refreshDynamicStyle(ui.changeStatusLabel);
+	}
+
+	if (deviceCount == 0)
+	{
+		QPushButton* okButton = ui.buttonBox->button(QDialogButtonBox::Ok);
+		okButton->setVisible(false);
+		QPushButton* cancelButton = ui.buttonBox->button(QDialogButtonBox::Cancel);
+		cancelButton->setText(tr("Close"));
+	}
+	else if (changed || !anySelected)
 	{
 		QPushButton* okButton = ui.buttonBox->button(QDialogButtonBox::Ok);
 		okButton->setVisible(true);
@@ -373,7 +634,7 @@ void DeviceSelector::updateButtons()
 		QTreeWidgetItem* item = list[0];
 		enable = item->checkState(0) == Qt::Checked;
 
-		std::shared_ptr<AbstractAPOInfo> apoInfo = item->data(0, Qt::UserRole).value<std::shared_ptr<AbstractAPOInfo>>();
+		std::shared_ptr<AbstractAPOInfo> apoInfo = item->data(0, DeviceInfoRole).value<std::shared_ptr<AbstractAPOInfo>>();
 		DeviceAPOInfo* deviceApoInfo = dynamic_cast<DeviceAPOInfo*>(apoInfo.get());
 		if (deviceApoInfo != NULL)
 		{
@@ -392,6 +653,7 @@ void DeviceSelector::updateButtons()
 	ui.useOriginalAPOPostMixCheckBox->setEnabled(enable && !isInput && hasOriginalAPOPostMix && installState.installPostMix);
 	ui.installModeComboBox->setEnabled(enable);
 	ui.allowSilentBufferCheckBox->setEnabled(enable);
+	ui.autoCheckBox->setEnabled(enable);
 	ui.stackedWidget->setCurrentIndex(enable ? 1 : 0);
 
 	ui.installPreMixCheckBox->setChecked(installState.installPreMix);
@@ -437,7 +699,7 @@ bool DeviceSelector::isChanged()
 		for (int i = 0; i < topItem->childCount(); i++)
 		{
 			QTreeWidgetItem* item = topItem->child(i);
-			std::shared_ptr<AbstractAPOInfo> apoInfo = item->data(0, Qt::UserRole).value<std::shared_ptr<AbstractAPOInfo>>();
+			std::shared_ptr<AbstractAPOInfo> apoInfo = item->data(0, DeviceInfoRole).value<std::shared_ptr<AbstractAPOInfo>>();
 			bool checked = item->checkState(0) == Qt::Checked;
 			if (checked != apoInfo->isInstalled()
 				|| checked && apoInfo->isInstalled() && (apoInfo->canBeUpgraded() || apoInfo->hasChanges() || apoInfo->isEnhancementsDisabled()))
@@ -461,7 +723,7 @@ bool DeviceSelector::hasUpgrades()
 		for (int i = 0; i < topItem->childCount(); i++)
 		{
 			QTreeWidgetItem* item = topItem->child(i);
-			std::shared_ptr<AbstractAPOInfo> apoInfo = item->data(0, Qt::UserRole).value<std::shared_ptr<AbstractAPOInfo>>();
+			std::shared_ptr<AbstractAPOInfo> apoInfo = item->data(0, DeviceInfoRole).value<std::shared_ptr<AbstractAPOInfo>>();
 			bool checked = item->checkState(0) == Qt::Checked;
 			if (checked && apoInfo->isInstalled() && (apoInfo->canBeUpgraded() || apoInfo->isEnhancementsDisabled()))
 			{

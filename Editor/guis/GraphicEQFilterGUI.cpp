@@ -42,6 +42,8 @@ GraphicEQFilterGUI::GraphicEQFilterGUI(GraphicEQFilter* filter, QString configPa
 	: ui(new Ui::GraphicEQFilterGUI), configPath(configPath)
 {
 	ui->setupUi(this);
+	ui->actionImport->setIcon(GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::Import));
+	ui->actionExport->setIcon(GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::Export));
 	updateThemeIcons();
 	ui->tableWidget->horizontalHeader()->setMinimumSectionSize(GUIHelper::scale(10));
 	ui->tableWidget->horizontalHeader()->setDefaultSectionSize(GUIHelper::scale(10));

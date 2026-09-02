@@ -32,6 +32,12 @@ CopyFilterGUI::CopyFilterGUI(CopyFilter* filter, FilterTable* filterTable)
 	: ui(new Ui::CopyFilterGUI)
 {
 	ui->setupUi(this);
+	ui->tabWidget->setTabIcon(
+		ui->tabWidget->indexOf(ui->tab),
+		GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::Route));
+	ui->tabWidget->setTabIcon(
+		ui->tabWidget->indexOf(ui->tab_2),
+		GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::Channel));
 
 	scene = new CopyFilterGUIScene;
 	ui->graphicsView->setScene(scene);

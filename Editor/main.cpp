@@ -27,6 +27,7 @@
 #include "MainWindow.h"
 #include "ModernTheme.h"
 #include "helpers/RegistryHelper.h"
+#include "helpers/UiSnapshot.h"
 #include "Editor/helpers/GUIHelper.h"
 
 using namespace std;
@@ -40,7 +41,6 @@ int main(int argc, char* argv[])
 #endif
 
 	QCoreApplication::addLibraryPath("qt");
-	qputenv("QT_ENABLE_HIGHDPI_SCALING", "0");
 
 	bool restart;
 	do
@@ -53,7 +53,9 @@ int main(int argc, char* argv[])
 		QSettings settings(QString::fromWCharArray(EDITOR_REGPATH), QSettings::NativeFormat);
 
 		QVariant languageValue = settings.value("language");
-		if (languageValue.isValid())
+		if (UiSnapshot::requested())
+			QLocale::setDefault(QLocale(QStringLiteral("en")));
+		else if (languageValue.isValid())
 		{
 			QString localeName = languageValue.toString();
 			if (localeName == "zh")
@@ -96,13 +98,16 @@ int main(int argc, char* argv[])
 		QCommandLineParser parser;
 		parser.process(application);
 		QStringList args = parser.positionalArguments();
-		if (args.isEmpty() && w.isEmpty())
+		if (args.isEmpty() && w.isEmpty() && !UiSnapshot::requested())
 			args = QStringList("config.txt");
 
 		for (const QString& arg : args)
 			w.load(configDir.absoluteFilePath(arg));
 
-		w.doChecks();
+		if (UiSnapshot::requested())
+			UiSnapshot::schedule(w, application);
+		else
+			w.doChecks();
 
 		result = application.exec();
 

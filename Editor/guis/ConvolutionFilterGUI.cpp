@@ -21,6 +21,7 @@
 #define ENABLE_SNDFILE_WINDOWS_PROTOTYPES 1
 #include <sndfile.h>
 
+#include "Editor/helpers/GUIHelper.h"
 #include "helpers/RegistryHelper.h"
 #include "ConvolutionFilterGUI.h"
 #include "ui_ConvolutionFilterGUI.h"
@@ -29,6 +30,9 @@ ConvolutionFilterGUI::ConvolutionFilterGUI(const QString& configPath, unsigned d
 	: ui(new Ui::ConvolutionFilterGUI), deviceSampleRate(deviceSampleRate)
 {
 	ui->setupUi(this);
+	ui->selectFileToolButton->setIcon(GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::OpenFolder));
+	ui->convolutionLabel->setBuddy(ui->pathLineEdit);
+	ui->pathLineEdit->setAccessibleName(ui->convolutionLabel->text());
 	ui->labelError->setProperty("statusLevel", "danger");
 
 	this->configPath = configPath;

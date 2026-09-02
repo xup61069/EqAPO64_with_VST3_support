@@ -101,7 +101,7 @@ void CopyFilterGUIForm::load(vector<Assignment> assignments)
 				removeButton->setText(tr("Remove assignment"));
 			else
 				removeButton->setText(tr("Remove summand"));
-			removeButton->setIcon(QIcon(":/icons/list-remove-red.ico"));
+			removeButton->setIcon(GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::Remove));
 			gridLayout->addWidget(removeButton, row, 5);
 			connect(removeButton, SIGNAL(pressed()), this, SLOT(remove()));
 

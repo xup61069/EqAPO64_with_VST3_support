@@ -3,186 +3,153 @@
  <class>DeviceSelectorClass</class>
  <widget class="QDialog" name="DeviceSelectorClass">
   <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>582</width>
-    <height>434</height>
-   </rect>
+   <rect><x>0</x><y>0</y><width>820</width><height>620</height></rect>
+  </property>
+  <property name="minimumSize">
+   <size><width>680</width><height>500</height></size>
   </property>
   <property name="windowTitle">
    <string notr="true">Device Selector</string>
   </property>
-  <property name="windowIcon">
-   <iconset resource="DeviceSelector.qrc">
-    <normaloff>:/icons/preferences-system.ico</normaloff>:/icons/preferences-system.ico</iconset>
-  </property>
   <property name="sizeGripEnabled">
    <bool>true</bool>
   </property>
-  <layout class="QGridLayout" name="gridLayout">
-   <item row="2" column="0">
+  <layout class="QVBoxLayout" name="mainLayout">
+   <property name="spacing"><number>12</number></property>
+   <property name="leftMargin"><number>18</number></property>
+   <property name="topMargin"><number>18</number></property>
+   <property name="rightMargin"><number>18</number></property>
+   <property name="bottomMargin"><number>16</number></property>
+   <item>
+    <layout class="QHBoxLayout" name="headerLayout">
+     <property name="spacing"><number>12</number></property>
+     <item>
+      <widget class="QLabel" name="headerIconLabel">
+       <property name="minimumSize"><size><width>36</width><height>36</height></size></property>
+       <property name="maximumSize"><size><width>36</width><height>36</height></size></property>
+       <property name="text"><string/></property>
+       <property name="alignment"><set>Qt::AlignCenter</set></property>
+      </widget>
+     </item>
+     <item>
+      <layout class="QVBoxLayout" name="headingLayout">
+       <property name="spacing"><number>2</number></property>
+       <item>
+        <widget class="QLabel" name="productLabel">
+         <property name="font"><font><pointsize>8</pointsize><weight>600</weight><bold>true</bold></font></property>
+         <property name="text"><string notr="true">EQUALIZER APO · DEVICE SELECTOR</string></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="requestLabel">
+         <property name="font"><font><pointsize>12</pointsize><weight>600</weight><bold>true</bold></font></property>
+         <property name="text"><string>Please select the devices for which Equalizer APO is to be installed:</string></property>
+         <property name="wordWrap"><bool>true</bool></property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <spacer name="headerSpacer">
+       <property name="orientation"><enum>Qt::Horizontal</enum></property>
+       <property name="sizeHint" stdset="0"><size><width>24</width><height>20</height></size></property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QLabel" name="selectionSummaryLabel">
+       <property name="font"><font><weight>600</weight><bold>true</bold></font></property>
+       <property name="text"><string/></property>
+       <property name="alignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QStackedWidget" name="deviceStack">
+     <property name="currentIndex"><number>0</number></property>
+     <widget class="QWidget" name="loadingPage">
+      <layout class="QVBoxLayout" name="loadingLayout">
+       <item><spacer name="loadingTopSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer></item>
+       <item><widget class="QLabel" name="loadingLabel"><property name="text"><string>Loading audio devices...</string></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+       <item><widget class="QProgressBar" name="loadingProgressBar"><property name="minimum"><number>0</number></property><property name="maximum"><number>0</number></property><property name="textVisible"><bool>false</bool></property></widget></item>
+       <item><spacer name="loadingBottomSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer></item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="devicesPage">
+      <layout class="QVBoxLayout" name="devicesLayout">
+       <property name="spacing"><number>0</number></property>
+       <property name="leftMargin"><number>0</number></property><property name="topMargin"><number>0</number></property><property name="rightMargin"><number>0</number></property><property name="bottomMargin"><number>0</number></property>
+       <item>
+        <widget class="QTreeWidget" name="deviceTreeWidget">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"><horstretch>0</horstretch><verstretch>1</verstretch></sizepolicy></property>
+         <property name="minimumSize"><size><width>0</width><height>250</height></size></property>
+         <property name="focusPolicy"><enum>Qt::StrongFocus</enum></property>
+         <property name="alternatingRowColors"><bool>true</bool></property>
+         <property name="selectionMode"><enum>QAbstractItemView::ExtendedSelection</enum></property>
+         <property name="selectionBehavior"><enum>QAbstractItemView::SelectRows</enum></property>
+         <property name="uniformRowHeights"><bool>true</bool></property>
+         <property name="allColumnsShowFocus"><bool>true</bool></property>
+         <column><property name="text"><string>Connector</string></property></column>
+         <column><property name="text"><string>Device</string></property></column>
+         <column><property name="text"><string>Status</string></property></column>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="emptyPage">
+      <layout class="QVBoxLayout" name="emptyLayout">
+       <item><spacer name="emptyTopSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer></item>
+       <item><widget class="QLabel" name="emptyStateLabel"><property name="font"><font><weight>600</weight><bold>true</bold></font></property><property name="focusPolicy"><enum>Qt::StrongFocus</enum></property><property name="text"><string>No compatible audio devices were found.</string></property><property name="alignment"><set>Qt::AlignCenter</set></property><property name="wordWrap"><bool>true</bool></property></widget></item>
+       <item><spacer name="emptyBottomSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer></item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="errorPage">
+      <layout class="QVBoxLayout" name="errorLayout">
+       <item><spacer name="errorTopSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer></item>
+       <item><widget class="QLabel" name="errorStateLabel"><property name="font"><font><weight>600</weight><bold>true</bold></font></property><property name="focusPolicy"><enum>Qt::StrongFocus</enum></property><property name="text"><string>Error while accessing the registry</string></property><property name="alignment"><set>Qt::AlignCenter</set></property><property name="wordWrap"><bool>true</bool></property></widget></item>
+       <item><spacer name="errorBottomSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer></item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+   <item>
     <widget class="QGroupBox" name="troubleshootingGroupBox">
-     <property name="title">
-      <string>Troubleshooting options (only use in case of problems)</string>
-     </property>
-     <property name="checkable">
-      <bool>true</bool>
-     </property>
-     <property name="checked">
-      <bool>true</bool>
-     </property>
-     <layout class="QGridLayout" name="troubleshootingGridLayout">
-      <property name="leftMargin">
-       <number>0</number>
-      </property>
-      <property name="topMargin">
-       <number>0</number>
-      </property>
-      <property name="rightMargin">
-       <number>0</number>
-      </property>
-      <property name="bottomMargin">
-       <number>0</number>
-      </property>
-      <item row="0" column="0" colspan="3">
+     <property name="focusPolicy"><enum>Qt::StrongFocus</enum></property>
+     <property name="title"><string>Troubleshooting options (only use in case of problems)</string></property>
+     <property name="checkable"><bool>true</bool></property>
+     <property name="checked"><bool>false</bool></property>
+     <layout class="QVBoxLayout" name="troubleshootingLayout">
+      <property name="spacing"><number>8</number></property>
+      <item>
        <widget class="QStackedWidget" name="stackedWidget">
-        <property name="currentIndex">
-         <number>1</number>
-        </property>
-        <widget class="QWidget" name="page">
-         <layout class="QGridLayout" name="gridLayout_2">
-          <item row="0" column="0">
-           <widget class="QLabel" name="label">
-            <property name="text">
-             <string>Please select exactly one activated device by clicking on its name</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-           </widget>
-          </item>
+        <property name="currentIndex"><number>0</number></property>
+        <widget class="QWidget" name="selectionHintPage">
+         <layout class="QVBoxLayout" name="selectionHintLayout">
+          <property name="leftMargin"><number>8</number></property><property name="topMargin"><number>8</number></property><property name="rightMargin"><number>8</number></property><property name="bottomMargin"><number>8</number></property>
+          <item><widget class="QLabel" name="selectionHintLabel"><property name="text"><string>Please select exactly one activated device by clicking on its name</string></property><property name="alignment"><set>Qt::AlignCenter</set></property><property name="wordWrap"><bool>true</bool></property></widget></item>
          </layout>
         </widget>
-        <widget class="QWidget" name="page_2">
-         <layout class="QGridLayout" name="gridLayout_3">
-          <item row="1" column="1">
-           <widget class="QCheckBox" name="installPostMixCheckBox">
-            <property name="text">
-             <string>Install APO</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="2">
-           <widget class="QCheckBox" name="useOriginalAPOPreMixCheckBox">
-            <property name="text">
-             <string>Use original APO</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="0">
-           <widget class="QLabel" name="preMixLabel">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="text">
-             <string>Pre-mix:</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QCheckBox" name="installPreMixCheckBox">
-            <property name="text">
-             <string>Install APO</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="5" rowspan="2">
-           <spacer name="horizontalSpacer">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeType">
-             <enum>QSizePolicy::Expanding</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="postMixLabel">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="text">
-             <string>Post-mix:</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="4">
+        <widget class="QWidget" name="settingsPage">
+         <layout class="QGridLayout" name="settingsLayout">
+          <property name="horizontalSpacing"><number>14</number></property><property name="verticalSpacing"><number>8</number></property>
+          <item row="0" column="0"><widget class="QLabel" name="preMixLabel"><property name="text"><string>Pre-mix:</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property></widget></item>
+          <item row="0" column="1"><widget class="QCheckBox" name="installPreMixCheckBox"><property name="text"><string>Install APO</string></property></widget></item>
+          <item row="0" column="2"><widget class="QCheckBox" name="useOriginalAPOPreMixCheckBox"><property name="text"><string>Use original APO</string></property></widget></item>
+          <item row="2" column="1"><widget class="QCheckBox" name="autoCheckBox"><property name="toolTip"><string>Automatically adjust install mode if problems with current mode are detected</string></property><property name="text"><string>Auto:</string></property></widget></item>
+          <item row="2" column="2">
            <widget class="QComboBox" name="installModeComboBox">
-            <item>
-             <property name="text">
-              <string>Install as LFX/GFX</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Install as SFX/MFX</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Install as SFX/EFX</string>
-             </property>
-            </item>
+            <item><property name="text"><string>Install as LFX/GFX</string></property></item>
+            <item><property name="text"><string>Install as SFX/MFX</string></property></item>
+            <item><property name="text"><string>Install as SFX/EFX</string></property></item>
            </widget>
           </item>
-          <item row="1" column="2">
-           <widget class="QCheckBox" name="useOriginalAPOPostMixCheckBox">
-            <property name="text">
-             <string>Use original APO</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="3">
-           <widget class="QCheckBox" name="autoCheckBox">
-            <property name="toolTip">
-             <string>Automatically adjust install mode if problems with current mode are detected</string>
-            </property>
-            <property name="text">
-             <string>Auto:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="3" colspan="2">
-           <widget class="QCheckBox" name="allowSilentBufferCheckBox">
-            <property name="toolTip">
-             <string>Allows to change silent input buffers to audible output buffers, so that delayed audio can be played.
+          <item row="1" column="0"><widget class="QLabel" name="postMixLabel"><property name="text"><string>Post-mix:</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property></widget></item>
+          <item row="1" column="1"><widget class="QCheckBox" name="installPostMixCheckBox"><property name="text"><string>Install APO</string></property></widget></item>
+          <item row="1" column="2"><widget class="QCheckBox" name="useOriginalAPOPostMixCheckBox"><property name="text"><string>Use original APO</string></property></widget></item>
+          <item row="3" column="1" colspan="2"><widget class="QCheckBox" name="allowSilentBufferCheckBox"><property name="toolTip"><string>Allows to change silent input buffers to audible output buffers, so that delayed audio can be played.
 
-CAUTION: Some sound card drivers can produce unwanted sounds when this is enabled.</string>
-            </property>
-            <property name="text">
-             <string>Allow silent buffer modification</string>
-            </property>
-           </widget>
-          </item>
+CAUTION: Some sound card drivers can produce unwanted sounds when this is enabled.</string></property><property name="text"><string>Allow silent buffer modification</string></property></widget></item>
+          <item row="0" column="3" rowspan="4"><spacer name="settingsSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>12</width><height>20</height></size></property></spacer></item>
          </layout>
         </widget>
        </widget>
@@ -190,61 +157,23 @@ CAUTION: Some sound card drivers can produce unwanted sounds when this is enable
      </layout>
     </widget>
    </item>
-   <item row="1" column="0">
-    <widget class="QTreeWidget" name="deviceTreeWidget">
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-       <horstretch>0</horstretch>
-       <verstretch>1</verstretch>
-      </sizepolicy>
-     </property>
-     <property name="sizeAdjustPolicy">
-      <enum>QAbstractScrollArea::AdjustToContentsOnFirstShow</enum>
-     </property>
-     <property name="selectionMode">
-      <enum>QAbstractItemView::ExtendedSelection</enum>
-     </property>
-     <column>
-      <property name="text">
-       <string>Connector</string>
-      </property>
-     </column>
-     <column>
-      <property name="text">
-       <string>Device</string>
-      </property>
-     </column>
-     <column>
-      <property name="text">
-       <string>Status</string>
-      </property>
-     </column>
-    </widget>
-   </item>
-   <item row="3" column="0">
-    <widget class="QDialogButtonBox" name="buttonBox">
-     <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
-     </property>
-    </widget>
-   </item>
-   <item row="0" column="0">
-    <widget class="QLabel" name="requestLabel">
-     <property name="text">
-      <string>Please select the devices for which Equalizer APO is to be installed:</string>
-     </property>
-    </widget>
+   <item>
+    <layout class="QHBoxLayout" name="footerLayout">
+     <item><widget class="QLabel" name="changeStatusLabel"><property name="text"><string/></property><property name="wordWrap"><bool>true</bool></property></widget></item>
+     <item><spacer name="footerSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>24</width><height>20</height></size></property></spacer></item>
+     <item><widget class="QDialogButtonBox" name="buttonBox"><property name="standardButtons"><set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set></property></widget></item>
+    </layout>
    </item>
   </layout>
   <action name="copyDeviceCommandAction">
-   <property name="text">
-    <string>Copy Device command to clipboard</string>
-   </property>
+   <property name="text"><string>Copy Device command to clipboard</string></property>
+   <property name="shortcut"><string>Ctrl+C</string></property>
   </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
- <resources>
-  <include location="DeviceSelector.qrc"/>
- </resources>
+ <tabstops>
+  <tabstop>deviceTreeWidget</tabstop><tabstop>troubleshootingGroupBox</tabstop><tabstop>installPreMixCheckBox</tabstop><tabstop>useOriginalAPOPreMixCheckBox</tabstop><tabstop>installPostMixCheckBox</tabstop><tabstop>useOriginalAPOPostMixCheckBox</tabstop><tabstop>autoCheckBox</tabstop><tabstop>installModeComboBox</tabstop><tabstop>allowSilentBufferCheckBox</tabstop>
+ </tabstops>
+ <resources><include location="DeviceSelector.qrc"/></resources>
  <connections/>
 </ui>

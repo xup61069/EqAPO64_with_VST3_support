@@ -54,10 +54,6 @@
       <bool>false</bool>
      </property>
      <widget class="QWidget" name="tab">
-      <attribute name="icon">
-       <iconset resource="../Editor.qrc">
-        <normaloff>:/icons/applications-graphics-rotated.ico</normaloff>:/icons/applications-graphics-rotated.ico</iconset>
-      </attribute>
       <attribute name="title">
        <string/>
       </attribute>
@@ -99,10 +95,6 @@
       </layout>
      </widget>
      <widget class="QWidget" name="tab_2">
-      <attribute name="icon">
-       <iconset resource="../Editor.qrc">
-        <normaloff>:/icons/format-justify-fill-rotated.ico</normaloff>:/icons/format-justify-fill-rotated.ico</iconset>
-      </attribute>
       <attribute name="title">
        <string/>
       </attribute>

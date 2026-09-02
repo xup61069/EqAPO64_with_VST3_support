@@ -19,6 +19,7 @@
 
 #include <QFileDialog>
 
+#include "Editor/helpers/GUIHelper.h"
 #include "helpers/RegistryHelper.h"
 #include "IncludeFilterGUI.h"
 #include "ui_IncludeFilterGUI.h"
@@ -27,6 +28,10 @@ IncludeFilterGUI::IncludeFilterGUI(FilterTable* filterTable, const QString& path
 	: ui(new Ui::IncludeFilterGUI), filterTable(filterTable)
 {
 	ui->setupUi(this);
+	ui->openFileToolButton->setIcon(GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::Up));
+	ui->selectFileToolButton->setIcon(GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::OpenFolder));
+	ui->includeLabel->setBuddy(ui->pathLineEdit);
+	ui->pathLineEdit->setAccessibleName(ui->includeLabel->text());
 	ui->errorLabel->setProperty("statusLevel", "danger");
 
 	ui->pathLineEdit->setText(path);

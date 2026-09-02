@@ -34,6 +34,8 @@ FilterTableRow::FilterTableRow(FilterTable* table, int number, FilterTable::Item
 {
 	ui->setupUi(this);
 	ui->actionAdd->setIcon(GUIHelper::createAccentAddIcon());
+	ui->actionRemove->setIcon(GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::Remove));
+	ui->actionEditText->setIcon(GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::Edit));
 	setAttribute(Qt::WA_StyledBackground, false);
 	ui->labelNumber->setMinimumWidth(GUIHelper::scale(38));
 	ui->horizontalLayout->setContentsMargins(

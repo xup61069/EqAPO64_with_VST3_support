@@ -19,6 +19,8 @@
 
 #include <QFile>
 #include <QMessageBox>
+#include <QPushButton>
+#include <QStyle>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <mmsystem.h>
@@ -85,19 +87,28 @@ LoudnessCorrectionFilterGUIDialog::LoudnessCorrectionFilterGUIDialog(
 	ui->levelSpinBox->setSuffix(tr(" dB SPL"));
 	ui->levelSpinBox->setToolTip(tr(
 		"Enter the slow-response, Z-weighted (flat) reading measured at the listening position."));
+	ui->levelSpinBox->setAccessibleName(tr("Measured sound pressure level"));
+	ui->safetyStatusLabel->setProperty("statusLevel", "warning");
+	setPlaybackStatus(tr("Ready to play"), "normal");
+	ui->stopButton->setEnabled(false);
+	if (QPushButton* saveButton = ui->buttonBox->button(QDialogButtonBox::Save))
+		saveButton->setText(tr("Use measurement"));
 	// The procedure is defined for one speaker. Playing both changes the level
 	// at the meter and makes the resulting reference ambiguous.
 	ui->bothRadioButton->hide();
 	if (!playbackUsesSelectedEndpoint)
 	{
+		ui->playButton->setEnabled(false);
 		ui->playButton->setToolTip(tr(
 			"The selected playback device is not the Windows default playback device. "
 			"Test-noise playback is blocked to prevent calibration on the wrong speaker."));
+		setPlaybackStatus(tr("Make this device the Windows default to play the signal"), "danger");
 	}
 	connect(&endpointGuardTimer, &QTimer::timeout, this, [this]() {
 		if (buffer.size() > 0 && !isPlaybackEndpointStillValid())
 		{
 			on_stopButton_clicked();
+			setPlaybackStatus(tr("Playback device changed · signal stopped"), "danger");
 			QMessageBox::warning(
 				this,
 				tr("Playback device mismatch"),
@@ -105,6 +116,19 @@ LoudnessCorrectionFilterGUIDialog::LoudnessCorrectionFilterGUIDialog(
 		}
 	});
 	endpointGuardTimer.start(250);
+}
+
+void LoudnessCorrectionFilterGUIDialog::setPlaybackStatus(
+	const QString& text,
+	const char* level)
+{
+	ui->playbackStatusLabel->setText(text);
+	ui->playbackStatusLabel->setAccessibleName(tr("Calibration playback status"));
+	ui->playbackStatusLabel->setAccessibleDescription(text);
+	ui->playbackStatusLabel->setProperty("statusLevel", QString::fromLatin1(level));
+	ui->playbackStatusLabel->style()->unpolish(ui->playbackStatusLabel);
+	ui->playbackStatusLabel->style()->polish(ui->playbackStatusLabel);
+	ui->playbackStatusLabel->update();
 }
 
 bool LoudnessCorrectionFilterGUIDialog::isPlaybackEndpointStillValid() const
@@ -135,6 +159,7 @@ void LoudnessCorrectionFilterGUIDialog::on_playButton_clicked()
 	// the dialog is open, and PlaySound would then route to a different speaker.
 	if (!isPlaybackEndpointStillValid())
 	{
+		setPlaybackStatus(tr("Playback blocked · default device mismatch"), "danger");
 		QMessageBox::warning(
 			this,
 			tr("Playback device mismatch"),
@@ -145,17 +170,27 @@ void LoudnessCorrectionFilterGUIDialog::on_playButton_clicked()
 
 	if (buffer.size() > 0)
 		on_stopButton_clicked();
+	setPlaybackStatus(tr("Preparing pink noise…"), "normal");
 
 	QFile file(":/sounds/pinkNoise.flac");
 	if (!file.open(QIODevice::ReadOnly))
+	{
+		setPlaybackStatus(tr("Pink-noise resource could not be opened"), "danger");
 		return;
+	}
 
 	QtSndfileHandle fileHandle(file, SFM_READ);
 	if (fileHandle.error() != SF_ERR_NO_ERROR || fileHandle.samplerate() <= 0)
+	{
+		setPlaybackStatus(tr("Pink-noise resource could not be decoded"), "danger");
 		return;
+	}
 
 	if (!buffer.open(QIODevice::WriteOnly))
+	{
+		setPlaybackStatus(tr("Calibration audio buffer could not be created"), "danger");
 		return;
+	}
 
 	bool writeSucceeded = true;
 	{
@@ -184,6 +219,7 @@ void LoudnessCorrectionFilterGUIDialog::on_playButton_clicked()
 	if (!writeSucceeded || buffer.size() == 0)
 	{
 		buffer.buffer().clear();
+		setPlaybackStatus(tr("Calibration signal could not be prepared"), "danger");
 		return;
 	}
 
@@ -193,6 +229,7 @@ void LoudnessCorrectionFilterGUIDialog::on_playButton_clicked()
 	if (!isPlaybackEndpointStillValid())
 	{
 		buffer.buffer().clear();
+		setPlaybackStatus(tr("Playback blocked · default device mismatch"), "danger");
 		QMessageBox::warning(
 			this,
 			tr("Playback device mismatch"),
@@ -202,16 +239,33 @@ void LoudnessCorrectionFilterGUIDialog::on_playButton_clicked()
 	}
 
 	if (!PlaySoundA(buffer.data().data(), NULL, SND_MEMORY | SND_ASYNC | SND_LOOP))
+	{
 		buffer.buffer().clear();
+		setPlaybackStatus(tr("Windows could not start calibration playback"), "danger");
+		return;
+	}
+	ui->playButton->setEnabled(false);
+	ui->stopButton->setEnabled(true);
+	setPlaybackStatus(
+		ui->leftRadioButton->isChecked()
+			? tr("Playing on the left speaker")
+			: tr("Playing on the right speaker"),
+		"warning");
 }
 
 void LoudnessCorrectionFilterGUIDialog::on_stopButton_clicked()
 {
-	if (buffer.size() == 0)
-		return;
-
-	(void)PlaySoundA(NULL, NULL, 0);
-	buffer.buffer().clear();
+	if (buffer.size() > 0)
+	{
+		(void)PlaySoundA(NULL, NULL, 0);
+		buffer.buffer().clear();
+	}
+	ui->playButton->setEnabled(playbackUsesSelectedEndpoint);
+	ui->stopButton->setEnabled(false);
+	setPlaybackStatus(playbackUsesSelectedEndpoint
+		? tr("Ready to play")
+		: tr("Make this device the Windows default to play the signal"),
+		playbackUsesSelectedEndpoint ? "normal" : "danger");
 }
 
 void LoudnessCorrectionFilterGUIDialog::on_leftRadioButton_toggled(bool checked)

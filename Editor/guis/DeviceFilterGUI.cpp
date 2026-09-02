@@ -110,7 +110,6 @@ void DeviceFilterGUI::load(const QString& parameters)
 			values.append("");
 
 			QTreeWidgetItem* item = new QTreeWidgetItem(ui->treeWidget, values);
-			item->setForeground(1, QBrush(Qt::red));
 			lastItem = item;
 		}
 	}

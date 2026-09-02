@@ -312,7 +312,7 @@ QSlider::handle:horizontal {
 	width: 16px;
 	height: 16px;
 	margin: -5px 0;
-	border-radius: 8px;
+	border-radius: 0;
 }
 QPushButton {
 	min-height: 40px;

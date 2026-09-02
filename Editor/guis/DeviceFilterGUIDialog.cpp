@@ -67,8 +67,12 @@ DeviceFilterGUIDialog::DeviceFilterGUIDialog(DeviceFilterGUI* gui, DeviceFilterG
 		item->setData(0, Qt::UserRole, QVariant::fromValue(apoInfo));
 		item->setHidden(!matches && !apoInfo->isInstalled() && ui->showOnlyInstalledCheckBox->isChecked());
 		if (!apoInfo->isInstalled())
+		{
+			const QBrush disabledBrush = ui->treeWidget->palette().brush(
+				QPalette::Disabled, QPalette::Text);
 			for (int i = 0; i < ui->treeWidget->columnCount(); i++)
-				item->setForeground(i, QBrush(Qt::gray));
+				item->setForeground(i, disabledBrush);
+		}
 	}
 
 	for (int i = 0; i < ui->treeWidget->columnCount(); i++)

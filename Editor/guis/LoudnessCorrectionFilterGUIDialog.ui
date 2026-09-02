@@ -6,269 +6,169 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>486</width>
-    <height>495</height>
+    <width>720</width>
+    <height>610</height>
    </rect>
   </property>
-  <property name="windowTitle">
-   <string>Calibration</string>
+  <property name="minimumSize">
+   <size>
+    <width>620</width>
+    <height>560</height>
+   </size>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
+  <property name="windowTitle">
+   <string>Listening-level calibration</string>
+  </property>
+  <layout class="QVBoxLayout" name="rootLayout">
+   <property name="spacing"><number>12</number></property>
+   <property name="leftMargin"><number>18</number></property>
+   <property name="topMargin"><number>18</number></property>
+   <property name="rightMargin"><number>18</number></property>
+   <property name="bottomMargin"><number>16</number></property>
    <item>
-    <widget class="QLabel" name="label">
-     <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;For a correct calibration, a sound level meter is required.&lt;br/&gt;These are the steps for calibration of a stereo system:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Disable loudness correction during measurement&lt;br/&gt;(done automatically while this dialog is open)&lt;/li&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Enable only one speaker (e.g. select left or right channel below)&lt;/li&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Play pink noise at full application volume:&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</string>
-     </property>
-     <property name="textFormat">
-      <enum>Qt::RichText</enum>
-     </property>
-     <property name="wordWrap">
-      <bool>true</bool>
-     </property>
+    <widget class="QLabel" name="titleLabel">
+     <property name="text"><string>Calibrate your listening position</string></property>
+     <property name="accessibleName"><string>Calibration wizard</string></property>
     </widget>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_3">
-     <property name="topMargin">
-      <number>0</number>
-     </property>
-     <item>
-      <widget class="QGroupBox" name="channelGroupBox">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="title">
-        <string>Channel</string>
-       </property>
-       <layout class="QHBoxLayout" name="horizontalLayout">
+    <widget class="QLabel" name="subtitleLabel">
+     <property name="text"><string>Use a sound-level meter with slow response and Z weighting. Complete the three steps below.</string></property>
+     <property name="wordWrap"><bool>true</bool></property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="safetyStatusLabel">
+     <property name="text"><string>Loudness correction is temporarily disabled while this window is open.</string></property>
+     <property name="wordWrap"><bool>true</bool></property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="speakerStepGroup">
+     <property name="title"><string>1 · Choose one speaker</string></property>
+     <layout class="QVBoxLayout" name="speakerStepLayout">
+      <property name="spacing"><number>8</number></property>
+      <item>
+       <widget class="QLabel" name="speakerHintLabel">
+        <property name="text"><string>Measure a single speaker so the reference level is not inflated by summing both channels.</string></property>
+        <property name="wordWrap"><bool>true</bool></property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="channelLayout">
         <item>
          <widget class="QRadioButton" name="leftRadioButton">
-          <property name="text">
-           <string>Left</string>
-          </property>
-          <property name="checked">
-           <bool>true</bool>
-          </property>
+          <property name="text"><string>Left speaker</string></property>
+          <property name="checked"><bool>true</bool></property>
          </widget>
         </item>
+        <item><widget class="QRadioButton" name="rightRadioButton"><property name="text"><string>Right speaker</string></property></widget></item>
+        <item><widget class="QRadioButton" name="bothRadioButton"><property name="text"><string>Both speakers</string></property></widget></item>
         <item>
-         <widget class="QRadioButton" name="rightRadioButton">
-          <property name="text">
-           <string>Right</string>
-          </property>
+         <spacer name="speakerSpacer">
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="playbackStepGroup">
+     <property name="title"><string>2 · Play the calibration signal</string></property>
+     <layout class="QVBoxLayout" name="playbackStepLayout">
+      <property name="spacing"><number>8</number></property>
+      <item>
+       <widget class="QLabel" name="playbackHintLabel">
+        <property name="text"><string>Set application volume to full, keep your normal Windows or hardware volume position, then play the pink-noise signal.</string></property>
+        <property name="wordWrap"><bool>true</bool></property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="playbackControlsLayout">
+        <item>
+         <widget class="QPushButton" name="playButton">
+          <property name="text"><string>Play pink noise</string></property>
+          <property name="accessibleDescription"><string>Starts a looping pink-noise signal on the selected speaker</string></property>
          </widget>
         </item>
+        <item><widget class="QPushButton" name="stopButton"><property name="text"><string>Stop</string></property></widget></item>
         <item>
-         <widget class="QRadioButton" name="bothRadioButton">
-          <property name="text">
-           <string>Both</string>
-          </property>
+         <widget class="QLabel" name="playbackStatusLabel">
+          <property name="text"><string>Ready to play</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property>
          </widget>
         </item>
        </layout>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <layout class="QGridLayout" name="gridLayout">
-     <item row="1" column="4">
-      <spacer name="horizontalSpacer_4">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item row="1" column="2">
-      <widget class="QPushButton" name="stopButton">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="text">
-        <string>Stop</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="0">
-      <spacer name="horizontalSpacer_3">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item row="1" column="1">
-      <widget class="QPushButton" name="playButton">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="text">
-        <string>Play</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <widget class="QLabel" name="label2">
-     <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Set the Windows master volume, or the manual volume value for a hardware knob, to your normal calibration position. Play the pink noise, measure it at the listening position, and enter the reading below:&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</string>
-     </property>
-     <property name="textFormat">
-      <enum>Qt::RichText</enum>
-     </property>
-     <property name="wordWrap">
-      <bool>true</bool>
-     </property>
+      </item>
+     </layout>
     </widget>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_2">
-     <item>
-      <spacer name="horizontalSpacer">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>1</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item>
-      <widget class="QLabel" name="levelLabel">
-       <property name="text">
-        <string>Level at listening position:</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QSpinBox" name="levelSpinBox">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="suffix">
-        <string> dB</string>
-       </property>
-       <property name="prefix">
-        <string/>
-       </property>
-       <property name="value">
-        <number>75</number>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <spacer name="horizontalSpacer_2">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>1</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-    </layout>
+    <widget class="QGroupBox" name="measurementStepGroup">
+     <property name="title"><string>3 · Enter the measured level</string></property>
+     <layout class="QVBoxLayout" name="measurementStepLayout">
+      <property name="spacing"><number>8</number></property>
+      <item>
+       <widget class="QLabel" name="measurementHintLabel">
+        <property name="text"><string>Measure at the listening position and enter the meter reading. The result becomes the 1 kHz reference at 0 dB tracked volume.</string></property>
+        <property name="wordWrap"><bool>true</bool></property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="measurementControlsLayout">
+        <item><widget class="QLabel" name="levelLabel"><property name="text"><string>Measured at listening position:</string></property></widget></item>
+        <item>
+         <widget class="QSpinBox" name="levelSpinBox">
+          <property name="minimum"><number>1</number></property>
+          <property name="maximum"><number>100</number></property>
+          <property name="value"><number>75</number></property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="measurementSpacer">
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
    </item>
    <item>
-    <widget class="QLabel" name="label3">
-     <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The reference level is calculated as the estimated 1 kHz listening level at 0 dB tracked volume. The available profile range is 1–100 phon.&lt;/li&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;After calibration, keep using the same Windows or manual volume method selected in the filter.&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</string>
-     </property>
-     <property name="textFormat">
-      <enum>Qt::RichText</enum>
-     </property>
-     <property name="wordWrap">
-      <bool>true</bool>
-     </property>
+    <widget class="QLabel" name="footerHintLabel">
+     <property name="text"><string>After saving, continue using the same Windows-volume or hardware-knob method selected in the filter.</string></property>
+     <property name="wordWrap"><bool>true</bool></property>
     </widget>
    </item>
    <item>
     <spacer name="verticalSpacer">
-     <property name="orientation">
-      <enum>Qt::Vertical</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>20</width>
-       <height>40</height>
-      </size>
-     </property>
+     <property name="orientation"><enum>Qt::Vertical</enum></property>
+     <property name="sizeHint" stdset="0"><size><width>20</width><height>12</height></size></property>
     </spacer>
    </item>
    <item>
     <widget class="QDialogButtonBox" name="buttonBox">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
-     </property>
+     <property name="orientation"><enum>Qt::Horizontal</enum></property>
+     <property name="standardButtons"><set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set></property>
     </widget>
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>leftRadioButton</tabstop>
+  <tabstop>rightRadioButton</tabstop>
+  <tabstop>bothRadioButton</tabstop>
+  <tabstop>playButton</tabstop>
+  <tabstop>stopButton</tabstop>
+  <tabstop>levelSpinBox</tabstop>
+ </tabstops>
  <resources/>
  <connections>
-  <connection>
-   <sender>buttonBox</sender>
-   <signal>accepted()</signal>
-   <receiver>LoudnessCorrectionFilterGUIDialog</receiver>
-   <slot>accept()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>248</x>
-     <y>254</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>157</x>
-     <y>274</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>buttonBox</sender>
-   <signal>rejected()</signal>
-   <receiver>LoudnessCorrectionFilterGUIDialog</receiver>
-   <slot>reject()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>316</x>
-     <y>260</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>286</x>
-     <y>274</y>
-    </hint>
-   </hints>
-  </connection>
+  <connection><sender>buttonBox</sender><signal>accepted()</signal><receiver>LoudnessCorrectionFilterGUIDialog</receiver><slot>accept()</slot><hints/></connection>
+  <connection><sender>buttonBox</sender><signal>rejected()</signal><receiver>LoudnessCorrectionFilterGUIDialog</receiver><slot>reject()</slot><hints/></connection>
  </connections>
 </ui>

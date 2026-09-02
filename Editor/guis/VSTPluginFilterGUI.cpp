@@ -40,6 +40,11 @@ VSTPluginFilterGUI::VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library
 	: ui(new Ui::VSTPluginFilterGUI), library(library), chunkData(chunkData), paramMap(paramMap)
 {
 	ui->setupUi(this);
+	ui->selectButton->setIcon(GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::OpenFolder));
+	ui->label->setBuddy(ui->pathLineEdit);
+	ui->pathLineEdit->setAccessibleName(ui->label->text());
+	ui->selectButton->setToolTip(tr("Select VST plugin"));
+	ui->selectButton->setAccessibleName(tr("Select VST plugin"));
 	ui->warningTextEdit->setProperty("statusLevel", "warning");
 	ui->frame->setVisible(false);
 	updatePermissionWarning();

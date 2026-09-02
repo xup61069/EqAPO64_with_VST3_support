@@ -71,6 +71,8 @@ public:
 	void paste();
 	void deleteSelectedLines();
 	void selectAll();
+	int findText(const QString& text, bool backwards = false);
+	void clearFindSelection();
 
 	const QList<std::shared_ptr<AbstractAPOInfo>>& getOutputDevices() const;
 	const QList<std::shared_ptr<AbstractAPOInfo>>& getInputDevices() const;
