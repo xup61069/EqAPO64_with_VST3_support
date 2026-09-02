@@ -283,9 +283,14 @@ class LoudnessProfileTests(unittest.TestCase):
 		legacy_gui = LEGACY_GUI_PATH.read_text(encoding="utf-8")
 		self.assertNotIn("NeutralVolumeDb", filter_header)
 		self.assertIn("parseGenericV2Parameters", factory)
+		self.assertIn("parseMixomoLegacyParameters", factory)
+		self.assertIn("referenceLevel - referenceOffset", factory)
 		self.assertIn("if (!migrated)", legacy_gui)
 		self.assertIn("parameters = originalParameters", legacy_gui)
-		self.assertIn("State 1 ReferenceLevel 80 ReferenceOffset", legacy_gui)
+		self.assertIn(
+			"Schema 1 Model FormulaLoudnessV1 State 1 ReferenceLevel 80 ReferenceOffset",
+			legacy_gui,
+		)
 
 
 if __name__ == "__main__":

@@ -147,6 +147,7 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         self.assertIn("&& !tryUpdateVolume())", gui_source)
         self.assertIn('tr("Calibration not applied")', gui_source)
         self.assertIn("ui->bothRadioButton->hide()", calibration_source)
+        self.assertIn("Schema 1 Model FormulaLoudnessV1", gui_source)
 
     @unittest.skipUnless(
         GUI_FACTORY_PATH.is_file() and LEGACY_GUI_PATH.is_file(),
@@ -162,6 +163,10 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         )
         self.assertIn('"NeutralVolumeDb", -160.0, 0.0', gui_factory_source)
         self.assertIn('"ManualVolumeDb", -160.0, 0.0', gui_factory_source)
+        self.assertIn("parseMixomoLegacyParameters", gui_factory_source)
+        self.assertIn("referenceLevel - referenceOffset", gui_factory_source)
+        self.assertIn("original shelf-based profile", legacy_gui_source)
+        self.assertIn("Schema 1 Model FormulaLoudnessV1", legacy_gui_source)
         self.assertIn("values below -100 dB will be clamped", legacy_gui_source)
         self.assertIn("retired headroom mode has no direct equivalent", legacy_gui_source)
         self.assertIn("(std::max)(-100.0", legacy_gui_source)

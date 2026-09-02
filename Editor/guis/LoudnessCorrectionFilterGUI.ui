@@ -34,14 +34,20 @@
      <property name="enabled">
       <bool>false</bool>
      </property>
-     <property name="buttonSymbols">
-      <enum>QAbstractSpinBox::NoButtons</enum>
-     </property>
      <property name="suffix">
       <string notr="true"> dB</string>
      </property>
      <property name="minimum">
-      <double>-99.989999999999995</double>
+      <double>-100.000000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>0.000000000000000</double>
+     </property>
+     <property name="decimals">
+      <number>1</number>
+     </property>
+     <property name="singleStep">
+      <double>0.500000000000000</double>
      </property>
     </widget>
    </item>
@@ -88,9 +94,12 @@
     </spacer>
    </item>
    <item row="0" column="13">
-    <widget class="QLabel" name="volumeLabel">
+    <widget class="QCheckBox" name="manualVolumeCheckBox">
+     <property name="toolTip">
+      <string>Use this when a DAC or amplifier hardware knob controls the real listening level.</string>
+     </property>
      <property name="text">
-      <string>Master volume:</string>
+      <string>Manual volume:</string>
      </property>
     </widget>
    </item>
@@ -144,7 +153,10 @@ Alexander Walch</string>
       </size>
      </property>
      <property name="minimum">
-      <number>-99</number>
+      <number>-100</number>
+     </property>
+     <property name="maximum">
+      <number>100</number>
      </property>
     </widget>
    </item>
@@ -180,13 +192,13 @@ Alexander Walch</string>
    <item row="1" column="3">
     <widget class="QSpinBox" name="refLevelSpinBox">
      <property name="suffix">
-      <string notr="true"> dB</string>
+      <string notr="true"> phon</string>
      </property>
      <property name="minimum">
-      <number>-999</number>
+      <number>1</number>
      </property>
      <property name="maximum">
-      <number>999</number>
+      <number>100</number>
      </property>
     </widget>
    </item>
@@ -234,10 +246,10 @@ Alexander Walch</string>
       <string notr="true"> dB</string>
      </property>
      <property name="minimum">
-      <number>-999</number>
+      <number>-100</number>
      </property>
      <property name="maximum">
-      <number>999</number>
+      <number>100</number>
      </property>
     </widget>
    </item>
@@ -285,7 +297,10 @@ Alexander Walch</string>
       </size>
      </property>
      <property name="minimum">
-      <number>-99</number>
+      <number>1</number>
+     </property>
+     <property name="maximum">
+      <number>100</number>
      </property>
     </widget>
    </item>

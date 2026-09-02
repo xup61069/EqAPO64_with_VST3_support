@@ -21,10 +21,27 @@
 #include "LoudnessCorrectionFilterGUIDialog.h"
 #include "LoudnessCorrectionFilterGUI.h"
 #include "ui_LoudnessCorrectionFilterGUI.h"
+#include <cmath>
+#include <limits>
+#include <QMessageBox>
+#include <QToolTip>
 
-LoudnessCorrectionFilterGUI::LoudnessCorrectionFilterGUI(double refLevel, double refOffset, double att)
+LoudnessCorrectionFilterGUI::LoudnessCorrectionFilterGUI(
+	bool state,
+	double refLevel,
+	double refOffset,
+	double att,
+	bool useManualVolume,
+	double manualVolume,
+	const std::wstring& endpointIdentifier,
+	bool automaticVolumeAvailable)
 	: IFilterGUI(),
-	ui(new Ui::LoudnessCorrectionFilterGUI)
+	  ui(new Ui::LoudnessCorrectionFilterGUI),
+	  state(state),
+	  automaticVolumeAvailable(automaticVolumeAvailable),
+	  endpointIdentifier(endpointIdentifier),
+	  endpointId(),
+	  lastVolume(std::numeric_limits<double>::quiet_NaN())
 {
 	ui->setupUi(this);
 
@@ -32,12 +49,59 @@ LoudnessCorrectionFilterGUI::LoudnessCorrectionFilterGUI(double refLevel, double
 	ui->refOffsetDial->setFixedSize(GUIHelper::scale(QSize(100, 66)));
 	ui->attDial->setFixedSize(GUIHelper::scale(QSize(100, 66)));
 
+	if (refLevel <= 0)
+		refLevel = 80;
+
 	ui->refLevelSpinBox->setValue((int)refLevel);
 	ui->refOffsetSpinBox->setValue((int)refOffset);
 	ui->attSpinBox->setValue(att);
 
+	// A syntactically valid endpoint ID is not enough: confirm that its volume
+	// can actually be read before allowing an automatic configuration to be
+	// saved from the editor.
+	if (this->automaticVolumeAvailable)
+	{
+		volumeController.reset(new VolumeController(endpointIdentifier));
+		double endpointVolume = 0.0;
+		if (FAILED(volumeController->getVolume(endpointVolume)) ||
+			!std::isfinite(endpointVolume))
+		{
+			this->automaticVolumeAvailable = false;
+			volumeController.reset();
+		}
+		else
+		{
+			lastVolume = endpointVolume;
+			endpointId = volumeController->getEndpointId();
+		}
+	}
+
+	if (!this->automaticVolumeAvailable)
+	{
+		ui->manualVolumeCheckBox->setText(tr("Manual volume (required):"));
+		ui->manualVolumeCheckBox->setToolTip(
+			tr("Automatic volume is available only for the selected playback endpoint. "
+				"Use manual volume for an input or unavailable endpoint."));
+		ui->volumeSpinBox->setToolTip(ui->manualVolumeCheckBox->toolTip());
+	}
+	bool blocked = ui->manualVolumeCheckBox->blockSignals(true);
+	ui->manualVolumeCheckBox->setChecked(
+		useManualVolume || !this->automaticVolumeAvailable);
+	ui->manualVolumeCheckBox->blockSignals(blocked);
+	ui->volumeSpinBox->setEnabled(
+		useManualVolume || !this->automaticVolumeAvailable);
+	if (useManualVolume || !this->automaticVolumeAvailable)
+	{
+		ui->volumeSpinBox->setValue(manualVolume);
+		lastVolume = manualVolume;
+	}
+	else
+	{
+		ui->volumeSpinBox->setValue(lastVolume);
+	}
+
 	connect(&timer, SIGNAL(timeout()), this, SLOT(updateVolume()));
-	timer.start(10);
+	timer.start(250);
 }
 
 LoudnessCorrectionFilterGUI::~LoudnessCorrectionFilterGUI()
@@ -48,12 +112,16 @@ LoudnessCorrectionFilterGUI::~LoudnessCorrectionFilterGUI()
 void LoudnessCorrectionFilterGUI::store(QString& command, QString& parameters)
 {
 	command = "LoudnessCorrection";
-	parameters = QString("State %0 ReferenceLevel %1 ReferenceOffset %2 Attenuation ").arg(state ? 1 : 0).arg(ui->refLevelSpinBox->value()).arg(ui->refOffsetSpinBox->value());
+	parameters = QString("Schema 1 Model FormulaLoudnessV1 State %0 ReferenceLevel %1 ReferenceOffset %2 Attenuation ").arg(state ? 1 : 0).arg(ui->refLevelSpinBox->value()).arg(ui->refOffsetSpinBox->value());
 	double att = ui->attSpinBox->value();
 	if (att == 0.0 || att == 1.0)
 		parameters += QString("%0").arg(att, 0, 'f', 1);
 	else
 		parameters += QString("%0").arg(att);
+
+	if (ui->manualVolumeCheckBox->isChecked())
+		parameters += QString(" Volume %0").arg(
+			ui->volumeSpinBox->value(), 0, 'f', 1);
 }
 
 void LoudnessCorrectionFilterGUI::on_refLevelSpinBox_valueChanged(int value)
@@ -80,31 +148,126 @@ void LoudnessCorrectionFilterGUI::on_attSpinBox_valueChanged(double value)
 	emit updateModel();
 }
 
+void LoudnessCorrectionFilterGUI::on_manualVolumeCheckBox_toggled(bool checked)
+{
+	if (!checked && !automaticVolumeAvailable)
+	{
+		bool blocked = ui->manualVolumeCheckBox->blockSignals(true);
+		ui->manualVolumeCheckBox->setChecked(true);
+		ui->manualVolumeCheckBox->blockSignals(blocked);
+		ui->volumeSpinBox->setEnabled(true);
+		QToolTip::showText(
+			ui->manualVolumeCheckBox->mapToGlobal(
+				QPoint(0, ui->manualVolumeCheckBox->height())),
+			ui->manualVolumeCheckBox->toolTip(),
+			ui->manualVolumeCheckBox);
+		emit updateModel();
+		return;
+	}
+
+	ui->volumeSpinBox->setEnabled(checked);
+	if (checked)
+	{
+		lastVolume = ui->volumeSpinBox->value();
+	}
+	else
+	{
+		if (!volumeController)
+			volumeController.reset(new VolumeController(endpointIdentifier));
+		double endpointVolume = 0.0;
+		if (FAILED(volumeController->getVolume(endpointVolume)) ||
+			!std::isfinite(endpointVolume))
+		{
+			automaticVolumeAvailable = false;
+			volumeController.reset();
+			ui->manualVolumeCheckBox->setText(tr("Manual volume (required):"));
+			ui->manualVolumeCheckBox->setToolTip(
+				tr("Automatic volume is available only for the selected playback endpoint. "
+					"Use manual volume for an input or unavailable endpoint."));
+			bool blocked = ui->manualVolumeCheckBox->blockSignals(true);
+			ui->manualVolumeCheckBox->setChecked(true);
+			ui->manualVolumeCheckBox->blockSignals(blocked);
+			ui->volumeSpinBox->setEnabled(true);
+			QToolTip::showText(
+				ui->manualVolumeCheckBox->mapToGlobal(
+					QPoint(0, ui->manualVolumeCheckBox->height())),
+				ui->manualVolumeCheckBox->toolTip(),
+				ui->manualVolumeCheckBox);
+			emit updateModel();
+			return;
+		}
+		lastVolume = endpointVolume;
+		endpointId = volumeController->getEndpointId();
+		ui->volumeSpinBox->setValue(endpointVolume);
+	}
+	emit updateModel();
+}
+
+void LoudnessCorrectionFilterGUI::on_volumeSpinBox_valueChanged(double value)
+{
+	if (ui->manualVolumeCheckBox->isChecked())
+	{
+		lastVolume = value;
+		emit updateModel();
+	}
+}
+
 void LoudnessCorrectionFilterGUI::on_calibrateButton_clicked()
 {
+	bool previousState = state;
 	state = false;
 	emit updateModel();
 
-	LoudnessCorrectionFilterGUIDialog dialog;
+	LoudnessCorrectionFilterGUIDialog dialog(endpointId, automaticVolumeAvailable);
 	if (dialog.exec() == QDialog::Accepted)
 	{
-		updateVolume();
-		double refLevel = 75.0 - dialog.getMeasuredLevel() + lastVolume;
-		ui->refLevelSpinBox->setValue(refLevel);
+		if (!ui->manualVolumeCheckBox->isChecked() && !tryUpdateVolume())
+		{
+			QMessageBox::warning(
+				this,
+				tr("Calibration not applied"),
+				tr("The selected endpoint volume could not be read. The measured level was not applied; reconnect the device or use manual volume and try again."));
+			state = previousState;
+			emit updateModel();
+			return;
+		}
+		double measuredSpl = dialog.getMeasuredLevel();
+		double effectiveVolume = lastVolume;
+		double refLevel = measuredSpl - effectiveVolume +
+			ui->refOffsetSpinBox->value();
+		if (refLevel < 1.0) refLevel = 1.0;
+		if (refLevel > 100.0) refLevel = 100.0;
+		ui->refLevelSpinBox->setValue((int)round(refLevel));
 	}
 
-	state = true;
+	state = previousState;
 	emit updateModel();
+}
+
+bool LoudnessCorrectionFilterGUI::tryUpdateVolume()
+{
+	if (ui->manualVolumeCheckBox->isChecked() || !automaticVolumeAvailable ||
+		!volumeController)
+		return false;
+
+	double volume;
+	HRESULT res = volumeController->getVolume(volume);
+
+	if (SUCCEEDED(res) && std::isfinite(volume))
+	{
+		endpointId = volumeController->getEndpointId();
+		if (!std::isfinite(lastVolume) || std::abs(volume - lastVolume) > 0.05)
+			ui->volumeSpinBox->setValue(volume);
+		lastVolume = volume;
+		return true;
+	}
+
+	if (FAILED(res) || !std::isfinite(volume))
+		lastVolume = std::numeric_limits<double>::quiet_NaN();
+	return false;
 }
 
 void LoudnessCorrectionFilterGUI::updateVolume()
 {
-	double volume;
-	HRESULT res = volumeController.getVolume(volume);
-
-	if (SUCCEEDED(res) && volume != lastVolume)
-	{
-		ui->volumeSpinBox->setValue(volume);
-		lastVolume = volume;
-	}
+	(void)tryUpdateVolume();
 }

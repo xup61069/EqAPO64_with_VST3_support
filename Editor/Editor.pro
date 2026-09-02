@@ -10,6 +10,7 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 TARGET = Editor
 TEMPLATE = app
+CONFIG += c++17
 
 PRECOMPILED_HEADER = stable.h
 QMAKE_CXXFLAGS_WARN_ON -= -w34100
@@ -129,6 +130,7 @@ SOURCES += main.cpp\
 	../filters/VSTPluginFilter.cpp \
 	../filters/VSTPluginFilterFactory.cpp \
 	../helpers/VSTPluginInstance.cpp \
+	guis/LegacyLoudnessCorrectionFilterGUI.cpp \
 	guis/LoudnessCorrectionFilterGUI.cpp \
 	guis/LoudnessCorrectionFilterGUIFactory.cpp \
 	../filters/loudnessCorrection/LoudnessCorrectionFilter.cpp \
@@ -252,8 +254,10 @@ HEADERS  += \
 	../filters/VSTPluginFilter.h \
 	../filters/VSTPluginFilterFactory.h \
 	../helpers/VSTPluginInstance.h \
+	guis/LegacyLoudnessCorrectionFilterGUI.h \
 	guis/LoudnessCorrectionFilterGUI.h \
 	guis/LoudnessCorrectionFilterGUIFactory.h \
+	../filters/loudnessCorrection/LoudnessProfile.h \
 	../filters/loudnessCorrection/LoudnessCorrectionFilter.h \
 	../filters/loudnessCorrection/LoudnessCorrectionFilterFactory.h \
 	../filters/loudnessCorrection/ParameterArchive.h \

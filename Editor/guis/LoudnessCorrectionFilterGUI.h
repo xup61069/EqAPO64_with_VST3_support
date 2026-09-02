@@ -20,6 +20,8 @@
 #pragma once
 
 #include <QTimer>
+#include <memory>
+#include <string>
 
 #include "Editor/IFilterGUI.h"
 #include "filters/loudnessCorrection/VolumeController.h"
@@ -33,7 +35,15 @@ class LoudnessCorrectionFilterGUI : public IFilterGUI
 	Q_OBJECT
 
 public:
-	explicit LoudnessCorrectionFilterGUI(double refLevel, double refOffset, double att);
+	explicit LoudnessCorrectionFilterGUI(
+		bool state,
+		double refLevel,
+		double refOffset,
+		double att,
+		bool useManualVolume,
+		double manualVolume,
+		const std::wstring& endpointIdentifier,
+		bool automaticVolumeAvailable);
 	~LoudnessCorrectionFilterGUI();
 
 	void store(QString& command, QString& parameters) override;
@@ -43,13 +53,19 @@ private slots:
 	void on_refOffsetSpinBox_valueChanged(int arg1);
 	void on_attDial_valueChanged(int value);
 	void on_attSpinBox_valueChanged(double arg1);
+	void on_manualVolumeCheckBox_toggled(bool checked);
+	void on_volumeSpinBox_valueChanged(double value);
 	void on_calibrateButton_clicked();
 	void updateVolume();
 
 private:
+	bool tryUpdateVolume();
 	Ui::LoudnessCorrectionFilterGUI* ui;
-	bool state = true;
+	bool state;
+	bool automaticVolumeAvailable;
+	std::wstring endpointIdentifier;
+	std::wstring endpointId;
 	QTimer timer;
-	VolumeController volumeController;
+	std::unique_ptr<VolumeController> volumeController;
 	double lastVolume = -1;
 };
