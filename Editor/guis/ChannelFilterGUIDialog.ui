@@ -212,10 +212,6 @@
         <property name="text">
          <string>Add channel</string>
         </property>
-        <property name="icon">
-         <iconset resource="../Editor.qrc">
-          <normaloff>:/icons/list-add-green.ico</normaloff>:/icons/list-add-green.ico</iconset>
-        </property>
        </widget>
       </item>
       <item row="2" column="0">

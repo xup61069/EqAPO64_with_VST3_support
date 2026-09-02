@@ -24,6 +24,7 @@
 #include <QLayout>
 #include <QPushButton>
 
+#include "Editor/helpers/GUIHelper.h"
 #include "CopyFilterGUIRow.h"
 #include "CopyFilterGUIForm.h"
 
@@ -91,7 +92,7 @@ void CopyFilterGUIForm::load(vector<Assignment> assignments)
 
 			QPushButton* addSummandButton = new QPushButton(this);
 			addSummandButton->setText(tr("Add summand"));
-			addSummandButton->setIcon(QIcon(":/icons/list-add-green.ico"));
+			addSummandButton->setIcon(GUIHelper::createAccentAddIcon());
 			gridLayout->addWidget(addSummandButton, row, 4);
 			connect(addSummandButton, SIGNAL(pressed()), this, SLOT(addSummand()));
 
@@ -113,7 +114,7 @@ void CopyFilterGUIForm::load(vector<Assignment> assignments)
 
 	QPushButton* addAssignmentButton = new QPushButton(this);
 	addAssignmentButton->setText(tr("Add assignment"));
-	addAssignmentButton->setIcon(QIcon(":/icons/list-add-green.ico"));
+	addAssignmentButton->setIcon(GUIHelper::createAccentAddIcon());
 	gridLayout->addWidget(addAssignmentButton, row++, 0, 1, 4);
 	connect(addAssignmentButton, SIGNAL(pressed()), this, SLOT(addAssignment()));
 }

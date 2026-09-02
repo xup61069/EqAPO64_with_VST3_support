@@ -31,7 +31,7 @@ UpdateChecker::UpdateChecker(QWidget* parent, const QJsonDocument& doc)
 		ui.goButton->setEnabled(false);
 
 	QJsonArray versionsArray = docObj.value("versions").toArray();
-	QString html = "<style>\n.date{font-size:small;font-style:italic;color:gray;}\nul{margin:5px;}\nli{margin:2px;}\n</style>\n";
+	QString html = "<style>\n.date{font-size:small;font-style:italic;}\nul{margin:5px;}\nli{margin:2px;}\n</style>\n";
 	bool first = true;
 	for (QJsonValue versionValue : versionsArray)
 	{

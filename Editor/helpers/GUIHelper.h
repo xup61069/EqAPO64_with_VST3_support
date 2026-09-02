@@ -21,6 +21,8 @@
 
 #pragma once
 
+class QIcon;
+
 class GUIHelper
 {
 public:
@@ -29,5 +31,6 @@ public:
 	static double scaleZoom(double zoom);
 	static double invScale(int pixel);
 	static double invScaleZoom(double zoom);
-    static bool isDarkMode();
+	static bool isDarkMode();
+	static QIcon createAccentAddIcon();
 };

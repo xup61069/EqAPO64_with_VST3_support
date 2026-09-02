@@ -32,6 +32,7 @@
 #include <QMessageBox>
 #include <QProcess>
 #include <QSettings>
+#include <QStyle>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -80,6 +81,18 @@ static QString localeDisplayName(const QString& localeName)
 	return name;
 }
 
+static void setStatusLevel(QLabel* label, const char* level)
+{
+	const QString statusLevel = QString::fromLatin1(level);
+	if (label->property("statusLevel").toString() == statusLevel)
+		return;
+
+	label->setProperty("statusLevel", statusLevel);
+	label->style()->unpolish(label);
+	label->style()->polish(label);
+	label->update();
+}
+
 MainWindow::MainWindow(QDir configDir, QWidget* parent)
 	: QMainWindow(parent), ui(new Ui::MainWindow), configDir(configDir)
 {
@@ -98,6 +111,31 @@ MainWindow::MainWindow(QDir configDir, QWidget* parent)
 
 	ui->setupUi(this);
 	resize(GUIHelper::scale(QSize(1024, 768)));
+	ui->mainToolBar->setIconSize(GUIHelper::scale(QSize(19, 19)));
+	ui->tabWidget->setElideMode(Qt::ElideMiddle);
+	ui->gridLayout->setContentsMargins(
+		GUIHelper::scale(9),
+		GUIHelper::scale(8),
+		GUIHelper::scale(9),
+		GUIHelper::scale(9));
+	ui->gridLayout_2->setContentsMargins(
+		GUIHelper::scale(9),
+		GUIHelper::scale(8),
+		GUIHelper::scale(9),
+		GUIHelper::scale(9));
+	ui->gridLayout_2->setSpacing(GUIHelper::scale(8));
+	ui->gridLayout_3->setContentsMargins(
+		GUIHelper::scale(10),
+		GUIHelper::scale(10),
+		GUIHelper::scale(10),
+		GUIHelper::scale(9));
+	ui->gridLayout_3->setSpacing(GUIHelper::scale(5));
+	ui->gridLayout_4->setContentsMargins(
+		GUIHelper::scale(10),
+		GUIHelper::scale(10),
+		GUIHelper::scale(10),
+		GUIHelper::scale(9));
+	ui->gridLayout_4->setSpacing(GUIHelper::scale(5));
 
 	LogHelper::set(stderr, true, false, false);
 
@@ -106,11 +144,19 @@ MainWindow::MainWindow(QDir configDir, QWidget* parent)
 		version += QString(".%0").arg(REVISION);
 	setWindowTitle(tr("Equalizer APO %0 Configuration Editor").arg(version));
 
+	QLabel* workspaceBrand = new QLabel(QStringLiteral("EQ"));
+	workspaceBrand->setObjectName(QStringLiteral("workspaceBrand"));
+	workspaceBrand->setToolTip(QStringLiteral("Equalizer APO"));
+	workspaceBrand->setAlignment(Qt::AlignCenter);
+	ui->mainToolBar->insertWidget(ui->actionNew, workspaceBrand);
+	ui->mainToolBar->insertSeparator(ui->actionNew);
+
 	QWidget* spacer = new QWidget;
-	spacer->setFixedWidth(10);
+	spacer->setFixedWidth(GUIHelper::scale(8));
 	ui->mainToolBar->addWidget(spacer);
 
 	instantModeCheckBox = new QCheckBox(tr("Instant mode"));
+	instantModeCheckBox->setObjectName(QStringLiteral("instantModeCheckBox"));
 	instantModeCheckBox->setChecked(true);
 	instantModeCheckBox->setToolTip(tr("Changes are saved immediately"));
 	connect(instantModeCheckBox, SIGNAL(toggled(bool)), this, SLOT(instantModeEnabled(bool)));
@@ -120,19 +166,26 @@ MainWindow::MainWindow(QDir configDir, QWidget* parent)
 	spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	ui->mainToolBar->addWidget(spacer);
 
-	ui->mainToolBar->addWidget(new QLabel(tr("Device: ")));
+	QLabel* deviceLabel = new QLabel(tr("Device: "));
+	deviceLabel->setProperty("toolbarRole", "context");
+	ui->mainToolBar->addWidget(deviceLabel);
 
 	deviceComboBox = new QComboBox;
+	deviceComboBox->setObjectName(QStringLiteral("deviceComboBox"));
 	connect(deviceComboBox, SIGNAL(activated(int)), this, SLOT(deviceSelected(int)));
 	ui->mainToolBar->addWidget(deviceComboBox);
 
 	spacer = new QWidget;
-	spacer->setFixedWidth(10);
+	spacer->setFixedWidth(GUIHelper::scale(8));
 	ui->mainToolBar->addWidget(spacer);
 
-	ui->mainToolBar->addWidget(new QLabel(tr("Channel configuration: ")));
+	QLabel* channelConfigurationLabel = new QLabel(tr("Channel configuration: "));
+	channelConfigurationLabel->setProperty("toolbarRole", "context");
+	ui->mainToolBar->addWidget(channelConfigurationLabel);
 
 	channelConfigurationComboBox = new QComboBox;
+	channelConfigurationComboBox->setObjectName(
+		QStringLiteral("channelConfigurationComboBox"));
 	channelConfigurationComboBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
 	ui->mainToolBar->addWidget(channelConfigurationComboBox);
 
@@ -760,7 +813,7 @@ void MainWindow::updateAnalysisPanel()
 
 	double peakGain = analysisThread->getPeakGain();
 	ui->peakGainValueLabel->setText(tr("%0 dB").arg(peakGain, 0, 'f', 1));
-	ui->peakGainValueLabel->setForegroundRole(peakGain > 0 ? QPalette::Dark : QPalette::WindowText);
+	setStatusLevel(ui->peakGainValueLabel, peakGain > 0 ? "danger" : "normal");
 
 	ui->latencyValueLabel->setText(tr("%0 ms (%1 s.)").arg(latency * 1000.0 / sampleRate, 0, 'f', 1).arg(latency));
 
@@ -768,7 +821,9 @@ void MainWindow::updateAnalysisPanel()
 
 	double cpuUsage = analysisThread->getProcessingTime() * 100.0 / (analysisThread->getProcessedFrames() * 1000.0 / sampleRate);
 	ui->cpuUsageValueLabel->setText(tr("%0 % (one core)").arg(cpuUsage, 0, 'f', 1));
-	ui->cpuUsageValueLabel->setForegroundRole(cpuUsage >= 20 ? (cpuUsage >= 50 ? QPalette::Dark : QPalette::Midlight) : QPalette::WindowText);
+	setStatusLevel(
+		ui->cpuUsageValueLabel,
+		cpuUsage >= 50 ? "danger" : (cpuUsage >= 20 ? "warning" : "normal"));
 
 	analysisThread->endGetResult();
 }

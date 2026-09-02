@@ -416,8 +416,16 @@
     <QtRcc Include="DeviceSelector.qrc" />
     <QtUic Include="DeviceSelector.ui" />
     <QtMoc Include="DeviceSelector.h" />
+    <ClCompile Include="..\Editor\helpers\GUIHelper.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\Editor\ModernTheme.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="..\helpers\ServiceHelper.cpp" />
     <ClCompile Include="DeviceSelector.cpp" />
+    <ClInclude Include="..\Editor\helpers\GUIHelper.h" />
+    <ClInclude Include="..\Editor\ModernTheme.h" />
     <ClInclude Include="..\helpers\ServiceHelper.h" />
     <QtMoc Include="DeviceTestDialog.h" />
     <QtMoc Include="DeviceTestThread.h" />

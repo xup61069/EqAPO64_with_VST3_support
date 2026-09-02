@@ -20,6 +20,7 @@
 #include <QFileInfo>
 #include <QFileDialog>
 #include <QSettings>
+#include <QStyle>
 #include <QStringList>
 
 #define WIN32_LEAN_AND_MEAN
@@ -39,6 +40,7 @@ VSTPluginFilterGUI::VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library
 	: ui(new Ui::VSTPluginFilterGUI), library(library), chunkData(chunkData), paramMap(paramMap)
 {
 	ui->setupUi(this);
+	ui->warningTextEdit->setProperty("statusLevel", "warning");
 	ui->frame->setVisible(false);
 	updatePermissionWarning();
 
@@ -142,20 +144,17 @@ void VSTPluginFilterGUI::initPlugin()
 	if (effect != NULL)
 		return;
 
-	QColor color;
 	QString text;
+	const char* statusLevel = "danger";
 	if (library->getLibPath() == L"")
 	{
 		text = tr("No file selected.");
-		color = Qt::red;
 	}
 	else
 	{
 		int result = library->initialize();
 		if (result < 0)
 		{
-			color = Qt::red;
-
 			switch (result)
 			{
 			case AbstractLibrary::FILE_NOT_FOUND:
@@ -185,7 +184,7 @@ void VSTPluginFilterGUI::initPlugin()
 				effect->setLanguage(QLocale().language() == QLocale::German ? 2 : 1);
 				effect->setAutomateFunc(bind(&VSTPluginFilterGUI::onAutomate, this));
 
-				color = Qt::black;
+				statusLevel = "normal";
 				text = QString::fromStdWString(effect->getName());
 			}
 			else
@@ -193,16 +192,14 @@ void VSTPluginFilterGUI::initPlugin()
 				delete effect;
 				effect = NULL;
 
-				color = Qt::red;
 				text = tr("Plugin crashed during initialization.");
 			}
 		}
 	}
 
-	QPalette palette = ui->statusLabel->palette();
-	palette.setColor(QPalette::Active, QPalette::WindowText, color);
-	palette.setColor(QPalette::Inactive, QPalette::WindowText, color);
-	ui->statusLabel->setPalette(palette);
+	ui->statusLabel->setProperty("statusLevel", statusLevel);
+	ui->statusLabel->style()->unpolish(ui->statusLabel);
+	ui->statusLabel->style()->polish(ui->statusLabel);
 	ui->statusLabel->setText(text);
 }
 

@@ -36,6 +36,7 @@ ChannelFilterGUIDialog::ChannelFilterGUIDialog(QWidget* parent, QStringList sele
 	ui(new Ui::ChannelFilterGUIDialog)
 {
 	ui->setupUi(this);
+	ui->addButton->setIcon(GUIHelper::createAccentAddIcon());
 	resize(GUIHelper::scale(QSize(355, 329)));
 
 	ui->centerCheckBox->setProperty(PROPERTY_POSITION, SPEAKER_FRONT_CENTER);

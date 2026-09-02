@@ -29,5 +29,10 @@ public:
 	CustomStyle(QStyle* style);
 
 	int pixelMetric(PixelMetric metric, const QStyleOption* option, const QWidget* widget) const override;
+	void drawComplexControl(
+		ComplexControl control,
+		const QStyleOptionComplex* option,
+		QPainter* painter,
+		const QWidget* widget = nullptr) const override;
 	QIcon standardIcon(StandardPixmap standardIcon, const QStyleOption *option = nullptr, const QWidget *widget = nullptr) const override;
 };

@@ -27,6 +27,7 @@ IncludeFilterGUI::IncludeFilterGUI(FilterTable* filterTable, const QString& path
 	: ui(new Ui::IncludeFilterGUI), filterTable(filterTable)
 {
 	ui->setupUi(this);
+	ui->errorLabel->setProperty("statusLevel", "danger");
 
 	ui->pathLineEdit->setText(path);
 

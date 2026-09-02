@@ -14,7 +14,6 @@
         <file>icons/edit-paste.ico</file>
         <file>icons/format-justify-fill-rotated.ico</file>
         <file>icons/go-up.ico</file>
-        <file>icons/list-add-green.ico</file>
         <file>icons/list-remove-red.ico</file>
         <file>icons/arrow_right.ico</file>
         <file>icons/resize_corner.ico</file>
@@ -30,6 +29,10 @@
         <file>icons/reset_response.svg</file>
         <file>icons/dark-mode/toolbar-ext-h.svg</file>
         <file>icons/dark-mode/toolbar-ext-v.svg</file>
+		<file>icons/modern/check.svg</file>
+		<file>icons/modern/check-dark.svg</file>
+		<file>icons/modern/radio-dot.svg</file>
+		<file>icons/modern/radio-dot-dark.svg</file>
         <file>translations/Editor_zh_CN.qm</file>
         <file>translations/qtbase_zh_CN.qm</file>
         <file>translations/Editor_fr.qm</file>

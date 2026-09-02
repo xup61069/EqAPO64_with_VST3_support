@@ -39,8 +39,8 @@ void FrequencyPlotHRuler::paintEvent(QPaintEvent*)
 	FrequencyPlotView* view = qobject_cast<FrequencyPlotView*>(parentWidget());
 	FrequencyPlotScene* s = view->scene();
 	QFontMetrics metrics = painter.fontMetrics();
-	bool dark = GUIHelper::isDarkMode();
-	painter.setPen(dark ? QColor(200, 200, 200) : QColor(50, 50, 50));
+	const QPalette rulerPalette = palette();
+	painter.setPen(rulerPalette.color(QPalette::WindowText));
 
 	QPointF topLeft = view->mapToScene(0, 0);
 	QPointF bottomRight = view->mapToScene(view->viewport()->width(), view->viewport()->height());
@@ -115,10 +115,10 @@ void FrequencyPlotHRuler::paintEvent(QPaintEvent*)
 			topTriangle.lineTo(QPoint(center, rect.top() - 3));
 			path = path.united(topTriangle);
 
-			painter.setPen(dark ? QColor(200,200,200) : Qt::black);
-			painter.setBrush(dark ? Qt::black : Qt::white);
+			painter.setPen(rulerPalette.color(QPalette::Mid));
+			painter.setBrush(rulerPalette.color(QPalette::ToolTipBase));
 			painter.drawPath(path);
-			painter.setPen(dark ? QColor(147,161,229) : Qt::blue);
+			painter.setPen(rulerPalette.color(QPalette::Highlight));
 			painter.drawText(center, 0, 0, height(), Qt::TextDontClip | Qt::AlignCenter, text);
 		}
 	}

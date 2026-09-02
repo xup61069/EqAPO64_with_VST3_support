@@ -58,6 +58,7 @@ private slots:
 	void on_bindingComboBox_currentIndexChanged(int index);
 	void on_manualVolumeCheckBox_toggled(bool checked);
 	void on_volumeSpinBox_valueChanged(double value);
+	void on_studioButton_clicked();
 	void on_calibrateButton_clicked();
 	void updateVolume();
 

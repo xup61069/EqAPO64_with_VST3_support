@@ -504,7 +504,7 @@ Supprimer un terme (d&apos;addition)</translatorcomment>
         <translation>Périphériques sélectionnés:</translation>
     </message>
     <message>
-        <location filename="../guis/DeviceFilterGUI.ui" line="96"/>
+        <location filename="../guis/DeviceFilterGUI.ui" line="93"/>
         <source>Change...</source>
         <translation>Modifier...</translation>
     </message>
@@ -638,7 +638,7 @@ Supprimer un terme (d&apos;addition)</translatorcomment>
 <context>
     <name>FilterTable</name>
     <message>
-        <location filename="../FilterTable.cpp" line="216"/>
+        <location filename="../FilterTable.cpp" line="218"/>
         <source>Add filter</source>
         <translation>Ajouter un filtre</translation>
     </message>
@@ -864,45 +864,180 @@ Modifiez les autorisations du fichier ou copiez le fichier dans le répertoire d
     </message>
 </context>
 <context>
+    <name>LegacyLoudnessCorrectionFilterGUI</name>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="43"/>
+        <source>This unmarked entry could be an original shelf profile or a previously released formula profile. It remains unchanged and bypassed until you choose an interpretation.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="47"/>
+        <source>This entry uses the original shelf-based profile. It remains unchanged and bypassed until you explicitly convert it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="51"/>
+        <source>This unmarked entry matches a previously released formula profile. It remains unchanged and bypassed until you explicitly preserve that interpretation.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="55"/>
+        <source>This entry uses the retired generic profile. It remains unchanged and bypassed until you explicitly convert it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="62"/>
+        <source>Its volume range extends below the formula profile limit; values below -100 dB will be clamped during conversion.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="67"/>
+        <source>The retired headroom mode has no direct equivalent; the formula profile uses automatic headroom.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="76"/>
+        <source>Keep existing formula values</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="77"/>
+        <source>Adds the formula marker while preserving the current values and enabled state.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="90"/>
+        <source>Convert original shelf profile</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="91"/>
+        <source>Convert and enable formula profile</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="95"/>
+        <source>Maps the original neutral volume and correction strength to the formula profile, then enables it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="97"/>
+        <source>Maps the old neutral volume and strength to the formula profile, then enables it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="98"/>
+        <source>Converts this disabled entry and enables the new formula profile.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>LoudnessCorrectionFilterGUI</name>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="73"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="79"/>
         <source>Reference level:</source>
         <translation>Niveau de référence:</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="93"/>
         <source>Master volume:</source>
-        <translation>Volume principal (Master):</translation>
+        <translation type="vanished">Volume principal (Master):</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="108"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="99"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="168"/>
+        <source>Use this when a DAC or amplifier hardware knob controls the real listening level.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="102"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="167"/>
+        <source>Manual volume:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="117"/>
         <source>contributed by
 Alexander Walch</source>
         <translation>contribution de
 Alexander Walch</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="160"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="172"/>
         <source>Attenuation:</source>
         <translation>Atténuation:</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="253"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="265"/>
         <source>Reference offset:</source>
         <translation>Décalage de référence (offset):</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="301"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="316"/>
         <source>Loudness correction:</source>
         <translatorcomment>There is no french translation for &quot;loudness&quot;</translatorcomment>
         <translation>Correction du Loudness:</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="311"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="326"/>
+        <source>Volume binding:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="333"/>
+        <source>Single follows the current APO playback endpoint. Global follows the Windows default Multimedia playback volume across all APO instances; use Global for VB-Audio Matrix.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="337"/>
+        <source>Single endpoint</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="342"/>
+        <source>Global (Windows default)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="350"/>
         <source>Calibrate</source>
         <translatorcomment>OR &quot;Étalonner&quot; only </translatorcomment>
         <translation>Étalonner</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="366"/>
+        <source>Open the full visual editor with a live target-curve preview.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="369"/>
+        <source>Studio…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="173"/>
+        <source>Manual volume (required):</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="174"/>
+        <source>Automatic volume is unavailable for this playback binding. Use manual volume for an input or unreadable endpoint.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="353"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="372"/>
+        <source>Calibration not applied</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="354"/>
+        <source>The bound playback volume could not be read. Reconnect the device, choose another binding, or use manual volume and try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="373"/>
+        <source>The bound playback volume could not be read. The measured level was not applied; reconnect the device, choose another binding, or use manual volume and try again.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -949,8 +1084,17 @@ Alexander Walch</translation>
     </message>
     <message>
         <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="135"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Set the Windows master volume, or the manual volume value for a hardware knob, to your normal calibration position. Play the pink noise, measure it at the listening position, and enter the reading below:&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="204"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The reference level is calculated as the estimated 1 kHz listening level at 0 dB tracked volume. The available profile range is 1–100 phon.&lt;/li&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;After calibration, keep using the same Windows or manual volume method selected in the filter.&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Adjust volume via Windows volume control or external volume control (amplifier, etc.) so that the sound level meter shows 75 dB at listening position. If that volume can not be reached, please adjust the following setting:&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Réglez le volume via le contrôle de volume Windows ou le contrôle de volume externe (amplificateur, etc.) pour que le sonomètre indique 75 dB à la position d&apos;écoute. Si ce volume ne peut pas être atteint, veuillez ajuster le paramètre suivant:&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Réglez le volume via le contrôle de volume Windows ou le contrôle de volume externe (amplificateur, etc.) pour que le sonomètre indique 75 dB à la position d&apos;écoute. Si ce volume ne peut pas être atteint, veuillez ajuster le paramètre suivant:&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="163"/>
@@ -963,22 +1107,272 @@ Alexander Walch</translation>
         <translation> dB</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="204"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The reference level will be set to the Windows volume for which the level at the listening position is 75 dB.&lt;/li&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;After calibration, volume should only be adjusted via Windows volume control&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Le niveau de référence sera réglé sur le volume Windows pour lequel le niveau à la position d&apos;écoute est de 75 dB.&lt;/li&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Après l&apos;étalonnage, le volume ne doit être ajusté que via le contrôle du volume Windows&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Le niveau de référence sera réglé sur le volume Windows pour lequel le niveau à la position d&apos;écoute est de 75 dB.&lt;/li&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Après l&apos;étalonnage, le volume ne doit être ajusté que via le contrôle du volume Windows&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="85"/>
+        <source> dB SPL</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="86"/>
+        <source>Enter the slow-response, Z-weighted (flat) reading measured at the listening position.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="93"/>
+        <source>The selected playback device is not the Windows default playback device. Test-noise playback is blocked to prevent calibration on the wrong speaker.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="103"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="140"/>
+        <source>Playback device mismatch</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="104"/>
+        <source>The Windows default playback device changed. Test noise was stopped to prevent calibration on the wrong speaker.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="141"/>
+        <source>Make the selected playback device the Windows default playback device, then reopen calibration. No test noise was played.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>LoudnessCorrectionFilterGUIFactory</name>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIFactory.cpp" line="48"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIFactory.cpp" line="255"/>
         <source>Loudness correction</source>
         <translation>Correction du Loudness</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIFactory.cpp" line="48"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIFactory.cpp" line="255"/>
         <source>Advanced filters</source>
         <translation>Filtres avancés</translation>
+    </message>
+</context>
+<context>
+    <name>LoudnessCorrectionStudioDialog</name>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="20"/>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="98"/>
+        <source>Loudness Studio</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="105"/>
+        <source>Shape a consistent listening profile across every volume level.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="112"/>
+        <source>Formula profile · contributed by Alexander Walch</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="155"/>
+        <source>Automatic tracking</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="212"/>
+        <source>Target compensation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="219"/>
+        <source>Relative to 1 kHz at the current listening volume</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="259"/>
+        <source>Target loudness-compensation curve preview</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="262"/>
+        <source>Shows the target compensation before filter fitting and headroom gain.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="299"/>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="355"/>
+        <source>Listening volume</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="306"/>
+        <source>Volume binding</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="322"/>
+        <source>Single follows the current APO playback endpoint. Global follows the Windows default Multimedia playback volume across all APO instances; use Global for VB-Audio Matrix.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="326"/>
+        <source>Single endpoint</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="331"/>
+        <source>Global (Windows default)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="339"/>
+        <source>Use this when a DAC or amplifier hardware knob controls the real listening level.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="342"/>
+        <source>Use manual volume</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="380"/>
+        <source>Tracks the selected playback endpoint.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="412"/>
+        <source>Apply these values, then open the existing pink-noise calibration flow.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="415"/>
+        <source>Apply and calibrate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="457"/>
+        <source>Reference level</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="467"/>
+        <source>The contour at your calibrated listening position</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="542"/>
+        <source>Reference offset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="552"/>
+        <source>Moves the neutral volume point</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="621"/>
+        <source>Correction strength</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="631"/>
+        <source>Blends the target curve into the signal</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="707"/>
+        <source>Reset profile</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="714"/>
+        <source>Changes take effect only after you apply them.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="743"/>
+        <source>Cancel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="759"/>
+        <source>Apply changes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="421"/>
+        <source>%1 phon · %2 dB · %3%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="425"/>
+        <source>Estimated %1 phon · %2% strength</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="435"/>
+        <source>Manual · %1 dB</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="437"/>
+        <source>Use the same hardware volume position represented by this value.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="443"/>
+        <source>Check after apply</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="444"/>
+        <source>The new binding will be verified when these changes are applied.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="450"/>
+        <source>Automatic · %1 dB</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="454"/>
+        <source>Tracks the Windows default Multimedia playback volume.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="455"/>
+        <source>Tracks the selected APO playback endpoint.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="460"/>
+        <source>Manual volume required</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="461"/>
+        <source>Automatic volume is unavailable for the current playback binding.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="561"/>
+        <source>20 Hz</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="563"/>
+        <source>1 kHz</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="565"/>
+        <source>12.5 kHz</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="567"/>
+        <source>±%1 dB</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -1130,81 +1524,81 @@ Alexander Walch</translation>
         <translation>Tout sélectionner</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="75"/>
+        <location filename="../MainWindow.cpp" line="107"/>
         <source>Equalizer APO %0 Configuration Editor</source>
         <translation>Equalizer APO %0 Éditeur de configuration</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="81"/>
+        <location filename="../MainWindow.cpp" line="113"/>
         <source>Instant mode</source>
         <translation>Mode instantané</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="83"/>
+        <location filename="../MainWindow.cpp" line="115"/>
         <source>Changes are saved immediately</source>
         <translation>Les modifications sont enregistrées immédiatement</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="91"/>
+        <location filename="../MainWindow.cpp" line="123"/>
         <source>Device: </source>
         <translation>Périphérique: </translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="101"/>
+        <location filename="../MainWindow.cpp" line="133"/>
         <source>Channel configuration: </source>
         <translation>Configuration des canaux: </translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="109"/>
+        <location filename="../MainWindow.cpp" line="141"/>
         <source>Default</source>
         <translation>Défaut</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="111"/>
+        <location filename="../MainWindow.cpp" line="143"/>
         <source>Playback devices:</source>
         <translation>Périphériques de lecture:</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="122"/>
+        <location filename="../MainWindow.cpp" line="154"/>
         <source>Capture devices:</source>
         <translation>Périphériques de capture:</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="156"/>
+        <location filename="../MainWindow.cpp" line="178"/>
         <source>Automatic (%0)</source>
         <translation>Automatique (%0)</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="179"/>
+        <location filename="../MainWindow.cpp" line="200"/>
         <source>Registry problem</source>
         <translation>Problème de registre</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="179"/>
+        <location filename="../MainWindow.cpp" line="200"/>
         <source>A registry value that is required for the operation of Equalizer APO is not set correctly.
 Do you want to run the Device Selector application to fix the problem?</source>
         <translation>Une valeur de registre requise pour le fonctionnement d’Equalizer APO n’est pas définie correctement.
 Voulez-vous exécuter l’application Device Selector (Sélecteur de périphérique) pour résoudre le problème?</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="188"/>
+        <location filename="../MainWindow.cpp" line="209"/>
         <source>APO not installed to device</source>
         <translation>APO non installé sur le périphérique</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="188"/>
+        <location filename="../MainWindow.cpp" line="209"/>
         <source>Equalizer APO has not been installed to the selected device.
 Do you want to run the Device Selector application to fix the problem?</source>
         <translation>Equalizer APO n’a pas été installé sur le périphérique sélectionné.
 Voulez-vous exécuter l’application Device Selector (Sélecteur de périphérique) pour résoudre le problème?</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="219"/>
+        <location filename="../MainWindow.cpp" line="240"/>
         <source>Audio enhancements disabled</source>
         <translation>Améliorations audio désactivées</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="219"/>
+        <location filename="../MainWindow.cpp" line="240"/>
         <source>Audio enhancements are not enabled for the device
 %0 %1.
 Do you want to run the Device Selector application to fix the problem?</source>
@@ -1213,102 +1607,102 @@ Do you want to run the Device Selector application to fix the problem?</source>
 Voulez-vous exécuter l’application Device Selector (Sélecteur de périphérique) pour résoudre le problème?</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="264"/>
-        <location filename="../MainWindow.cpp" line="344"/>
-        <location filename="../MainWindow.cpp" line="358"/>
+        <location filename="../MainWindow.cpp" line="285"/>
+        <location filename="../MainWindow.cpp" line="365"/>
+        <location filename="../MainWindow.cpp" line="379"/>
         <source>Error</source>
         <translation>Erreur</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="264"/>
+        <location filename="../MainWindow.cpp" line="285"/>
         <source>Error while reading configuration file: %0</source>
         <translation>Erreur lors de la lecture du fichier de configuration: %0</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="344"/>
+        <location filename="../MainWindow.cpp" line="365"/>
         <source>Error while writing configuration file: %0</source>
         <translation>Erreur lors de l&apos;écriture du fichier de configuration: %0</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="358"/>
+        <location filename="../MainWindow.cpp" line="379"/>
         <source>Only %0/%1 bytes have been written!</source>
         <translation>Seuls %0/%1 octets ont été écrits!</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="426"/>
-        <location filename="../MainWindow.cpp" line="428"/>
-        <location filename="../MainWindow.cpp" line="430"/>
-        <location filename="../MainWindow.cpp" line="434"/>
+        <location filename="../MainWindow.cpp" line="447"/>
+        <location filename="../MainWindow.cpp" line="449"/>
+        <location filename="../MainWindow.cpp" line="451"/>
+        <location filename="../MainWindow.cpp" line="455"/>
         <source>From device</source>
         <translation>Depuis le périphérique</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="556"/>
+        <location filename="../MainWindow.cpp" line="577"/>
         <source>Open file</source>
         <translation>Ouvrir un fichier</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="558"/>
-        <location filename="../MainWindow.cpp" line="611"/>
+        <location filename="../MainWindow.cpp" line="579"/>
+        <location filename="../MainWindow.cpp" line="632"/>
         <source>E-APO configurations (*.txt)</source>
         <translation>Configurations E-APO (*.txt)</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="608"/>
+        <location filename="../MainWindow.cpp" line="629"/>
         <source>Save file as</source>
         <translation>Enregistrer le fichier sous</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="630"/>
+        <location filename="../MainWindow.cpp" line="651"/>
         <source>Unsaved</source>
         <translation>Non enregistré</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="741"/>
+        <location filename="../MainWindow.cpp" line="762"/>
         <source>%0 dB</source>
         <translation>%0 dB</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="744"/>
+        <location filename="../MainWindow.cpp" line="765"/>
         <source>%0 ms (%1 s.)</source>
         <translation>%0 ms (%1 é.)</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="746"/>
+        <location filename="../MainWindow.cpp" line="767"/>
         <source>%0 ms</source>
         <translation>%0 ms</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="749"/>
+        <location filename="../MainWindow.cpp" line="770"/>
         <source>%0 % (one core)</source>
         <translation>%0 % (un cœur)</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="790"/>
-        <location filename="../MainWindow.cpp" line="817"/>
-        <location filename="../MainWindow.cpp" line="836"/>
+        <location filename="../MainWindow.cpp" line="811"/>
+        <location filename="../MainWindow.cpp" line="834"/>
+        <location filename="../MainWindow.cpp" line="853"/>
         <source>Restart required</source>
         <translation>Redémarrage requis</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="790"/>
-        <location filename="../MainWindow.cpp" line="817"/>
-        <location filename="../MainWindow.cpp" line="836"/>
+        <location filename="../MainWindow.cpp" line="811"/>
+        <location filename="../MainWindow.cpp" line="834"/>
+        <location filename="../MainWindow.cpp" line="853"/>
         <source>Configuration Editor will be restarted to apply the changed settings. Proceed?</source>
         <translation>L&apos;éditeur de configuration sera redémarré pour appliquer les paramètres modifiés. Procéder?</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="896"/>
+        <location filename="../MainWindow.cpp" line="913"/>
         <source>Unsaved changes</source>
         <translation>Modifications non enregistrées</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="897"/>
+        <location filename="../MainWindow.cpp" line="914"/>
         <source>The configuration file %0 has unsaved changes.</source>
         <translation>Le fichier de configuration %0 comporte des modifications non enregistrées.</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="898"/>
+        <location filename="../MainWindow.cpp" line="915"/>
         <source>Do you want to save the changes before closing the file?</source>
         <translation>Voulez-vous enregistrer les modifications avant de fermer le fichier?</translation>
     </message>
@@ -1399,69 +1793,70 @@ Voulez-vous exécuter l’application Device Selector (Sélecteur de périphéri
         <translation>VST plugin:</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.ui" line="84"/>
         <source>Options</source>
-        <translation>Options</translation>
+        <translation type="vanished">Options</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.ui" line="171"/>
         <source>Embed</source>
-        <translation>Intégré</translation>
+        <translation type="vanished">Intégré</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="162"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="149"/>
         <source>No file selected.</source>
         <translation>Aucun fichier sélectionné.</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="175"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="162"/>
         <source>File not found.</source>
         <translation>Fichier non trouvé.</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="178"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="165"/>
         <source>Library could not be loaded.</source>
         <translation>La bibliothèque n&apos;a pas pu être chargée.</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="181"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="168"/>
         <source>Library does not contain needed functions.</source>
         <translation>La bibliothèque ne contient pas les fonctions nécessaires.</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="189"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="176"/>
         <source>Library has the wrong architecture. Only %1-bit libraries are supported.</source>
         <translation>La bibliothèque a une mauvaise architecture. Seules les bibliothèques %1 bits sont prises en charge.</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="210"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="197"/>
         <source>Plugin crashed during initialization.</source>
         <translation>Le plugin a planté lors de l&apos;initialisation.</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="271"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="272"/>
         <source>Select VST plugin</source>
         <translation>Sélectionnez un plugin VST</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="273"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="274"/>
+        <source>VST plugins (*.dll *.vst3)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>VST plugins (*.dll)</source>
-        <translation>Plugins VST (*.dll)</translation>
+        <translation type="vanished">Plugins VST (*.dll)</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="321"/>
         <source>Plugin crashed when opening panel.</source>
-        <translation>Le plugin a planté lors de l&apos;ouverture du panneau.</translation>
+        <translation type="vanished">Le plugin a planté lors de l&apos;ouverture du panneau.</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="422"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="342"/>
         <source>The library is not readable by the audio service.
 Change the file permissions or copy the file to the VSTPlugins directory.</source>
         <translation>La bibliothèque n&apos;est pas lisible par le service audio.
 Modifiez les autorisations du fichier ou copiez le fichier dans le répertoire VSTPlugins.</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="469"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="389"/>
         <source>The plugin seemingly accesses these files not readable by the audio service:
 %0
 Change the file permissions or copy the files to the config directory.</source>
@@ -1476,6 +1871,11 @@ Modifiez les autorisations des fichiers ou copiez les fichiers dans le répertoi
         <location filename="../guis/VSTPluginFilterGUIDialog.ui" line="20"/>
         <source>Apply automatically</source>
         <translation>Appliquer automatiquement</translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUIDialog.cpp" line="106"/>
+        <source>This VST3 plug-in did not expose an embeddable editor.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

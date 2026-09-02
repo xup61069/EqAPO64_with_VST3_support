@@ -69,6 +69,7 @@ SOURCES += main.cpp\
 	guis/IncludeFilterGUI.cpp \
 	guis/IncludeFilterGUIFactory.cpp \
 	helpers/GUIHelper.cpp \
+	ModernTheme.cpp \
 	widgets/ResizingLineEdit.cpp \
 	widgets/ChannelGraphScene.cpp \
 	widgets/ChannelGraphItem.cpp \
@@ -132,6 +133,7 @@ SOURCES += main.cpp\
 	../helpers/VSTPluginInstance.cpp \
 	guis/LegacyLoudnessCorrectionFilterGUI.cpp \
 	guis/LoudnessCorrectionFilterGUI.cpp \
+	guis/LoudnessCorrectionStudioDialog.cpp \
 	guis/LoudnessCorrectionFilterGUIFactory.cpp \
 	../filters/loudnessCorrection/LoudnessCorrectionFilter.cpp \
 	../filters/loudnessCorrection/LoudnessCorrectionFilterFactory.cpp \
@@ -148,6 +150,7 @@ HEADERS  += \
 	../parser/LogicalOperators.h \
 	IFilterGUIFactory.h \
 	helpers/GUIHelper.h \
+	ModernTheme.h \
 	stable.h \
 	IFilterGUI.h \
 	guis/PreampFilterGUI.h \
@@ -256,6 +259,7 @@ HEADERS  += \
 	../helpers/VSTPluginInstance.h \
 	guis/LegacyLoudnessCorrectionFilterGUI.h \
 	guis/LoudnessCorrectionFilterGUI.h \
+	guis/LoudnessCorrectionStudioDialog.h \
 	guis/LoudnessCorrectionFilterGUIFactory.h \
 	../filters/loudnessCorrection/LoudnessProfile.h \
 	../filters/loudnessCorrection/LoudnessCorrectionFilter.h \
@@ -287,6 +291,7 @@ FORMS    += \
 	guis/VSTPluginFilterGUI.ui \
 	guis/VSTPluginFilterGUIDialog.ui \
 	guis/LoudnessCorrectionFilterGUI.ui \
+	guis/LoudnessCorrectionStudioDialog.ui \
 	guis/LoudnessCorrectionFilterGUIDialog.ui
 
 # Dependency paths with environment variable support and fallbacks

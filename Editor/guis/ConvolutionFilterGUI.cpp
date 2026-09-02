@@ -29,6 +29,7 @@ ConvolutionFilterGUI::ConvolutionFilterGUI(const QString& configPath, unsigned d
 	: ui(new Ui::ConvolutionFilterGUI), deviceSampleRate(deviceSampleRate)
 {
 	ui->setupUi(this);
+	ui->labelError->setProperty("statusLevel", "danger");
 
 	this->configPath = configPath;
 	ui->pathLineEdit->setText(path);

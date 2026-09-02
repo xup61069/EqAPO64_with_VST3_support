@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1048</width>
+    <width>1240</width>
     <height>66</height>
    </rect>
   </property>
@@ -344,28 +344,34 @@ Alexander Walch</string>
      </item>
     </widget>
    </item>
-   <item row="0" column="12" rowspan="2">
+   <item row="1" column="12">
     <widget class="QPushButton" name="calibrateButton">
      <property name="text">
       <string>Calibrate</string>
      </property>
     </widget>
    </item>
-   <item row="0" column="13">
-    <spacer name="horizontalSpacer_6">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <property name="sizeType">
-      <enum>QSizePolicy::Fixed</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
+   <item row="1" column="13">
+    <widget class="QPushButton" name="studioButton">
+     <property name="minimumSize">
       <size>
-       <width>30</width>
-       <height>20</height>
+       <width>88</width>
+       <height>0</height>
       </size>
      </property>
-    </spacer>
+     <property name="styleSheet">
+      <string notr="true">margin-left: 6px;</string>
+     </property>
+     <property name="cursor">
+      <cursorShape>PointingHandCursor</cursorShape>
+     </property>
+     <property name="toolTip">
+      <string>Open the full visual editor with a live target-curve preview.</string>
+     </property>
+     <property name="text">
+      <string>Studio…</string>
+     </property>
+    </widget>
    </item>
   </layout>
  </widget>

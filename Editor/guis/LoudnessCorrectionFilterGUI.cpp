@@ -20,10 +20,12 @@
 #include "Editor/helpers/GUIHelper.h"
 #include "LoudnessCorrectionFilterGUIDialog.h"
 #include "LoudnessCorrectionFilterGUI.h"
+#include "LoudnessCorrectionStudioDialog.h"
 #include "ui_LoudnessCorrectionFilterGUI.h"
 #include <cmath>
 #include <limits>
 #include <QMessageBox>
+#include <QSignalBlocker>
 #include <QToolTip>
 
 LoudnessCorrectionFilterGUI::LoudnessCorrectionFilterGUI(
@@ -132,7 +134,9 @@ void LoudnessCorrectionFilterGUI::refreshVolumeController()
 	endpointId.clear();
 	automaticVolumeAvailable = false;
 	lastVolume = std::numeric_limits<double>::quiet_NaN();
-	if (!selectedEndpointIsRender)
+	if (getBindingMode() ==
+		LoudnessCorrectionFilter::FilterParameters::BINDING_SINGLE &&
+		!selectedEndpointIsRender)
 		return;
 
 	std::wstring requestedEndpointId = getRequestedEndpointId();
@@ -283,6 +287,63 @@ void LoudnessCorrectionFilterGUI::on_volumeSpinBox_valueChanged(double value)
 		lastVolume = value;
 		emit updateModel();
 	}
+}
+
+void LoudnessCorrectionFilterGUI::on_studioButton_clicked()
+{
+	LoudnessCorrectionStudioDialog dialog(
+		ui->refLevelSpinBox->value(),
+		ui->refOffsetSpinBox->value(),
+		ui->attSpinBox->value(),
+		getBindingMode() == LoudnessCorrectionFilter::FilterParameters::BINDING_ALL,
+		ui->manualVolumeCheckBox->isChecked(),
+		ui->volumeSpinBox->value(),
+		automaticVolumeAvailable,
+		this);
+	if (dialog.exec() != QDialog::Accepted)
+		return;
+
+	{
+		QSignalBlocker refLevelDialBlocker(ui->refLevelDial);
+		QSignalBlocker refLevelSpinBlocker(ui->refLevelSpinBox);
+		QSignalBlocker refOffsetDialBlocker(ui->refOffsetDial);
+		QSignalBlocker refOffsetSpinBlocker(ui->refOffsetSpinBox);
+		QSignalBlocker attenuationDialBlocker(ui->attDial);
+		QSignalBlocker attenuationSpinBlocker(ui->attSpinBox);
+		QSignalBlocker bindingBlocker(ui->bindingComboBox);
+
+		ui->refLevelDial->setValue(dialog.getReferenceLevel());
+		ui->refLevelSpinBox->setValue(dialog.getReferenceLevel());
+		ui->refOffsetDial->setValue(dialog.getReferenceOffset());
+		ui->refOffsetSpinBox->setValue(dialog.getReferenceOffset());
+		ui->attDial->setValue(qRound(dialog.getAttenuation() * 100.0));
+		ui->attSpinBox->setValue(dialog.getAttenuation());
+		ui->bindingComboBox->setCurrentIndex(dialog.getGlobalBinding() ? 1 : 0);
+	}
+
+	refreshVolumeController();
+	updateAutomaticVolumeUi();
+	const bool useManualVolume =
+		dialog.getUseManualVolume() || !automaticVolumeAvailable;
+	{
+		QSignalBlocker manualBlocker(ui->manualVolumeCheckBox);
+		QSignalBlocker volumeBlocker(ui->volumeSpinBox);
+		ui->manualVolumeCheckBox->setChecked(useManualVolume);
+		ui->volumeSpinBox->setEnabled(useManualVolume);
+		if (useManualVolume)
+		{
+			ui->volumeSpinBox->setValue(dialog.getVolume());
+			lastVolume = dialog.getVolume();
+		}
+		else
+		{
+			ui->volumeSpinBox->setValue(lastVolume);
+		}
+	}
+
+	emit updateModel();
+	if (dialog.shouldCalibrateAfterApply())
+		on_calibrateButton_clicked();
 }
 
 void LoudnessCorrectionFilterGUI::on_calibrateButton_clicked()

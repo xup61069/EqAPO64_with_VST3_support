@@ -160,7 +160,7 @@ void DeviceTestDialog::log(const QString& message)
 
 void DeviceTestDialog::logError(const QString& message)
 {
-	ui.statusOutputBox->append("<span style=\"color:red\">" + message + "</span>");
+	ui.statusOutputBox->append("<strong>" + message.toHtmlEscaped() + "</strong>");
 }
 
 void DeviceTestDialog::showErrorDialog(const QString& message)

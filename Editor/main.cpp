@@ -25,6 +25,7 @@
 #include <QStyleHints>
 #include "CustomStyle.h"
 #include "MainWindow.h"
+#include "ModernTheme.h"
 #include "helpers/RegistryHelper.h"
 #include "Editor/helpers/GUIHelper.h"
 
@@ -45,9 +46,9 @@ int main(int argc, char* argv[])
 	do
 	{
 		QApplication application(argc, argv);
-		if(GUIHelper::isDarkMode())
-			application.setStyle("fusion");
+		application.setStyle("fusion");
 		application.setStyle(new CustomStyle(application.style()));
+		ModernTheme::install(application);
 
 		QSettings settings(QString::fromWCharArray(EDITOR_REGPATH), QSettings::NativeFormat);
 

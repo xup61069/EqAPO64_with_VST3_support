@@ -372,12 +372,20 @@
     <QtRcc Include="UpdateChecker.qrc" />
     <QtUic Include="UpdateChecker.ui" />
     <QtMoc Include="UpdateChecker.h" />
+    <ClCompile Include="..\Editor\helpers\GUIHelper.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\Editor\ModernTheme.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="..\helpers\StringHelper.cpp" />
     <ClCompile Include="..\helpers\TaskSchedulerHelper.cpp" />
     <ClCompile Include="AutoSizeTextEdit.cpp" />
     <ClCompile Include="UpdateChecker.cpp" />
     <ClCompile Include="main.cpp" />
     <QtMoc Include="AutoSizeTextEdit.h" />
+    <ClInclude Include="..\Editor\helpers\GUIHelper.h" />
+    <ClInclude Include="..\Editor\ModernTheme.h" />
     <ClInclude Include="..\helpers\RegistryHelper.h" />
     <ClInclude Include="..\helpers\StringHelper.h" />
     <ClInclude Include="..\helpers\TaskSchedulerHelper.h" />

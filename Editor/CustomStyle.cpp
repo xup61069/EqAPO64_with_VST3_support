@@ -19,6 +19,12 @@
 #include "CustomStyle.h"
 #include "Editor/helpers/GUIHelper.h"
 
+#include <algorithm>
+#include <cmath>
+#include <QApplication>
+#include <QPainter>
+#include <QStyleOptionSlider>
+
 CustomStyle::CustomStyle(QStyle* style)
 	: QProxyStyle(style)
 {
@@ -38,9 +44,108 @@ int CustomStyle::pixelMetric(QStyle::PixelMetric metric, const QStyleOption* opt
 	}
 }
 
+void CustomStyle::drawComplexControl(
+	QStyle::ComplexControl control,
+	const QStyleOptionComplex* option,
+	QPainter* painter,
+	const QWidget* widget) const
+{
+	if (control != QStyle::CC_Dial)
+	{
+		QProxyStyle::drawComplexControl(control, option, painter, widget);
+		return;
+	}
+
+	const QStyleOptionSlider* dial =
+		qstyleoption_cast<const QStyleOptionSlider*>(option);
+	if (dial == nullptr || dial->maximum <= dial->minimum)
+	{
+		QProxyStyle::drawComplexControl(control, option, painter, widget);
+		return;
+	}
+
+	painter->save();
+	painter->setRenderHint(QPainter::Antialiasing, true);
+
+	const qreal inset = GUIHelper::scale(7.0);
+	const qreal diameter = (std::max)(1.0,
+		(std::min)(dial->rect.width() - 2.0 * inset,
+			dial->rect.height() - 2.0 * inset));
+	const QPointF center = QRectF(dial->rect).center();
+	const QRectF arcRect(
+		center.x() - diameter / 2.0,
+		center.y() - diameter / 2.0,
+		diameter,
+		diameter);
+
+	const bool enabled = dial->state & QStyle::State_Enabled;
+	const bool hovered = dial->state & QStyle::State_MouseOver;
+	const QColor track = enabled ?
+		dial->palette.color(QPalette::Mid) :
+		dial->palette.color(QPalette::Disabled, QPalette::Text);
+	const QColor accent = enabled ?
+		dial->palette.color(QPalette::Highlight) :
+		dial->palette.color(QPalette::Disabled, QPalette::Text);
+	const QColor centerColor = dial->palette.color(QPalette::Button);
+
+	const qreal trackWidth = GUIHelper::scale(4.0);
+	painter->setBrush(Qt::NoBrush);
+	painter->setPen(QPen(track, trackWidth, Qt::SolidLine, Qt::RoundCap));
+	painter->drawArc(arcRect, 225 * 16, -270 * 16);
+
+	const int position = QStyle::sliderPositionFromValue(
+		dial->minimum,
+		dial->maximum,
+		dial->sliderPosition,
+		1000,
+		dial->upsideDown);
+	const qreal progress = position / 1000.0;
+	painter->setPen(QPen(
+		accent,
+		hovered ? GUIHelper::scale(5.0) : trackWidth,
+		Qt::SolidLine,
+		Qt::RoundCap));
+	painter->drawArc(arcRect, 225 * 16, qRound(-270.0 * progress * 16.0));
+
+	const qreal angle = (225.0 - 270.0 * progress) *
+		3.14159265358979323846 / 180.0;
+	const qreal markerRadius = diameter / 2.0;
+	const QPointF marker(
+		center.x() + std::cos(angle) * markerRadius,
+		center.y() - std::sin(angle) * markerRadius);
+	painter->setPen(QPen(centerColor, GUIHelper::scale(1.0)));
+	painter->setBrush(accent);
+	painter->drawEllipse(marker, GUIHelper::scale(3.0), GUIHelper::scale(3.0));
+
+	painter->setPen(QPen(track, GUIHelper::scale(1.0)));
+	painter->setBrush(centerColor);
+	painter->drawEllipse(center, GUIHelper::scale(4.0), GUIHelper::scale(4.0));
+
+	if (dial->state & QStyle::State_HasFocus)
+	{
+		QColor focus = accent;
+		const bool highContrast = qApp
+			&& qApp->property("eqapoModernThemeHighContrast").toBool();
+		if (!highContrast)
+			focus.setAlpha(135);
+		painter->setBrush(Qt::NoBrush);
+		painter->setPen(QPen(focus, GUIHelper::scale(1.0), Qt::DotLine));
+		painter->drawEllipse(arcRect.adjusted(
+			-GUIHelper::scale(3.0),
+			-GUIHelper::scale(3.0),
+			GUIHelper::scale(3.0),
+			GUIHelper::scale(3.0)));
+	}
+
+	painter->restore();
+}
+
 QIcon CustomStyle::standardIcon(StandardPixmap standardIcon, const QStyleOption *option, const QWidget *widget) const
 {
-	if(GUIHelper::isDarkMode())
+	const QPalette iconPalette = option ? option->palette : QApplication::palette();
+	const bool highContrast = qApp
+		&& qApp->property("eqapoModernThemeHighContrast").toBool();
+	if (!highContrast && iconPalette.color(QPalette::Window).lightnessF() < 0.5)
 	{
 		switch (standardIcon)
 		{

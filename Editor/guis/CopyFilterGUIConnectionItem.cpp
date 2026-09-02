@@ -105,7 +105,7 @@ QPainterPath CopyFilterGUIConnectionItem::shape() const
 			QRectF rect;
 			rect.setSize(size);
 			rect.moveCenter(center);
-			path.addRoundedRect(rect.adjusted(-0.5, 0.5, 0.5, 0.5), 3, 3);
+			path.addRect(rect.adjusted(-0.5, 0.5, 0.5, 0.5));
 		}
 	}
 
@@ -119,15 +119,17 @@ bool CopyFilterGUIConnectionItem::contains(const QPointF& point) const
 
 void CopyFilterGUIConnectionItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
 {
+	Q_UNUSED(option);
+	Q_UNUSED(widget);
 	QLineF l = line();
 	if (!l.isNull())
 	{
-		painter->setBrush(Qt::black);
-		if (isSelected())
-		{
-			painter->setBrush(Qt::blue);
-			painter->setPen(QPen(Qt::blue, 1.5));
-		}
+		const QPalette itemPalette = scene()->palette();
+		const QColor lineColor = isSelected()
+			? itemPalette.color(QPalette::Highlight)
+			: itemPalette.color(QPalette::WindowText);
+		painter->setBrush(lineColor);
+		painter->setPen(QPen(lineColor, isSelected() ? 1.5 : 1.0));
 		painter->drawLine(line());
 
 		double length = line().length();
@@ -162,11 +164,10 @@ void CopyFilterGUIConnectionItem::paint(QPainter* painter, const QStyleOptionGra
 			QRectF rect;
 			rect.setSize(size);
 			rect.moveCenter(center);
-			painter->setBrush(Qt::white);
-			painter->drawRoundedRect(rect.adjusted(-0.5, 0.5, 0.5, 0.5), 3, 3);
-			// make sure that text is visible in dark mode
-			if(painter->pen().color() == Qt::white)
-				painter->setPen(Qt::black);
+			painter->setBrush(itemPalette.color(QPalette::Base));
+			painter->setPen(itemPalette.color(QPalette::Mid));
+			painter->drawRect(rect.adjusted(-0.5, 0.5, 0.5, 0.5));
+			painter->setPen(itemPalette.color(QPalette::WindowText));
 			painter->drawText(rect, Qt::AlignCenter, text);
 		}
 	}

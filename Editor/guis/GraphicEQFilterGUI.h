@@ -26,6 +26,7 @@
 #include "GraphicEQFilterGUIScene.h"
 
 class FilterTable;
+class QEvent;
 
 namespace Ui {
 class GraphicEQFilterGUI;
@@ -43,6 +44,9 @@ public:
 
 	void loadPreferences(const QVariantMap& prefs) override;
 	void storePreferences(QVariantMap& prefs) override;
+
+protected:
+	void changeEvent(QEvent* event) override;
 
 private slots:
 	void insertRow(int index, double hz, double db);
@@ -66,6 +70,7 @@ private slots:
 
 private:
 	void setFreqEditable(bool editable);
+	void updateThemeIcons();
 
 	Ui::GraphicEQFilterGUI* ui;
 	GraphicEQFilterGUIScene* scene;

@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
 <TS version="2.1" language="zh_CN">
-    <extra-header>Copyright (C) 2024  Chenx221, 大眼仔~旭 (Wang Chenxu)</extra-header>
 <context>
     <name>BiQuadFilterGUI</name>
     <message>
@@ -525,7 +524,7 @@ Select a different file or change the device configuration.</source>
         <translation>所选设备：</translation>
     </message>
     <message>
-        <location filename="../guis/DeviceFilterGUI.ui" line="96"/>
+        <location filename="../guis/DeviceFilterGUI.ui" line="93"/>
         <source>Change...</source>
         <translation>更改...</translation>
     </message>
@@ -667,7 +666,7 @@ Select a different file or change the device configuration.</source>
 <context>
     <name>FilterTable</name>
     <message>
-        <location filename="../FilterTable.cpp" line="216"/>
+        <location filename="../FilterTable.cpp" line="218"/>
         <source>Add filter</source>
         <translation>添加过滤器</translation>
     </message>
@@ -904,19 +903,87 @@ Change the file permissions or copy the file to the config directory.</source>
     </message>
 </context>
 <context>
+    <name>LegacyLoudnessCorrectionFilterGUI</name>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="43"/>
+        <source>This unmarked entry could be an original shelf profile or a previously released formula profile. It remains unchanged and bypassed until you choose an interpretation.</source>
+        <translation>这个未标记的条目可能是原始搁架式轮廓，也可能是先前发布的公式轮廓。在您选择解释方式前，它会保持不变并被旁路。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="47"/>
+        <source>This entry uses the original shelf-based profile. It remains unchanged and bypassed until you explicitly convert it.</source>
+        <translation>此条目使用原始搁架式轮廓。在您明确转换前，它会保持不变并被旁路。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="51"/>
+        <source>This unmarked entry matches a previously released formula profile. It remains unchanged and bypassed until you explicitly preserve that interpretation.</source>
+        <translation>这个未标记的条目符合先前发布的公式轮廓。在您明确选择保留该解释前，它会保持不变并被旁路。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="55"/>
+        <source>This entry uses the retired generic profile. It remains unchanged and bypassed until you explicitly convert it.</source>
+        <translation>此条目使用已停用的通用轮廓。在您明确转换前，它会保持不变并被旁路。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="62"/>
+        <source>Its volume range extends below the formula profile limit; values below -100 dB will be clamped during conversion.</source>
+        <translation>它的音量范围低于公式轮廓下限；转换时低于 -100 dB 的数值会被限制为 -100 dB。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="67"/>
+        <source>The retired headroom mode has no direct equivalent; the formula profile uses automatic headroom.</source>
+        <translation>已停用的余量模式没有直接对应项；公式轮廓使用自动余量。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="76"/>
+        <source>Keep existing formula values</source>
+        <translation>保留现有公式值</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="77"/>
+        <source>Adds the formula marker while preserving the current values and enabled state.</source>
+        <translation>在保留当前数值和启用状态的同时加入公式标记。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="90"/>
+        <source>Convert original shelf profile</source>
+        <translation>转换原始搁架式轮廓</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="91"/>
+        <source>Convert and enable formula profile</source>
+        <translation>转换并启用公式轮廓</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="95"/>
+        <source>Maps the original neutral volume and correction strength to the formula profile, then enables it.</source>
+        <translation>将原始中性音量和补偿强度映射到公式轮廓，然后启用它。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="97"/>
+        <source>Maps the old neutral volume and strength to the formula profile, then enables it.</source>
+        <translation>将旧中性音量和强度映射到公式轮廓，然后启用它。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="98"/>
+        <source>Converts this disabled entry and enables the new formula profile.</source>
+        <translation>转换这个已禁用的条目并启用新的公式轮廓。</translation>
+    </message>
+</context>
+<context>
     <name>LoudnessCorrectionFilterGUI</name>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="160"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="172"/>
         <source>Attenuation:</source>
         <translation>衰减：</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="253"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="265"/>
         <source>Reference offset:</source>
         <translation>参考偏移：</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="73"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="79"/>
         <source>Reference level:</source>
         <translation>参考电平：</translation>
     </message>
@@ -925,25 +992,92 @@ Change the file permissions or copy the file to the config directory.</source>
         <translation type="obsolete"> dB</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="93"/>
         <source>Master volume:</source>
-        <translation>主音量：</translation>
+        <translation type="vanished">主音量：</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="108"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="99"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="168"/>
+        <source>Use this when a DAC or amplifier hardware knob controls the real listening level.</source>
+        <translation>当 DAC 或放大器的硬件旋钮控制实际聆听音量时，请启用此选项。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="102"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="167"/>
+        <source>Manual volume:</source>
+        <translation>手动音量：</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="117"/>
         <source>contributed by
 Alexander Walch</source>
         <translation>由 Alexander Walch 贡献</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="301"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="316"/>
         <source>Loudness correction:</source>
         <translation>响度校正：</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="311"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="326"/>
+        <source>Volume binding:</source>
+        <translation>音量绑定：</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="333"/>
+        <source>Single follows the current APO playback endpoint. Global follows the Windows default Multimedia playback volume across all APO instances; use Global for VB-Audio Matrix.</source>
+        <translation>“单一端点”会跟随当前 APO 播放端点。“全局”会让所有 APO 实例跟随 Windows 默认的“多媒体”播放音量；使用 VB-Audio Matrix 时请选择“全局”。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="337"/>
+        <source>Single endpoint</source>
+        <translation>单一端点</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="342"/>
+        <source>Global (Windows default)</source>
+        <translation>全局（Windows 默认）</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="350"/>
         <source>Calibrate</source>
         <translation>校准</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="366"/>
+        <source>Open the full visual editor with a live target-curve preview.</source>
+        <translation>打开完整可视化编辑器并实时预览目标曲线。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="369"/>
+        <source>Studio…</source>
+        <translation>工作台…</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="173"/>
+        <source>Manual volume (required):</source>
+        <translation>手动音量（必填）：</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="174"/>
+        <source>Automatic volume is unavailable for this playback binding. Use manual volume for an input or unreadable endpoint.</source>
+        <translation>当前播放音量绑定无法使用自动音量。输入端点或无法读取的端点请使用手动音量。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="353"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="372"/>
+        <source>Calibration not applied</source>
+        <translation>未应用校准</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="354"/>
+        <source>The bound playback volume could not be read. Reconnect the device, choose another binding, or use manual volume and try again.</source>
+        <translation>无法读取绑定的播放音量。请重新连接设备、改用其他绑定，或改用手动音量后重试。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="373"/>
+        <source>The bound playback volume could not be read. The measured level was not applied; reconnect the device, choose another binding, or use manual volume and try again.</source>
+        <translation>无法读取绑定的播放音量，因此未应用测量值。请重新连接设备、改用其他绑定，或改用手动音量后重试。</translation>
     </message>
 </context>
 <context>
@@ -994,8 +1128,17 @@ Alexander Walch</source>
     </message>
     <message>
         <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="135"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Set the Windows master volume, or the manual volume value for a hardware knob, to your normal calibration position. Play the pink noise, measure it at the listening position, and enter the reading below:&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;将 Windows 主音量或硬件旋钮的手动音量值设置到日常校准位置。播放粉红噪声，在聆听位置测量，并在下方输入读数：&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="204"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The reference level is calculated as the estimated 1 kHz listening level at 0 dB tracked volume. The available profile range is 1–100 phon.&lt;/li&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;After calibration, keep using the same Windows or manual volume method selected in the filter.&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;参考响度是音量追踪为 0 dB 时估算的 1 kHz 聆听响度。可用轮廓范围为 1–100 phon。&lt;/li&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;校准后，请继续使用滤波器中选择的同一种 Windows 或手动音量方式。&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Adjust volume via Windows volume control or external volume control (amplifier, etc.) so that the sound level meter shows 75 dB at listening position. If that volume can not be reached, please adjust the following setting:&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;通过 Windows 音量控制或外部音量控制（放大器等）调整音量，使声级计在聆听位置显示 75 dB。如果无法达到该音量，请调整以下设置：&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;通过 Windows 音量控制或外部音量控制（放大器等）调整音量，使声级计在聆听位置显示 75 dB。如果无法达到该音量，请调整以下设置：&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="163"/>
@@ -1008,22 +1151,272 @@ Alexander Walch</source>
         <translation> dB</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="204"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The reference level will be set to the Windows volume for which the level at the listening position is 75 dB.&lt;/li&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;After calibration, volume should only be adjusted via Windows volume control&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;参考级别将设置为 Windows 音量，此时聆听位置的级别为 75 dB。&lt;/li&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;校准后，只能通过 Windows 音量控制来调整音量&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;参考级别将设置为 Windows 音量，此时聆听位置的级别为 75 dB。&lt;/li&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;校准后，只能通过 Windows 音量控制来调整音量&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="85"/>
+        <source> dB SPL</source>
+        <translation> dB SPL</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="86"/>
+        <source>Enter the slow-response, Z-weighted (flat) reading measured at the listening position.</source>
+        <translation>请输入在聆听位置测得的慢响应、Z 计权（平直）读数。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="93"/>
+        <source>The selected playback device is not the Windows default playback device. Test-noise playback is blocked to prevent calibration on the wrong speaker.</source>
+        <translation>所选播放设备不是 Windows 默认播放设备。已阻止播放测试噪声，以免在错误的扬声器上校准。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="103"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="140"/>
+        <source>Playback device mismatch</source>
+        <translation>播放设备不匹配</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="104"/>
+        <source>The Windows default playback device changed. Test noise was stopped to prevent calibration on the wrong speaker.</source>
+        <translation>Windows 默认播放设备已更改。测试噪声已停止，以免在错误的扬声器上校准。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="141"/>
+        <source>Make the selected playback device the Windows default playback device, then reopen calibration. No test noise was played.</source>
+        <translation>请将所选播放设备设为 Windows 默认播放设备，再重新打开校准。没有播放测试噪声。</translation>
     </message>
 </context>
 <context>
     <name>LoudnessCorrectionFilterGUIFactory</name>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIFactory.cpp" line="48"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIFactory.cpp" line="255"/>
         <source>Loudness correction</source>
         <translation>响度校正</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIFactory.cpp" line="48"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIFactory.cpp" line="255"/>
         <source>Advanced filters</source>
         <translation>高级过滤器</translation>
+    </message>
+</context>
+<context>
+    <name>LoudnessCorrectionStudioDialog</name>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="20"/>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="98"/>
+        <source>Loudness Studio</source>
+        <translation>响度工作台</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="105"/>
+        <source>Shape a consistent listening profile across every volume level.</source>
+        <translation>在各种音量下塑造一致的聆听轮廓。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="112"/>
+        <source>Formula profile · contributed by Alexander Walch</source>
+        <translation>公式轮廓 · 由 Alexander Walch 贡献</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="155"/>
+        <source>Automatic tracking</source>
+        <translation>自动追踪</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="212"/>
+        <source>Target compensation</source>
+        <translation>目标补偿</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="219"/>
+        <source>Relative to 1 kHz at the current listening volume</source>
+        <translation>当前聆听音量相对于 1 kHz 的补偿</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="259"/>
+        <source>Target loudness-compensation curve preview</source>
+        <translation>目标响度补偿曲线预览</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="262"/>
+        <source>Shows the target compensation before filter fitting and headroom gain.</source>
+        <translation>显示滤波器拟合与余量增益应用前的目标补偿。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="299"/>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="355"/>
+        <source>Listening volume</source>
+        <translation>聆听音量</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="306"/>
+        <source>Volume binding</source>
+        <translation>音量绑定</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="322"/>
+        <source>Single follows the current APO playback endpoint. Global follows the Windows default Multimedia playback volume across all APO instances; use Global for VB-Audio Matrix.</source>
+        <translation>“单一端点”会跟随当前 APO 播放端点。“全局”会让所有 APO 实例跟随 Windows 默认的“多媒体”播放音量；使用 VB-Audio Matrix 时请选择“全局”。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="326"/>
+        <source>Single endpoint</source>
+        <translation>单一端点</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="331"/>
+        <source>Global (Windows default)</source>
+        <translation>全局（Windows 默认）</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="339"/>
+        <source>Use this when a DAC or amplifier hardware knob controls the real listening level.</source>
+        <translation>当 DAC 或放大器的硬件旋钮控制实际聆听音量时，请启用此选项。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="342"/>
+        <source>Use manual volume</source>
+        <translation>使用手动音量</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="380"/>
+        <source>Tracks the selected playback endpoint.</source>
+        <translation>跟随所选播放端点。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="412"/>
+        <source>Apply these values, then open the existing pink-noise calibration flow.</source>
+        <translation>应用这些值，然后打开现有的粉红噪声校准流程。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="415"/>
+        <source>Apply and calibrate</source>
+        <translation>应用并校准</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="457"/>
+        <source>Reference level</source>
+        <translation>参考响度</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="467"/>
+        <source>The contour at your calibrated listening position</source>
+        <translation>已校准聆听位置的轮廓</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="542"/>
+        <source>Reference offset</source>
+        <translation>参考偏移</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="552"/>
+        <source>Moves the neutral volume point</source>
+        <translation>移动中性音量点</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="621"/>
+        <source>Correction strength</source>
+        <translation>补偿强度</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="631"/>
+        <source>Blends the target curve into the signal</source>
+        <translation>将目标曲线混合到信号中</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="707"/>
+        <source>Reset profile</source>
+        <translation>重置轮廓</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="714"/>
+        <source>Changes take effect only after you apply them.</source>
+        <translation>更改仅在应用后生效。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="743"/>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="759"/>
+        <source>Apply changes</source>
+        <translation>应用更改</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="421"/>
+        <source>%1 phon · %2 dB · %3%</source>
+        <translation>%1 phon · %2 dB · %3%</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="425"/>
+        <source>Estimated %1 phon · %2% strength</source>
+        <translation>估算 %1 phon · 强度 %2%</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="435"/>
+        <source>Manual · %1 dB</source>
+        <translation>手动 · %1 dB</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="437"/>
+        <source>Use the same hardware volume position represented by this value.</source>
+        <translation>请使用与该数值对应的相同硬件音量位置。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="443"/>
+        <source>Check after apply</source>
+        <translation>应用后检查</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="444"/>
+        <source>The new binding will be verified when these changes are applied.</source>
+        <translation>应用这些更改时会验证新的绑定。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="450"/>
+        <source>Automatic · %1 dB</source>
+        <translation>自动 · %1 dB</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="454"/>
+        <source>Tracks the Windows default Multimedia playback volume.</source>
+        <translation>跟随 Windows 默认的“多媒体”播放音量。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="455"/>
+        <source>Tracks the selected APO playback endpoint.</source>
+        <translation>跟随所选 APO 播放端点。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="460"/>
+        <source>Manual volume required</source>
+        <translation>需要手动音量</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="461"/>
+        <source>Automatic volume is unavailable for the current playback binding.</source>
+        <translation>当前播放音量绑定无法使用自动音量。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="561"/>
+        <source>20 Hz</source>
+        <translation>20 Hz</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="563"/>
+        <source>1 kHz</source>
+        <translation>1 kHz</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="565"/>
+        <source>12.5 kHz</source>
+        <translation>12.5 kHz</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="567"/>
+        <source>±%1 dB</source>
+        <translation>±%1 dB</translation>
     </message>
 </context>
 <context>
@@ -1211,32 +1604,32 @@ Alexander Walch</source>
         <translation>全选</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="75"/>
+        <location filename="../MainWindow.cpp" line="107"/>
         <source>Equalizer APO %0 Configuration Editor</source>
         <translation>Equalizer APO %0 配置编辑器</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="81"/>
+        <location filename="../MainWindow.cpp" line="113"/>
         <source>Instant mode</source>
         <translation>即时模式</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="83"/>
+        <location filename="../MainWindow.cpp" line="115"/>
         <source>Changes are saved immediately</source>
         <translation>更改将立即保存</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="91"/>
+        <location filename="../MainWindow.cpp" line="123"/>
         <source>Device: </source>
         <translation>设备：</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="101"/>
+        <location filename="../MainWindow.cpp" line="133"/>
         <source>Channel configuration: </source>
         <translation>声道配置：</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="109"/>
+        <location filename="../MainWindow.cpp" line="141"/>
         <source>Default</source>
         <translation>默认</translation>
     </message>
@@ -1249,17 +1642,17 @@ Alexander Walch</source>
         <translation type="vanished">输入设备：</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="111"/>
+        <location filename="../MainWindow.cpp" line="143"/>
         <source>Playback devices:</source>
         <translation>播放设备：</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="122"/>
+        <location filename="../MainWindow.cpp" line="154"/>
         <source>Capture devices:</source>
         <translation>捕获设备：</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="179"/>
+        <location filename="../MainWindow.cpp" line="200"/>
         <source>Registry problem</source>
         <translation>注册表问题</translation>
     </message>
@@ -1274,7 +1667,7 @@ Do you want to run the Configurator application to fix the problem?</source>
 是否要运行配置器应用程序来修复此问题？</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="188"/>
+        <location filename="../MainWindow.cpp" line="209"/>
         <source>APO not installed to device</source>
         <translation>未将 APO 安装到设备</translation>
     </message>
@@ -1285,7 +1678,7 @@ Do you want to run the Configurator application to fix the problem?</source>
 是否要运行配置器应用程序来修复此问题？</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="219"/>
+        <location filename="../MainWindow.cpp" line="240"/>
         <source>Audio enhancements disabled</source>
         <translation>音频增强功能已禁用</translation>
     </message>
@@ -1298,37 +1691,37 @@ Do you want to run the Configurator application to fix the problem?</source>
 您是否要运行配置器应用程序来修复该问题？</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="264"/>
-        <location filename="../MainWindow.cpp" line="344"/>
-        <location filename="../MainWindow.cpp" line="358"/>
+        <location filename="../MainWindow.cpp" line="285"/>
+        <location filename="../MainWindow.cpp" line="365"/>
+        <location filename="../MainWindow.cpp" line="379"/>
         <source>Error</source>
         <translation>错误</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="264"/>
+        <location filename="../MainWindow.cpp" line="285"/>
         <source>Error while reading configuration file: %0</source>
         <translation>读取配置文件时出错：%0</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="344"/>
+        <location filename="../MainWindow.cpp" line="365"/>
         <source>Error while writing configuration file: %0</source>
         <translation>写入配置文件时出错：%0</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="358"/>
+        <location filename="../MainWindow.cpp" line="379"/>
         <source>Only %0/%1 bytes have been written!</source>
         <translation>仅写入了 %0/%1 字节！</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="426"/>
-        <location filename="../MainWindow.cpp" line="428"/>
-        <location filename="../MainWindow.cpp" line="430"/>
-        <location filename="../MainWindow.cpp" line="434"/>
+        <location filename="../MainWindow.cpp" line="447"/>
+        <location filename="../MainWindow.cpp" line="449"/>
+        <location filename="../MainWindow.cpp" line="451"/>
+        <location filename="../MainWindow.cpp" line="455"/>
         <source>From device</source>
         <translation>从设备</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="741"/>
+        <location filename="../MainWindow.cpp" line="762"/>
         <source>%0 dB</source>
         <translation>%0 dB</translation>
     </message>
@@ -1337,7 +1730,7 @@ Do you want to run the Configurator application to fix the problem?</source>
         <translation type="vanished">%0 毫秒（%1 个采样）</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="744"/>
+        <location filename="../MainWindow.cpp" line="765"/>
         <source>%0 ms (%1 s.)</source>
         <translation>%0 毫秒（%1 秒）</translation>
     </message>
@@ -1346,70 +1739,70 @@ Do you want to run the Configurator application to fix the problem?</source>
         <translation type="vanished">%0 毫秒（%1 个采样）</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="746"/>
+        <location filename="../MainWindow.cpp" line="767"/>
         <source>%0 ms</source>
         <translation>%0 毫秒</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="749"/>
+        <location filename="../MainWindow.cpp" line="770"/>
         <source>%0 % (one core)</source>
         <translation>%0 % (单核)</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="790"/>
-        <location filename="../MainWindow.cpp" line="817"/>
-        <location filename="../MainWindow.cpp" line="836"/>
+        <location filename="../MainWindow.cpp" line="811"/>
+        <location filename="../MainWindow.cpp" line="834"/>
+        <location filename="../MainWindow.cpp" line="853"/>
         <source>Restart required</source>
         <translation>需要重新启动</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="790"/>
-        <location filename="../MainWindow.cpp" line="817"/>
-        <location filename="../MainWindow.cpp" line="836"/>
+        <location filename="../MainWindow.cpp" line="811"/>
+        <location filename="../MainWindow.cpp" line="834"/>
+        <location filename="../MainWindow.cpp" line="853"/>
         <source>Configuration Editor will be restarted to apply the changed settings. Proceed?</source>
         <translation>配置编辑器将重新启动以应用更改的设置。继续吗？</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="896"/>
+        <location filename="../MainWindow.cpp" line="913"/>
         <source>Unsaved changes</source>
         <translation>未保存的更改</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="897"/>
+        <location filename="../MainWindow.cpp" line="914"/>
         <source>The configuration file %0 has unsaved changes.</source>
         <translation>配置文件 %0 有未保存的更改。</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="898"/>
+        <location filename="../MainWindow.cpp" line="915"/>
         <source>Do you want to save the changes before closing the file?</source>
         <translation>您是否要在关闭文件之前保存更改？</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="556"/>
+        <location filename="../MainWindow.cpp" line="577"/>
         <source>Open file</source>
         <translation>打开文件</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="156"/>
+        <location filename="../MainWindow.cpp" line="178"/>
         <source>Automatic (%0)</source>
         <translation>自动 (%0)</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="179"/>
+        <location filename="../MainWindow.cpp" line="200"/>
         <source>A registry value that is required for the operation of Equalizer APO is not set correctly.
 Do you want to run the Device Selector application to fix the problem?</source>
         <translation>Equalizer APO 操作所需的注册表值设置不正确。
 是否要运行设备选择器应用程序来修复此问题？</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="188"/>
+        <location filename="../MainWindow.cpp" line="209"/>
         <source>Equalizer APO has not been installed to the selected device.
 Do you want to run the Device Selector application to fix the problem?</source>
         <translation>Equalizer APO 尚未安装到所选设备。
 是否要运行设备选择器应用程序来修复此问题？</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="219"/>
+        <location filename="../MainWindow.cpp" line="240"/>
         <source>Audio enhancements are not enabled for the device
 %0 %1.
 Do you want to run the Device Selector application to fix the problem?</source>
@@ -1417,18 +1810,18 @@ Do you want to run the Device Selector application to fix the problem?</source>
 是否要运行设备选择器应用程序来修复此问题？</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="558"/>
-        <location filename="../MainWindow.cpp" line="611"/>
+        <location filename="../MainWindow.cpp" line="579"/>
+        <location filename="../MainWindow.cpp" line="632"/>
         <source>E-APO configurations (*.txt)</source>
         <translation>E-APO 配置 (*.txt)</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="608"/>
+        <location filename="../MainWindow.cpp" line="629"/>
         <source>Save file as</source>
         <translation>文件另存为</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="630"/>
+        <location filename="../MainWindow.cpp" line="651"/>
         <source>Unsaved</source>
         <translation>未保存</translation>
     </message>
@@ -1613,9 +2006,8 @@ Do you want to run the Device Selector application to fix the problem?</source>
 <context>
     <name>VSTPluginFilterGUI</name>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.ui" line="84"/>
         <source>Options</source>
-        <translation>选项</translation>
+        <translation type="vanished">选项</translation>
     </message>
     <message>
         <location filename="../guis/VSTPluginFilterGUI.ui" line="44"/>
@@ -1628,61 +2020,63 @@ Do you want to run the Device Selector application to fix the problem?</source>
         <translation>VST 插件：</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.ui" line="171"/>
         <source>Embed</source>
-        <translation>嵌入</translation>
+        <translation type="vanished">嵌入</translation>
     </message>
     <message>
         <source>No file selected</source>
         <translation type="vanished">未选择文件</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="162"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="149"/>
         <source>No file selected.</source>
         <translation>未选择文件。</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="175"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="162"/>
         <source>File not found.</source>
         <translation>未找到文件。</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="178"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="165"/>
         <source>Library could not be loaded.</source>
         <translation>无法加载库。</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="181"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="168"/>
         <source>Library does not contain needed functions.</source>
         <translation>库不包含所需的函数。</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="189"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="176"/>
         <source>Library has the wrong architecture. Only %1-bit libraries are supported.</source>
         <translation>库的体系结构错误。仅支持 %1 位库。</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="210"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="197"/>
         <source>Plugin crashed during initialization.</source>
         <translation>插件在初始化期间崩溃。</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="271"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="272"/>
         <source>Select VST plugin</source>
         <translation>选择 VST 插件</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="273"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="274"/>
+        <source>VST plugins (*.dll *.vst3)</source>
+        <translation>VST 插件 (*.dll *.vst3)</translation>
+    </message>
+    <message>
         <source>VST plugins (*.dll)</source>
-        <translation>VST 插件 (*.dll)</translation>
+        <translation type="vanished">VST 插件 (*.dll)</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="321"/>
         <source>Plugin crashed when opening panel.</source>
-        <translation>打开面板时插件崩溃。</translation>
+        <translation type="vanished">打开面板时插件崩溃。</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="422"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="342"/>
         <source>The library is not readable by the audio service.
 Change the file permissions or copy the file to the VSTPlugins directory.</source>
         <translation>音频服务无法读取该库。
@@ -1695,7 +2089,7 @@ Change the file permissions or copy the file to the plugins directory.</source>
 更改文件权限或将文件复制到插件目录。</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="469"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="389"/>
         <source>The plugin seemingly accesses these files not readable by the audio service:
 %0
 Change the file permissions or copy the files to the config directory.</source>
@@ -1710,6 +2104,11 @@ Change the file permissions or copy the files to the config directory.</source>
         <location filename="../guis/VSTPluginFilterGUIDialog.ui" line="20"/>
         <source>Apply automatically</source>
         <translation>自动应用</translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUIDialog.cpp" line="106"/>
+        <source>This VST3 plug-in did not expose an embeddable editor.</source>
+        <translation>此 VST3 插件未提供可嵌入的编辑器。</translation>
     </message>
 </context>
 <context>

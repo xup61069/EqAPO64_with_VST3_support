@@ -18,6 +18,7 @@
 */
 
 #include <algorithm>
+#include <QApplication>
 
 #include "helpers/GainIterator.h"
 #include "Editor/helpers/GUIHelper.h"
@@ -72,6 +73,10 @@ void AnalysisPlotView::drawBackground(QPainter* painter, const QRectF& rect)
 	path.lineTo(rect.right() + 1, rect.bottom() + 1);
 	path.lineTo(rect.left() - 1, rect.bottom() + 1);
 
+	const QPalette plotPalette = palette();
+	const bool highContrast = qApp
+		&& qApp->property("eqapoModernThemeHighContrast").toBool();
+	const bool dark = plotPalette.color(QPalette::Window).lightnessF() < 0.5;
 	double thresholdY = s->dbToY(0);
 	if (rect.top() < thresholdY)
 	{
@@ -79,12 +84,21 @@ void AnalysisPlotView::drawBackground(QPainter* painter, const QRectF& rect)
 		rectPath.addRect(rect.left(), rect.top(), rect.width(), min(thresholdY - rect.top(), rect.height()));
 		QPainterPath clippingPath = path.intersected(rectPath);
 		painter->setPen(Qt::NoPen);
-		painter->setBrush(Qt::red);
+		if (highContrast)
+			painter->setBrush(QBrush(plotPalette.color(QPalette::Highlight), Qt::Dense4Pattern));
+		else
+			painter->setBrush(dark ?
+				QColor(255, 138, 134, 76) :
+				QColor(179, 38, 30, 48));
 		painter->drawPath(clippingPath);
 		painter->setBrush(Qt::NoBrush);
 	}
 
-    bool dark = GUIHelper::isDarkMode();
-    painter->setPen(dark ? Qt::white : Qt::black);
+	painter->setPen(QPen(
+		plotPalette.color(QPalette::Highlight),
+		GUIHelper::scale(2.0),
+		Qt::SolidLine,
+		Qt::RoundCap,
+		Qt::RoundJoin));
 	painter->drawPath(path);
 }

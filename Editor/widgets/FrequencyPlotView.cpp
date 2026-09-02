@@ -18,6 +18,7 @@
 */
 
 #include <algorithm>
+#include <QApplication>
 #include <QWheelEvent>
 #include <QScrollBar>
 
@@ -74,8 +75,13 @@ void FrequencyPlotView::drawBackground(QPainter* painter, const QRectF& drawRect
 	double fromDb = floor(s->yToDb(rect.top() + rect.height()) / dbStep) * dbStep;
 	double toDb = ceil(s->yToDb(rect.top()) / dbStep) * dbStep;
 
-	bool dark = GUIHelper::isDarkMode();
-	painter->setPen(dark ? QColor(90, 90, 90) : QColor(200, 200, 200));
+	QColor gridColor = palette().color(QPalette::Mid);
+	const bool highContrast = qApp
+		&& qApp->property("eqapoModernThemeHighContrast").toBool();
+	if (!highContrast)
+		gridColor.setAlpha(
+			palette().color(QPalette::Window).lightnessF() < 0.5 ? 150 : 180);
+	painter->setPen(gridColor);
 	for (double db = fromDb; db <= toDb; db += dbStep)
 	{
 		double y = floor(s->dbToY(db)) + 0.5;

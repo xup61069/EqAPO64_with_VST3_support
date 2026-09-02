@@ -30,11 +30,20 @@ CopyFilterGUIChannelItem::CopyFilterGUIChannelItem(const QString& name, bool out
 
 void CopyFilterGUIChannelItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
 {
+	Q_UNUSED(option);
+	Q_UNUSED(widget);
+	const QPalette itemPalette = scene()->palette();
 	QColor color;
 	if (output)
-		color = QColor(255, 194, 194);
+	{
+		color = itemPalette.color(QPalette::Highlight);
+		painter->setPen(color);
+	}
 	else
-		color = QColor(176, 255, 176);
+	{
+		color = itemPalette.color(QPalette::AlternateBase);
+		painter->setPen(itemPalette.color(QPalette::Mid));
+	}
 
 	ChannelGraphItem::paint(painter, color);
 }

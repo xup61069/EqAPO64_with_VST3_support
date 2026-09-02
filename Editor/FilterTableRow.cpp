@@ -18,8 +18,10 @@
 */
 
 #include <QToolBar>
+#include <QApplication>
 #include <QLineEdit>
 #include <QPainter>
+#include <QPainterPath>
 #include <QScrollBar>
 
 #include "Editor/helpers/GUIHelper.h"
@@ -31,7 +33,17 @@ FilterTableRow::FilterTableRow(FilterTable* table, int number, FilterTable::Item
 	ui(new Ui::FilterTableRow)
 {
 	ui->setupUi(this);
-	ui->labelNumber->setMinimumWidth(GUIHelper::scale(25));
+	ui->actionAdd->setIcon(GUIHelper::createAccentAddIcon());
+	setAttribute(Qt::WA_StyledBackground, false);
+	ui->labelNumber->setMinimumWidth(GUIHelper::scale(38));
+	ui->horizontalLayout->setContentsMargins(
+		0,
+		GUIHelper::scale(1),
+		GUIHelper::scale(8),
+		0);
+	QFont numberFont = font();
+	numberFont.setWeight(QFont::DemiBold);
+	ui->labelNumber->setFont(numberFont);
 
 	this->table = table;
 	this->item = item;
@@ -44,7 +56,11 @@ FilterTableRow::FilterTableRow(FilterTable* table, int number, FilterTable::Item
 	ui->toolBar->addAction(ui->actionEditText);
 	ui->toolBar->updateMaximumHeight();
 
-	ui->stackedWidget->setContentsMargins(0, 5, 0, 5);
+	ui->stackedWidget->setContentsMargins(
+		GUIHelper::scale(4),
+		GUIHelper::scale(7),
+		GUIHelper::scale(2),
+		GUIHelper::scale(7));
 
 	if (gui != NULL)
 	{
@@ -94,44 +110,69 @@ void FilterTableRow::mouseDoubleClickEvent(QMouseEvent*)
 void FilterTableRow::paintEvent(QPaintEvent*)
 {
 	QPainter painter(this);
-	painter.setRenderHint(QPainter::Antialiasing);
+	painter.setRenderHint(QPainter::Antialiasing, true);
 
-	QRectF r = rect();
-	r = r.marginsAdded(QMarginsF(-1.5, -1.5, -1.5, -0.5));
+	const qreal inset = GUIHelper::scale(1.0);
+	const QRectF card = QRectF(rect()).adjusted(
+		inset,
+		inset,
+		-inset,
+		-inset);
+	const bool selected = table->getSelectedItems().contains(item);
+	const bool focused = table->getFocusedItem() == item;
+	const QPalette rowPalette = palette();
+	const QColor surface = rowPalette.color(QPalette::Base);
+	QColor accent = rowPalette.color(QPalette::Highlight);
+	QColor border = rowPalette.color(QPalette::Mid);
+	const bool highContrast = qApp
+		&& qApp->property("eqapoModernThemeHighContrast").toBool();
 
-	bool dark = GUIHelper::isDarkMode();
+	painter.setPen(Qt::NoPen);
+	painter.setBrush(surface);
+	painter.drawRect(card);
 
-	QColor color;
-	if (table->getSelectedItems().contains(item))
+	if ((selected || focused) && !highContrast)
 	{
-		if (table->getFocusedItem() == item)
-			color = dark ? QColor(44, 111, 222) : QColor(64, 136, 255);
-		else
-			color = dark ? QColor(34, 86, 171) : QColor(97, 143, 219);
+		QColor overlay = selected ? accent : rowPalette.color(QPalette::AlternateBase);
+		overlay.setAlpha(selected ? 38 : 90);
+		painter.setBrush(overlay);
+		painter.drawRect(card);
 	}
-	else
+
+	QPainterPath clip;
+	clip.addRect(card);
+	painter.save();
+	painter.setClipPath(clip);
+	QRectF rail = card;
+	rail.setRight(ui->labelNumber->geometry().right() + GUIHelper::scale(3));
+	if (!highContrast)
 	{
-		if (table->getFocusedItem() == item)
-			color = dark ? QColor(100, 100, 100) : QColor(160, 160, 160);
-		else
-			color = dark ? QColor(80, 80, 80) : QColor(180, 180, 180);
+		QColor railColor = accent;
+		railColor.setAlpha(selected ? 72 : 27);
+		painter.fillRect(rail, railColor);
 	}
-	painter.setPen(color);
+	QColor railEdge = accent;
+	if (!highContrast)
+		railEdge.setAlpha(selected ? 220 : 90);
+	painter.setPen(QPen(railEdge, GUIHelper::scale(selected ? 2.0 : 1.0)));
+	painter.drawLine(
+		QPointF(rail.right(), rail.top()),
+		QPointF(rail.right(), rail.bottom()));
+	painter.restore();
 
-	QLinearGradient gradient(r.topLeft(), r.bottomLeft());
-	gradient.setColorAt(0, dark ? QColor(70,70,70) : QColor(255, 255, 255));
-	gradient.setColorAt(1, dark ? QColor(45,45,45) : QColor(230, 230, 230));
-	painter.setBrush(gradient);
-	painter.drawRoundedRect(r, 5, 5);
-
-	QRectF r2 = r;
-	r2.setRight(ui->labelNumber->geometry().right() - 0.5);
-
-	QLinearGradient gradient2(r2.topLeft(), r2.bottomLeft());
-	gradient2.setColorAt(0, dark ? color.darker(170) : color.darker(110));
-	gradient2.setColorAt(1, dark ? color.darker(220) : color.darker(150));
-	painter.setBrush(gradient2);
-	painter.drawRoundedRect(r2, 5, 5);
+	if (selected)
+		border = accent;
+	else if (focused)
+	{
+		border = rowPalette.color(QPalette::WindowText);
+		if (!highContrast)
+			border.setAlpha(105);
+	}
+	painter.setBrush(Qt::NoBrush);
+	painter.setPen(QPen(
+		border,
+		GUIHelper::scale(selected && focused ? 2.0 : 1.0)));
+	painter.drawRect(card);
 }
 
 void FilterTableRow::updateModel()

@@ -61,10 +61,29 @@
 
 using namespace std;
 
+namespace
+{
+	void configureFilterLayout(QGridLayout* layout)
+	{
+		const int margin = GUIHelper::scale(9);
+		layout->setContentsMargins(
+			margin,
+			margin,
+			margin,
+			GUIHelper::scale(13));
+		layout->setHorizontalSpacing(0);
+		layout->setVerticalSpacing(GUIHelper::scale(7));
+		layout->setColumnStretch(0, 0);
+		layout->setColumnStretch(1, 1);
+	}
+}
+
 FilterTable::FilterTable(MainWindow* mainWindow, QWidget* parent)
 	: QWidget(parent), mainWindow(mainWindow)
 {
+	setObjectName(QStringLiteral("filterTable"));
 	gridLayout = new QGridLayout(this);
+	configureFilterLayout(gridLayout);
 
 	QIcon icon(QStringLiteral(":/icons/arrow_right.ico"));
 	insertArrow = new QLabel(this);
@@ -146,10 +165,7 @@ void FilterTable::updateGuis()
 	timer.start();
 
 	gridLayout = new QGridLayout(this);
-	gridLayout->setContentsMargins(0, 0, 0, 0);
-	gridLayout->setSpacing(0);
-	gridLayout->setColumnStretch(0, 0);
-	gridLayout->setColumnStretch(1, 1);
+	configureFilterLayout(gridLayout);
 
 	for (IFilterGUIFactory* factory : factories)
 		factory->startOfFile(configPath);
@@ -209,13 +225,14 @@ void FilterTable::updateGuis()
 	propagateChannels();
 
 	QToolBar* toolBar = new QToolBar;
+	toolBar->setObjectName(QStringLiteral("filterAddBar"));
 	toolBar->setIconSize(GUIHelper::scale(QSize(16, 16)));
 
 	QWidget* spacer = new QWidget;
-	spacer->setFixedWidth(GUIHelper::scale(25));
+	spacer->setFixedWidth(GUIHelper::scale(38));
 	toolBar->addWidget(spacer);
 
-	QAction* addAction = new QAction(QIcon(":/icons/list-add-green.ico"), tr("Add filter"), toolBar);
+	QAction* addAction = new QAction(GUIHelper::createAccentAddIcon(), tr("Add filter"), toolBar);
 	addAction->setCheckable(true);
 	connect(addAction, SIGNAL(triggered()), this, SLOT(addActionTriggered()));
 	toolBar->addAction(addAction);
@@ -538,7 +555,9 @@ int FilterTable::getPreferredWidth()
 	if (scrollArea == NULL)
 		return width();
 
-	return scrollArea->viewport()->width();
+	const QMargins margins = gridLayout->contentsMargins();
+	return (std::max)(0,
+		scrollArea->viewport()->width() - margins.left() - margins.right());
 }
 
 void FilterTable::updateSizeHints()

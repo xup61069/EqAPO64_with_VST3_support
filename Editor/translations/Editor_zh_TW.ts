@@ -941,13 +941,13 @@ Change the file permissions or copy the file to the config directory.</source>
     </message>
     <message>
         <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="99"/>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="166"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="168"/>
         <source>Use this when a DAC or amplifier hardware knob controls the real listening level.</source>
         <translation>當 DAC 或擴大機的硬體旋鈕控制實際聆聽音量時，請啟用此選項。</translation>
     </message>
     <message>
         <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="102"/>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="165"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="167"/>
         <source>Manual volume:</source>
         <translation>手動音量：</translation>
     </message>
@@ -988,22 +988,32 @@ Alexander Walch</source>
         <translation>校準</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="171"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="366"/>
+        <source>Open the full visual editor with a live target-curve preview.</source>
+        <translation>開啟完整視覺化編輯器並即時預覽目標曲線。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="369"/>
+        <source>Studio…</source>
+        <translation>工作台…</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="173"/>
         <source>Manual volume (required):</source>
         <translation>手動音量（必填）：</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="172"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="174"/>
         <source>Automatic volume is unavailable for this playback binding. Use manual volume for an input or unreadable endpoint.</source>
         <translation>這個播放音量綁定無法使用自動音量。輸入端點或無法讀取的端點請使用手動音量。</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="295"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="354"/>
         <source>The bound playback volume could not be read. Reconnect the device, choose another binding, or use manual volume and try again.</source>
         <translation>無法讀取綁定的播放音量。請重新連接裝置、改用其他綁定，或改用手動音量後再試一次。</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="314"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="373"/>
         <source>The bound playback volume could not be read. The measured level was not applied; reconnect the device, choose another binding, or use manual volume and try again.</source>
         <translation>無法讀取綁定的播放音量，因此未套用量測值。請重新連接裝置、改用其他綁定，或改用手動音量後再試一次。</translation>
     </message>
@@ -1012,8 +1022,8 @@ Alexander Walch</source>
         <translation type="vanished">自動音量僅適用於目前選取的播放端點。輸入裝置或無法使用的端點請改用手動音量。</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="294"/>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="313"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="353"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="372"/>
         <source>Calibration not applied</source>
         <translation>未套用校正</translation>
     </message>
@@ -1106,7 +1116,6 @@ Alexander Walch</source>
     </message>
     <message>
         <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="141"/>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="199"/>
         <source>Make the selected playback device the Windows default playback device, then reopen calibration. No test noise was played.</source>
         <translation>請將所選播放裝置設為 Windows 預設播放裝置，然後重新開啟校正。未播放任何測試噪音。</translation>
     </message>
@@ -1117,7 +1126,6 @@ Alexander Walch</source>
     <message>
         <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="103"/>
         <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="140"/>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="198"/>
         <source>Playback device mismatch</source>
         <translation>播放裝置不相符</translation>
     </message>
@@ -1137,6 +1145,226 @@ Alexander Walch</source>
         <location filename="../guis/LoudnessCorrectionFilterGUIFactory.cpp" line="255"/>
         <source>Advanced filters</source>
         <translation>高階過濾器</translation>
+    </message>
+</context>
+<context>
+    <name>LoudnessCorrectionStudioDialog</name>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="20"/>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="98"/>
+        <source>Loudness Studio</source>
+        <translation>響度工作台</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="105"/>
+        <source>Shape a consistent listening profile across every volume level.</source>
+        <translation>在各種音量下塑造一致的聆聽輪廓。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="112"/>
+        <source>Formula profile · contributed by Alexander Walch</source>
+        <translation>公式輪廓 · 由 Alexander Walch 貢獻</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="155"/>
+        <source>Automatic tracking</source>
+        <translation>自動追蹤</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="212"/>
+        <source>Target compensation</source>
+        <translation>目標補償</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="219"/>
+        <source>Relative to 1 kHz at the current listening volume</source>
+        <translation>目前聆聽音量相對於 1 kHz 的補償</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="259"/>
+        <source>Target loudness-compensation curve preview</source>
+        <translation>目標響度補償曲線預覽</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="262"/>
+        <source>Shows the target compensation before filter fitting and headroom gain.</source>
+        <translation>顯示濾波器擬合與餘裕增益套用前的目標補償。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="299"/>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="355"/>
+        <source>Listening volume</source>
+        <translation>聆聽音量</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="306"/>
+        <source>Volume binding</source>
+        <translation>音量綁定</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="322"/>
+        <source>Single follows the current APO playback endpoint. Global follows the Windows default Multimedia playback volume across all APO instances; use Global for VB-Audio Matrix.</source>
+        <translation>「單一端點」會跟隨目前的 APO 播放端點。「全域」會讓所有 APO 執行個體跟隨 Windows 預設的「多媒體」播放音量；使用 VB-Audio Matrix 時請選擇「全域」。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="326"/>
+        <source>Single endpoint</source>
+        <translation>單一端點</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="331"/>
+        <source>Global (Windows default)</source>
+        <translation>全域（Windows 預設）</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="339"/>
+        <source>Use this when a DAC or amplifier hardware knob controls the real listening level.</source>
+        <translation>當 DAC 或擴大機的硬體旋鈕控制實際聆聽音量時，請啟用此選項。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="342"/>
+        <source>Use manual volume</source>
+        <translation>使用手動音量</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="380"/>
+        <source>Tracks the selected playback endpoint.</source>
+        <translation>跟隨選取的播放端點。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="412"/>
+        <source>Apply these values, then open the existing pink-noise calibration flow.</source>
+        <translation>套用這些值，接著開啟既有的粉紅雜訊校正流程。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="415"/>
+        <source>Apply and calibrate</source>
+        <translation>套用並校正</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="457"/>
+        <source>Reference level</source>
+        <translation>參考響度</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="467"/>
+        <source>The contour at your calibrated listening position</source>
+        <translation>已校準聆聽位置的輪廓</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="542"/>
+        <source>Reference offset</source>
+        <translation>參考偏移</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="552"/>
+        <source>Moves the neutral volume point</source>
+        <translation>移動中性音量點</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="621"/>
+        <source>Correction strength</source>
+        <translation>補償強度</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="631"/>
+        <source>Blends the target curve into the signal</source>
+        <translation>將目標曲線混合至訊號</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="707"/>
+        <source>Reset profile</source>
+        <translation>重設輪廓</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="714"/>
+        <source>Changes take effect only after you apply them.</source>
+        <translation>變更只會在套用後生效。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="743"/>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.ui" line="759"/>
+        <source>Apply changes</source>
+        <translation>套用變更</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="421"/>
+        <source>%1 phon · %2 dB · %3%</source>
+        <translation>%1 phon · %2 dB · %3%</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="425"/>
+        <source>Estimated %1 phon · %2% strength</source>
+        <translation>預估 %1 phon · 強度 %2%</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="435"/>
+        <source>Manual · %1 dB</source>
+        <translation>手動 · %1 dB</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="437"/>
+        <source>Use the same hardware volume position represented by this value.</source>
+        <translation>請使用與這個數值對應的相同硬體音量位置。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="443"/>
+        <source>Check after apply</source>
+        <translation>套用後檢查</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="444"/>
+        <source>The new binding will be verified when these changes are applied.</source>
+        <translation>套用這些變更時會驗證新的綁定。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="450"/>
+        <source>Automatic · %1 dB</source>
+        <translation>自動 · %1 dB</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="454"/>
+        <source>Tracks the Windows default Multimedia playback volume.</source>
+        <translation>跟隨 Windows 預設的「多媒體」播放音量。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="455"/>
+        <source>Tracks the selected APO playback endpoint.</source>
+        <translation>跟隨選取的 APO 播放端點。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="460"/>
+        <source>Manual volume required</source>
+        <translation>需要手動音量</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="461"/>
+        <source>Automatic volume is unavailable for the current playback binding.</source>
+        <translation>目前的播放音量綁定無法使用自動音量。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="561"/>
+        <source>20 Hz</source>
+        <translation>20 Hz</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="563"/>
+        <source>1 kHz</source>
+        <translation>1 kHz</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="565"/>
+        <source>12.5 kHz</source>
+        <translation>12.5 kHz</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="567"/>
+        <source>±%1 dB</source>
+        <translation>±%1 dB</translation>
     </message>
 </context>
 <context>

@@ -28,6 +28,7 @@
 #include <QtWidgets/QApplication>
 #include <helpers/TaskSchedulerHelper.h>
 #include "UpdateChecker.h"
+#include "Editor/ModernTheme.h"
 #include "version.h"
 
 using namespace std::chrono_literals;
@@ -105,8 +106,8 @@ int main(int argc, char* argv[])
 	QCoreApplication::addLibraryPath("qt");
 
 	QApplication app(argc, argv);
-	if (QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark)
-		app.setStyle("fusion");
+	app.setStyle("fusion");
+	ModernTheme::install(app);
 
 	QLocale::setDefault(QLocale::system());
 

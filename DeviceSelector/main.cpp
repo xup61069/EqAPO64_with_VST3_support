@@ -27,6 +27,7 @@
 #include <winsock2.h>
 #include "ReceiveThread.h"
 #include "DeviceSelector.h"
+#include "Editor/ModernTheme.h"
 
 int main(int argc, char* argv[])
 {
@@ -35,8 +36,8 @@ int main(int argc, char* argv[])
 	QCoreApplication::addLibraryPath("qt");
 
 	QApplication app(argc, argv);
-	if (QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark)
-		app.setStyle("fusion");
+	app.setStyle("fusion");
+	ModernTheme::install(app);
 
 	QLocale::setDefault(QLocale::system());
 

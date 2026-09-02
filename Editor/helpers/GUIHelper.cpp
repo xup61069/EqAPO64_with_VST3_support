@@ -22,8 +22,54 @@
 #include <QApplication>
 #include <QFont>
 #include <QFontMetrics>
+#include <QIcon>
+#include <QIconEngine>
+#include <QPainter>
+#include <QPalette>
 #include <QScreen>
 #include <QStyleHints>
+
+#include <algorithm>
+
+namespace
+{
+	class AccentAddIconEngine final : public QIconEngine
+	{
+	public:
+		QIconEngine* clone() const override
+		{
+			return new AccentAddIconEngine(*this);
+		}
+
+		QString key() const override
+		{
+			return QStringLiteral("EqApoAccentAddIcon");
+		}
+
+		void paint(QPainter* painter, const QRect& rect, QIcon::Mode mode, QIcon::State) override
+		{
+			const QPalette palette = QApplication::palette();
+			const QColor color = mode == QIcon::Disabled
+				? palette.color(QPalette::Disabled, QPalette::ButtonText)
+				: palette.color(QPalette::Highlight);
+			const qreal side = (std::min)(rect.width(), rect.height());
+			const qreal arm = side * 0.29;
+			const qreal stroke = (std::max)(1.0, side * 0.12);
+			const QPointF center = QRectF(rect).center();
+
+			painter->save();
+			painter->setRenderHint(QPainter::Antialiasing, false);
+			painter->setPen(QPen(color, stroke, Qt::SolidLine, Qt::SquareCap));
+			painter->drawLine(
+				QPointF(center.x() - arm, center.y()),
+				QPointF(center.x() + arm, center.y()));
+			painter->drawLine(
+				QPointF(center.x(), center.y() - arm),
+				QPointF(center.x(), center.y() + arm));
+			painter->restore();
+		}
+	};
+}
 
 QSize GUIHelper::scale(QSize size)
 {
@@ -73,4 +119,9 @@ double GUIHelper::invScaleZoom(double zoom)
 bool GUIHelper::isDarkMode()
 {
 	return QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark;
+}
+
+QIcon GUIHelper::createAccentAddIcon()
+{
+	return QIcon(new AccentAddIconEngine);
 }

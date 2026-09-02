@@ -8,6 +8,10 @@
         <file>icons/circle-warning.svg</file>
         <file>translations/DeviceSelector_en.qm</file>
         <file>icons/preferences-system.ico</file>
+		<file alias="icons/modern/check.svg">../Editor/icons/modern/check.svg</file>
+		<file alias="icons/modern/check-dark.svg">../Editor/icons/modern/check-dark.svg</file>
+		<file alias="icons/modern/radio-dot.svg">../Editor/icons/modern/radio-dot.svg</file>
+		<file alias="icons/modern/radio-dot-dark.svg">../Editor/icons/modern/radio-dot-dark.svg</file>
         <file>translations/DeviceSelector_zh_CN.qm</file>
         <file>translations/qtbase_zh_CN.qm</file>
         <file>translations/DeviceSelector_fr.qm</file>

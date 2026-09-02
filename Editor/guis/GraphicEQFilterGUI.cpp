@@ -18,6 +18,7 @@
 */
 
 #include <vector>
+#include <QEvent>
 #include <QFileDialog>
 #include <QScrollBar>
 #include <QTextStream>
@@ -41,12 +42,7 @@ GraphicEQFilterGUI::GraphicEQFilterGUI(GraphicEQFilter* filter, QString configPa
 	: ui(new Ui::GraphicEQFilterGUI), configPath(configPath)
 {
 	ui->setupUi(this);
-	if(GUIHelper::isDarkMode())
-	{
-		ui->actionInvertResponse->setIcon(QIcon(":/icons/dark-mode/invert_response.svg"));
-		ui->actionNormalizeResponse->setIcon(QIcon(":/icons/dark-mode/normalize_response.svg"));
-		ui->actionResetResponse->setIcon(QIcon(":/icons/dark-mode/reset_response.svg"));
-	}
+	updateThemeIcons();
 	ui->tableWidget->horizontalHeader()->setMinimumSectionSize(GUIHelper::scale(10));
 	ui->tableWidget->horizontalHeader()->setDefaultSectionSize(GUIHelper::scale(10));
 	ui->tableWidget->verticalHeader()->setMinimumSectionSize(GUIHelper::scale(23));
@@ -100,6 +96,27 @@ GraphicEQFilterGUI::GraphicEQFilterGUI(GraphicEQFilter* filter, QString configPa
 GraphicEQFilterGUI::~GraphicEQFilterGUI()
 {
 	delete ui;
+}
+
+void GraphicEQFilterGUI::changeEvent(QEvent* event)
+{
+	IFilterGUI::changeEvent(event);
+	if (event->type() == QEvent::ApplicationPaletteChange ||
+		event->type() == QEvent::PaletteChange ||
+		event->type() == QEvent::ThemeChange)
+	{
+		updateThemeIcons();
+	}
+}
+
+void GraphicEQFilterGUI::updateThemeIcons()
+{
+	const QString iconPrefix = palette().color(QPalette::Window).lightnessF() < 0.5
+		? QStringLiteral(":/icons/dark-mode/")
+		: QStringLiteral(":/icons/");
+	ui->actionInvertResponse->setIcon(QIcon(iconPrefix + QStringLiteral("invert_response.svg")));
+	ui->actionNormalizeResponse->setIcon(QIcon(iconPrefix + QStringLiteral("normalize_response.svg")));
+	ui->actionResetResponse->setIcon(QIcon(iconPrefix + QStringLiteral("reset_response.svg")));
 }
 
 void GraphicEQFilterGUI::store(QString& command, QString& parameters)
