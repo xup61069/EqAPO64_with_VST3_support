@@ -19,6 +19,8 @@
 
 #include <algorithm>
 #include <QApplication>
+#include <QEvent>
+#include <QFontMetrics>
 #include <QWheelEvent>
 #include <QScrollBar>
 
@@ -31,11 +33,32 @@ using namespace std;
 FrequencyPlotView::FrequencyPlotView(QWidget* parent)
 	: QGraphicsView(parent)
 {
-	setViewportMargins(GUIHelper::scale(32), 0, 0, GUIHelper::scale(20));
 	hRuler = new FrequencyPlotHRuler(this);
 	vRuler = new FrequencyPlotVRuler(this);
+	updateRulerMargins();
 	hRuler->setMouseTracking(true);
 	vRuler->setMouseTracking(true);
+}
+
+void FrequencyPlotView::updateRulerMargins()
+{
+	const QFontMetrics metrics(font());
+	const int verticalRulerWidth = qMax(
+		GUIHelper::scale(32),
+		metrics.boundingRect(QStringLiteral("-100.0")).width() + GUIHelper::scale(10));
+	const int horizontalRulerHeight = qMax(
+		GUIHelper::scale(20),
+		metrics.height() + GUIHelper::scale(8));
+	setViewportMargins(verticalRulerWidth, 0, 0, horizontalRulerHeight);
+	updateRulerGeometry();
+}
+
+void FrequencyPlotView::updateRulerGeometry()
+{
+	const QRect rect = viewport()->geometry();
+	const QMargins margins = viewportMargins();
+	hRuler->setGeometry(rect.x() - margins.left(), rect.y() + rect.height(), rect.width() + margins.left(), margins.bottom());
+	vRuler->setGeometry(rect.x() - margins.left(), rect.y(), margins.left(), rect.height() + margins.bottom());
 }
 
 FrequencyPlotScene* FrequencyPlotView::scene() const
@@ -182,6 +205,17 @@ void FrequencyPlotView::setScrollOffsets(int x, int y)
 	presetScrollY = y;
 }
 
+void FrequencyPlotView::changeEvent(QEvent* event)
+{
+	QGraphicsView::changeEvent(event);
+	if (event->type() == QEvent::FontChange || event->type() == QEvent::ApplicationFontChange)
+	{
+		updateRulerMargins();
+		hRuler->update();
+		vRuler->update();
+	}
+}
+
 void FrequencyPlotView::wheelEvent(QWheelEvent* event)
 {
 	event->accept();
@@ -202,11 +236,7 @@ void FrequencyPlotView::scrollContentsBy(int dx, int dy)
 void FrequencyPlotView::resizeEvent(QResizeEvent* event)
 {
 	QGraphicsView::resizeEvent(event);
-
-	const QRect rect = viewport()->geometry();
-	QMargins margins = viewportMargins();
-	hRuler->setGeometry(rect.x() - margins.left(), rect.y() + rect.height(), rect.width() + margins.left(), margins.bottom());
-	vRuler->setGeometry(rect.x() - margins.left(), rect.y(), margins.left(), rect.height() + margins.bottom());
+	updateRulerGeometry();
 }
 
 void FrequencyPlotView::mousePressEvent(QMouseEvent* event)

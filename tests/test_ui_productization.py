@@ -22,6 +22,15 @@ DEVICE_TEST_DIALOG = (
 UPDATE_CHECKER = (ROOT / "UpdateChecker" / "UpdateChecker.cpp").read_text(
     encoding="utf-8"
 )
+FREQUENCY_PLOT_VRULER = (
+    ROOT / "Editor" / "widgets" / "FrequencyPlotVRuler.cpp"
+).read_text(encoding="utf-8")
+FREQUENCY_PLOT_HRULER = (
+    ROOT / "Editor" / "widgets" / "FrequencyPlotHRuler.cpp"
+).read_text(encoding="utf-8")
+FREQUENCY_PLOT_VIEW = (
+    ROOT / "Editor" / "widgets" / "FrequencyPlotView.cpp"
+).read_text(encoding="utf-8")
 
 
 class UiProductizationTests(unittest.TestCase):
@@ -167,6 +176,43 @@ class UiProductizationTests(unittest.TestCase):
         self.assertIn("EQAPO_UI_FONT_SCALE", MODERN_THEME)
         self.assertNotIn("max-height: @controlHeight", MODERN_THEME)
         self.assertNotIn("max-height: @controlOuterHeight", MODERN_THEME)
+
+    def test_frequency_plot_rulers_keep_large_text_inside_their_paint_devices(self) -> None:
+        self.assertIn(
+            "painter.fontMetrics().height() / 2.0",
+            FREQUENCY_PLOT_VRULER,
+        )
+        self.assertIn("const auto clampTextCenter", FREQUENCY_PLOT_VRULER)
+        self.assertIn(
+            "return qBound(halfTextHeight, center, maxTextCenter);",
+            FREQUENCY_PLOT_VRULER,
+        )
+        self.assertEqual(FREQUENCY_PLOT_VRULER.count("clampTextCenter("), 2)
+        self.assertNotIn(
+            "painter.drawText(0, y - topLeft.y() - 1",
+            FREQUENCY_PLOT_VRULER,
+        )
+        self.assertIn("const auto clampTextCenter", FREQUENCY_PLOT_HRULER)
+        self.assertIn(
+            "return qBound(halfTextWidth, center, maxTextCenter);",
+            FREQUENCY_PLOT_HRULER,
+        )
+        self.assertEqual(FREQUENCY_PLOT_HRULER.count("clampTextCenter("), 3)
+
+        self.assertIn(
+            'metrics.boundingRect(QStringLiteral("-100.0")).width()',
+            FREQUENCY_PLOT_VIEW,
+        )
+        self.assertIn("metrics.height() + GUIHelper::scale(8)", FREQUENCY_PLOT_VIEW)
+        self.assertIn("QEvent::FontChange", FREQUENCY_PLOT_VIEW)
+        self.assertIn("QEvent::ApplicationFontChange", FREQUENCY_PLOT_VIEW)
+        self.assertGreaterEqual(FREQUENCY_PLOT_VIEW.count("updateRulerMargins();"), 2)
+        self.assertIn(
+            "setViewportMargins(verticalRulerWidth, 0, 0, horizontalRulerHeight);\n"
+            "\tupdateRulerGeometry();",
+            FREQUENCY_PLOT_VIEW,
+        )
+        self.assertEqual(FREQUENCY_PLOT_VIEW.count("updateRulerGeometry();"), 2)
 
     def test_product_ui_has_no_decorative_rounded_corners(self) -> None:
         ui_sources = []

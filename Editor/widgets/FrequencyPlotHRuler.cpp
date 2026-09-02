@@ -39,6 +39,12 @@ void FrequencyPlotHRuler::paintEvent(QPaintEvent*)
 	FrequencyPlotView* view = qobject_cast<FrequencyPlotView*>(parentWidget());
 	FrequencyPlotScene* s = view->scene();
 	QFontMetrics metrics = painter.fontMetrics();
+	const auto clampTextCenter = [this, &metrics](qreal center, const QString& text, qreal extraMargin = 0.0)
+	{
+		const qreal halfTextWidth = metrics.boundingRect(text).width() / 2.0 + extraMargin;
+		const qreal maxTextCenter = qMax(halfTextWidth, static_cast<qreal>(width()) - halfTextWidth);
+		return qBound(halfTextWidth, center, maxTextCenter);
+	};
 	const QPalette rulerPalette = palette();
 	painter.setPen(rulerPalette.color(QPalette::WindowText));
 
@@ -66,7 +72,10 @@ void FrequencyPlotHRuler::paintEvent(QPaintEvent*)
 				else
 					text = QString("%0k").arg(hz / 1000);
 				if (metrics.size(0, text).width() + 2 < s->hzToX(hz + hzBase) - x)
-					painter.drawText(x - topLeft.x() + offsetLeft + 1, 0, 0, height(), Qt::TextDontClip | Qt::AlignCenter, text);
+				{
+					const qreal center = clampTextCenter(x - topLeft.x() + offsetLeft + 1, text);
+					painter.drawText(qRound(center), 0, 0, height(), Qt::TextDontClip | Qt::AlignCenter, text);
+				}
 			}
 
 			hz += hzBase;
@@ -88,7 +97,8 @@ void FrequencyPlotHRuler::paintEvent(QPaintEvent*)
 					text = QString("%0").arg(hz);
 				else
 					text = QString("%0k").arg(hz / 1000);
-				painter.drawText(x - topLeft.x() + offsetLeft + 1, 0, 0, height(), Qt::TextDontClip | Qt::AlignCenter, text);
+				const qreal center = clampTextCenter(x - topLeft.x() + offsetLeft + 1, text);
+				painter.drawText(qRound(center), 0, 0, height(), Qt::TextDontClip | Qt::AlignCenter, text);
 			}
 		}
 	}
@@ -103,9 +113,8 @@ void FrequencyPlotHRuler::paintEvent(QPaintEvent*)
 		if (x != -1)
 		{
 			QString text = QString("%0").arg(hz, 0, 'f', 1);
-			QFontMetrics metrics = painter.fontMetrics();
 			QRectF rect = metrics.boundingRect(text);
-			float center = x - topLeft.x() + offsetLeft + 1;
+			const qreal center = clampTextCenter(x - topLeft.x() + offsetLeft + 1, text, 4.0);
 			rect = QRectF(center - ceil(rect.width() / 2) - 3 + 0.5, ceil(height() / 2) - ceil(rect.height() / 2) + 1.5, rect.width() + 5, rect.height() - 1);
 			QPainterPath path;
 			path.addRect(rect);

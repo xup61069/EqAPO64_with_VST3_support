@@ -46,6 +46,7 @@ public:
 	void setScrollOffsets(int x, int y);
 
 protected:
+	void changeEvent(QEvent* event) override;
 	void wheelEvent(QWheelEvent* event) override;
 	void scrollContentsBy(int dx, int dy) override;
 	void resizeEvent(QResizeEvent* event) override;
@@ -55,6 +56,9 @@ protected:
 	void showEvent(QShowEvent* event) override;
 
 private:
+	void updateRulerMargins();
+	void updateRulerGeometry();
+
 	FrequencyPlotHRuler* hRuler;
 	FrequencyPlotVRuler* vRuler;
 	QPoint lastMousePos;
