@@ -43,6 +43,8 @@ if ($Makensis -eq "") {
 	throw "makensis.exe was not found. Install NSIS or pass -Makensis <path>."
 }
 
+& (Join-Path $root "scripts\test-installer-recovery-manifest.ps1") -Makensis $Makensis
+
 Push-Location (Join-Path $root "Setup")
 try {
 	& $Makensis "/WX" "/INPUTCHARSET" "UTF8" "/DCONFIGURATION=$Configuration" ".\Setup64.nsi"

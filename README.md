@@ -27,6 +27,8 @@ The linked source repository name appears here only for attribution; it is not t
 
 > **Do not use v3.0.0.** It has been superseded by v3.0.2 and later releases. Always install the [latest GitHub release](https://github.com/xup61069/loudness-correction-apo/releases/latest).
 
+If v3.0.2 says that an interrupted installation could not be recovered, leave its recovery files in place and run v3.0.3 or later. The newer installer safely retires the corrupted v3.0.2 cleanup manifest while preserving any ambiguous `.old` backups; manual registry or `ProgramData` cleanup is not required.
+
 Download the x64 installer and its matching `.sha256` file from the same release. In PowerShell:
 
 ```powershell

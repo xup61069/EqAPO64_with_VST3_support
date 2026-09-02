@@ -27,6 +27,8 @@
 
 > **請勿使用 v3.0.0。** 該版本已由 v3.0.2 及後續版本取代；請一律安裝 [GitHub 最新版本](https://github.com/xup61069/loudness-correction-apo/releases/latest)。
 
+若 v3.0.2 顯示無法安全復原中斷的安裝，請保留現有復原檔案，直接執行 v3.0.3 或更新版本。新版安裝程式會安全停用損壞的 v3.0.2 清理清單、保留無法證明歸屬的 `.old` 備份；不需要手動刪除登錄檔或 `ProgramData` 內容。
+
 請從同一個 Release 下載 x64 安裝程式及其對應的 `.sha256` 檔案，然後在 PowerShell 執行：
 
 ```powershell

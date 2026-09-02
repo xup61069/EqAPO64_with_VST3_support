@@ -10,6 +10,15 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SETUP_SOURCE = (ROOT / "Setup" / "Setup.nsi").read_text(encoding="utf-8")
 SETUP64_SOURCE = (ROOT / "Setup" / "Setup64.nsi").read_text(encoding="utf-8")
+MANIFEST_HELPER_SOURCE = (
+    ROOT / "Setup" / "InstallerRecoveryManifest.nsh"
+).read_text(encoding="utf-8")
+MANIFEST_HARNESS_SOURCE = (
+    ROOT / "tests" / "installer-recovery-manifest-harness.nsi"
+).read_text(encoding="utf-8")
+INSTALLER_BUILD_SCRIPT = (
+    ROOT / "scripts" / "build-installer-x64.ps1"
+).read_text(encoding="utf-8")
 QT_CONFIG = (ROOT / "Setup" / "qt.conf").read_text(encoding="utf-8")
 DEVICE_SELECTOR_SOURCE = (ROOT / "DeviceSelector" / "main.cpp").read_text(
     encoding="utf-8"
@@ -295,31 +304,261 @@ class InstallerContractTests(unittest.TestCase):
     def test_old_file_cleanup_is_scoped_to_product_files(self) -> None:
         self.assertIn("Function DiscardRenamedProductFiles", SETUP_SOURCE)
         self.assertIn("Call DiscardRenamedProductFiles", SETUP_SOURCE)
-        self.assertIn(
-            'FileWrite $RenameManifestHandle "$renamePath$\\r$\\n"',
-            SETUP_SOURCE,
+        self.assertIn('!include "InstallerRecoveryManifest.nsh"', SETUP_SOURCE)
+
+        append_open = MANIFEST_HELPER_SOURCE.index(
+            'FileOpen ${handle} "${path}" a'
         )
+        append_seek = MANIFEST_HELPER_SOURCE.index(
+            "FileSeek ${handle} 0 END", append_open
+        )
+        append_write = MANIFEST_HELPER_SOURCE.index(
+            'FileWriteUTF16LE ${handle} "${line}$\\r$\\n"', append_seek
+        )
+        append_close = MANIFEST_HELPER_SOURCE.index(
+            "FileClose ${handle}", append_write
+        )
+        self.assertLess(append_open, append_seek)
+        self.assertLess(append_seek, append_write)
+        self.assertLess(append_write, append_close)
+        self.assertIn('StrCpy ${result} "1"', MANIFEST_HELPER_SOURCE)
+        self.assertIn('StrCpy ${handle} ""', MANIFEST_HELPER_SOURCE)
+
         macro_start = SETUP_SOURCE.index("!macro RenameAndDelete path")
         macro_end = SETUP_SOURCE.index("!macroend", macro_start)
         macro_body = SETUP_SOURCE[macro_start:macro_end]
-        self.assertLess(
-            macro_body.index('FileWrite $RenameManifestHandle "$renamePath$\\r$\\n"'),
-            macro_body.index('Rename "${path}" "$renamePath"'),
+        identity_query = macro_body.index("Call QueryRenameFileIdentityAndHold")
+        rename = macro_body.index('Rename "${path}" "$renamePath"')
+        rename_failure = macro_body.index("${If} ${Errors}", rename)
+        rollback_after_rename = macro_body.index(
+            "Call RollbackInstallTransaction", rename_failure
         )
+        abort_after_rename = macro_body.index("Abort", rollback_after_rename)
+        append = macro_body.index(
+            "AppendInstallerRecoveryManifestLine", abort_after_rename
+        )
+        append_failure = macro_body.index(
+            '$RenameManifestWriteFailed == "1"', append
+        )
+        close_after_append = macro_body.rindex("Call CloseRenameIdentityHandle")
+        rollback = macro_body.index("Call RollbackInstallTransaction", append_failure)
+        abort = macro_body.index("Abort", rollback)
+        self.assertLess(identity_query, rename)
+        self.assertLess(rename, rename_failure)
+        self.assertLess(rename_failure, rollback_after_rename)
+        self.assertLess(rollback_after_rename, abort_after_rename)
+        self.assertLess(abort_after_rename, append)
+        self.assertLess(append, append_failure)
+        self.assertLess(append_failure, rollback)
+        self.assertLess(rollback, abort)
+        self.assertLess(abort, close_after_append)
+        self.assertIn("$RenameIdentityVolumeSerial", macro_body)
+        self.assertIn("$RenameIdentityFileIndexHigh", macro_body)
+        self.assertIn("$RenameIdentityFileIndexLow", macro_body)
+        self.assertNotIn("FileOpen", macro_body)
+        self.assertNotIn("FileWrite", macro_body)
 
         cleanup_start = SETUP_SOURCE.index("Function DiscardRenamedProductFiles")
         cleanup_end = SETUP_SOURCE.index("FunctionEnd", cleanup_start)
         cleanup_body = SETUP_SOURCE[cleanup_start:cleanup_end]
         self.assertIn('GetFullPathName $5 "$INSTDIR"', cleanup_body)
-        self.assertIn('GetFullPathName $4 "$1"', cleanup_body)
+        self.assertIn('${GetParent} "$RenameIdentityPath" $4', cleanup_body)
+        self.assertIn('${GetFileName} "$RenameIdentityPath" $9', cleanup_body)
+        self.assertIn('GetFullPathName $4 "$4"', cleanup_body)
         self.assertIn('StrCpy $6 "$5\\"', cleanup_body)
         self.assertIn('StrCpy $8 "$4" $7', cleanup_body)
         self.assertIn('${If} $8 == "$6"', cleanup_body)
-        self.assertIn('Delete /REBOOTOK "$4"', cleanup_body)
+        self.assertIn("ERROR_FILE_NOT_FOUND", cleanup_body)
+        self.assertIn("ERROR_PATH_NOT_FOUND", cleanup_body)
+        self.assertIn("Call DeleteRenameFileByIdentity", cleanup_body)
+        self.assertNotIn("/REBOOTOK", cleanup_body)
         self.assertIn("FILE_ATTRIBUTE_REPARSE_POINT", cleanup_body)
         self.assertNotIn('Delete /REBOOTOK "$INSTDIR\\*.old"', SETUP_SOURCE)
         self.assertNotIn('Delete /REBOOTOK "$INSTDIR\\*.old.*"', SETUP_SOURCE)
         self.assertNotIn('Delete "${path}.old', SETUP_SOURCE)
+
+    def test_rename_cleanup_uses_stable_identity_and_a_flushed_one_shot_gate(
+        self,
+    ) -> None:
+        query_start = SETUP_SOURCE.index("Function QueryRenameFileIdentityAndHold")
+        query_end = SETUP_SOURCE.index("FunctionEnd", query_start)
+        query_body = SETUP_SOURCE[query_start:query_end]
+        query_open = query_body.index(
+            'CreateFileW(w "$RenameIdentityPath", i ${FILE_READ_ATTRIBUTES}, '
+            'i ${FILE_SHARE_READ_WRITE_DELETE}'
+        )
+        query_type = query_body.index("GetFileType(p r0)", query_open)
+        query_info = query_body.index(
+            "GetFileInformationByHandle(p r0, p r1)", query_type
+        )
+        query_parse = query_body.index(
+            '*$1(i .r2, &v24, i .r3, &v12, i .r4, i .r5)', query_info
+        )
+        self.assertIn(
+            "${FILE_FLAG_OPEN_REPARSE_POINT}|${FILE_FLAG_BACKUP_SEMANTICS}",
+            query_body,
+        )
+        self.assertIn("$6 != ${FILE_TYPE_DISK}", query_body)
+        self.assertIn("${AndIf} $5 == 0", query_body)
+        self.assertLess(query_open, query_type)
+        self.assertLess(query_type, query_info)
+        self.assertLess(query_info, query_parse)
+
+        delete_start = SETUP_SOURCE.index("Function DeleteRenameFileByIdentity")
+        delete_end = SETUP_SOURCE.index("FunctionEnd", delete_start)
+        delete_body = SETUP_SOURCE[delete_start:delete_end]
+        delete_open = delete_body.index(
+            'CreateFileW(w "$RenameIdentityPath", '
+            'i ${DELETE_ACCESS}|${FILE_READ_ATTRIBUTES}, '
+            'i ${FILE_SHARE_READ_WRITE}'
+        )
+        delete_type = delete_body.index("GetFileType(p r0)", delete_open)
+        delete_info = delete_body.index(
+            "GetFileInformationByHandle(p r0, p r1)", delete_type
+        )
+        compare_volume = delete_body.index(
+            '$3 != "$RenameExpectedVolumeSerial"', delete_info
+        )
+        compare_high = delete_body.index(
+            '$4 != "$RenameExpectedFileIndexHigh"', compare_volume
+        )
+        compare_low = delete_body.index(
+            '$5 != "$RenameExpectedFileIndexLow"', compare_high
+        )
+        disposition = delete_body.index(
+            "SetFileInformationByHandle(p r0, "
+            "i ${FILE_DISPOSITION_INFO_CLASS}, p r6, i 1)",
+            compare_low,
+        )
+        self.assertIn(
+            "${FILE_FLAG_OPEN_REPARSE_POINT}|${FILE_FLAG_BACKUP_SEMANTICS}",
+            delete_body,
+        )
+        self.assertIn("$7 != ${FILE_TYPE_DISK}", delete_body)
+        self.assertIn("${AndIf} $5 == 0", delete_body)
+        self.assertLess(delete_open, delete_type)
+        self.assertLess(delete_type, delete_info)
+        self.assertLess(delete_info, compare_volume)
+        self.assertLess(compare_volume, compare_high)
+        self.assertLess(compare_high, compare_low)
+        self.assertLess(compare_low, disposition)
+        self.assertNotIn('Delete "$RenameIdentityPath"', delete_body)
+        self.assertNotIn("/REBOOTOK", delete_body)
+
+        flush_start = SETUP_SOURCE.index("Function FlushRenameCleanupJournal")
+        flush_end = SETUP_SOURCE.index("FunctionEnd", flush_start)
+        flush_body = SETUP_SOURCE[flush_start:flush_end]
+        registry_open = flush_body.index("RegOpenKeyExW")
+        registry_flush = flush_body.index("RegFlushKey", registry_open)
+        registry_close = flush_body.index("RegCloseKey", registry_flush)
+        self.assertIn("${KEY_QUERY_VALUE_64}", flush_body)
+        self.assertIn("${KEY_QUERY_VALUE}", flush_body)
+        self.assertLess(registry_open, registry_flush)
+        self.assertLess(registry_flush, registry_close)
+
+        cleanup_start = SETUP_SOURCE.index("Function DiscardRenamedProductFiles")
+        cleanup_end = SETUP_SOURCE.index("FunctionEnd", cleanup_start)
+        cleanup_body = SETUP_SOURCE[cleanup_start:cleanup_end]
+        marker_write = cleanup_body.index('"RenameCleanupStarted" 1')
+        marker_readback = cleanup_body.index(
+            '"RenameCleanupStarted"', marker_write + 1
+        )
+        marker_flush = cleanup_body.index(
+            "Call FlushRenameCleanupJournal", marker_readback
+        )
+        manifest_open = cleanup_body.index(
+            'FileOpen $0 "$RenameManifestPath" r', marker_flush
+        )
+        identity_delete = cleanup_body.index(
+            "Call DeleteRenameFileByIdentity", manifest_open
+        )
+        self.assertLess(marker_write, marker_readback)
+        self.assertLess(marker_readback, marker_flush)
+        self.assertLess(marker_flush, manifest_open)
+        self.assertLess(manifest_open, identity_delete)
+
+    def test_legacy_v302_rename_manifest_is_retired_without_guessing_paths(self) -> None:
+        self.assertIn("!define INSTALL_RECOVERY_JOURNAL_VERSION 2", SETUP_SOURCE)
+
+        metadata_start = SETUP_SOURCE.index("Function SaveInstallMetadataJournal")
+        metadata_end = SETUP_SOURCE.index("FunctionEnd", metadata_start)
+        metadata_body = SETUP_SOURCE[metadata_start:metadata_end]
+        self.assertIn("Call PersistInstallRecoveryJournalVersion", metadata_body)
+        self.assertIn('"RenameCleanupStarted" 0', metadata_body)
+
+        prepare_start = SETUP_SOURCE.index(
+            "Function PrepareRenameManifestForCleanup"
+        )
+        prepare_end = SETUP_SOURCE.index("FunctionEnd", prepare_start)
+        prepare_body = SETUP_SOURCE[prepare_start:prepare_end]
+        self.assertIn('ReadRegDWORD $0 HKLM', prepare_body)
+        self.assertIn('"JournalVersion"', prepare_body)
+        self.assertIn("Call RetireLegacyRenameManifest", prepare_body)
+        self.assertIn("$0 != ${INSTALL_RECOVERY_JOURNAL_VERSION}", prepare_body)
+
+        retire_start = SETUP_SOURCE.index("Function RetireLegacyRenameManifest")
+        retire_end = SETUP_SOURCE.index("FunctionEnd", retire_start)
+        retire_body = SETUP_SOURCE[retire_start:retire_end]
+        self.assertIn('$InstallRecoveryPhase != "committed"', retire_body)
+        self.assertIn('$InstallRecoveryPhase != "rollback-cleanup"', retire_body)
+        self.assertIn("Call SecureExistingInstallRecoveryTree", retire_body)
+        self.assertIn("RetireLegacyRenameRecoveryArtifact", retire_body)
+        self.assertIn("Call PersistInstallRecoveryJournalVersion", retire_body)
+        self.assertIn('"RenameCleanupStarted" 1', retire_body)
+        self.assertNotIn("$INSTDIR", retire_body)
+        self.assertNotIn("RecoverLegacyRenamedFile", SETUP_SOURCE)
+        self.assertNotIn("RebuildLegacyRenameManifest", SETUP_SOURCE)
+
+        cleanup_start = SETUP_SOURCE.index("Function DiscardRenamedProductFiles")
+        cleanup_end = SETUP_SOURCE.index("FunctionEnd", cleanup_start)
+        cleanup_records = SETUP_SOURCE[cleanup_start:cleanup_end]
+        self.assertIn('"RenameCleanupStarted"', cleanup_records)
+        self.assertIn('${StrTok} $RenameExpectedVolumeSerial', cleanup_records)
+        self.assertIn('${StrTok} $RenameIdentityPath', cleanup_records)
+        self.assertIn('$3 != "C"', cleanup_records)
+        self.assertIn('$7 != "C"', cleanup_records)
+        self.assertNotIn("/REBOOTOK", cleanup_records)
+
+        cleanup_start = SETUP_SOURCE.index(
+            "Function CleanupCompletedInstallTransaction"
+        )
+        cleanup_end = SETUP_SOURCE.index("FunctionEnd", cleanup_start)
+        cleanup_body = SETUP_SOURCE[cleanup_start:cleanup_end]
+        self.assertIn("Call PrepareRenameManifestForCleanup", cleanup_body)
+
+        rollback_start = SETUP_SOURCE.index("Function RollbackInstallTransaction")
+        rollback_end = SETUP_SOURCE.index("FunctionEnd", rollback_start)
+        rollback_body = SETUP_SOURCE[rollback_start:rollback_end]
+        rollback_decision = rollback_body.rindex('"Phase" "rollback-cleanup"')
+        migration = rollback_body.index(
+            "Call PrepareRenameManifestForCleanup", rollback_decision
+        )
+        renamed_cleanup = rollback_body.index(
+            "Call DiscardRenamedProductFiles", migration
+        )
+        self.assertLess(rollback_decision, migration)
+        self.assertLess(migration, renamed_cleanup)
+
+    def test_manifest_append_runtime_harness_is_part_of_installer_build(self) -> None:
+        self.assertIn(
+            '!include "..\\Setup\\InstallerRecoveryManifest.nsh"',
+            MANIFEST_HARNESS_SOURCE,
+        )
+        self.assertEqual(
+            MANIFEST_HARNESS_SOURCE.count("AppendHarnessLine"),
+            4,
+        )
+        self.assertIn("second-line-is-deliberately-longer", MANIFEST_HARNESS_SOURCE)
+        self.assertIn("路徑-🔊-z", MANIFEST_HARNESS_SOURCE)
+        self.assertIn("FileReadUTF16LE $ReadHandle $ReadLine", MANIFEST_HARNESS_SOURCE)
+
+        harness_call = INSTALLER_BUILD_SCRIPT.index(
+            "scripts\\test-installer-recovery-manifest.ps1"
+        )
+        installer_compile = INSTALLER_BUILD_SCRIPT.index(
+            '".\\Setup64.nsi"', harness_call
+        )
+        self.assertLess(harness_call, installer_compile)
 
     def test_regsvr32_process_creation_errors_cannot_commit(self) -> None:
         install_start = SETUP_SOURCE.index('Section "-Install"')
@@ -646,9 +885,13 @@ class InstallerContractTests(unittest.TestCase):
         cleanup_start = SETUP_SOURCE.index("Function DiscardRenamedProductFiles")
         cleanup_end = SETUP_SOURCE.index("FunctionEnd", cleanup_start)
         cleanup_body = SETUP_SOURCE[cleanup_start:cleanup_end]
-        canonical_entry = cleanup_body.index('GetFullPathName $4 "$1"')
+        parent = cleanup_body.index('${GetParent} "$RenameIdentityPath" $4')
+        filename = cleanup_body.index('${GetFileName} "$RenameIdentityPath" $9', parent)
+        canonical_entry = cleanup_body.index('GetFullPathName $4 "$4"', filename)
         containment = cleanup_body.index('${If} $8 == "$6"', canonical_entry)
-        deletion = cleanup_body.index('Delete /REBOOTOK "$4"', containment)
+        deletion = cleanup_body.index("Call DeleteRenameFileByIdentity", containment)
+        self.assertLess(parent, filename)
+        self.assertLess(filename, canonical_entry)
         self.assertLess(canonical_entry, containment)
         self.assertLess(containment, deletion)
 
@@ -731,10 +974,12 @@ class InstallerContractTests(unittest.TestCase):
         cleanup_end = SETUP_SOURCE.index("FunctionEnd", cleanup_start)
         cleanup_body = SETUP_SOURCE[cleanup_start:cleanup_end]
         target = cleanup_body.index("Call LoadInstallRecoveryTargetFromJournal")
-        renamed = cleanup_body.index("Call DiscardRenamedProductFiles", target)
+        migration = cleanup_body.index("Call PrepareRenameManifestForCleanup", target)
+        renamed = cleanup_body.index("Call DiscardRenamedProductFiles", migration)
         snapshot = cleanup_body.index("Call DiscardInstallRecoverySnapshot", renamed)
         journal = cleanup_body.index("Call ClearInstallRecoveryJournal", snapshot)
-        self.assertLess(target, renamed)
+        self.assertLess(target, migration)
+        self.assertLess(migration, renamed)
         self.assertLess(renamed, snapshot)
         self.assertLess(snapshot, journal)
 

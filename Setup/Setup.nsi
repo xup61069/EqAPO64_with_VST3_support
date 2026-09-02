@@ -4,8 +4,10 @@
 !include "FileFunc.nsh"
 !include "WinVer.nsh"
 !include "x64.nsh"
+!include "InstallerRecoveryManifest.nsh"
 
 ${StrTrimNewLines}
+${StrTok}
 
 Unicode true
 ManifestDPIAware true
@@ -31,9 +33,20 @@ SetCompressor /SOLID lzma
 !define ERROR_FILE_NOT_FOUND 2
 !define ERROR_PATH_NOT_FOUND 3
 !define INVALID_HANDLE_VALUE -1
+!define FILE_READ_ATTRIBUTES 0x00000080
+!define FILE_TYPE_DISK 1
+!define FILE_SHARE_READ_WRITE 3
 !define FILE_SHARE_READ_WRITE_DELETE 7
 !define OPEN_EXISTING 3
 !define FILE_FLAG_BACKUP_SEMANTICS 0x02000000
+!define FILE_FLAG_OPEN_REPARSE_POINT 0x00200000
+!define DELETE_ACCESS 0x00010000
+!define FILE_DISPOSITION_INFO_CLASS 4
+!define WIN32_HKEY_LOCAL_MACHINE 0x80000002
+!define KEY_QUERY_VALUE 0x0001
+!define KEY_WOW64_64KEY 0x0100
+!define KEY_QUERY_VALUE_64 0x0101
+!define INSTALL_RECOVERY_JOURNAL_VERSION 2
 
 VIProductVersion "${MAJOR}.${MINOR}.${REVISION}.0"
 VIAddVersionKey /LANG=1033 "ProductName" "${PRODUCT_FULL_LABEL}"
@@ -84,6 +97,17 @@ VIAddVersionKey /LANG=1033 "LegalCopyright" "Equalizer APO contributors"
   Var NewApoRegistrationAttempted
   Var RenameManifestPath
   Var RenameManifestHandle
+  Var RenameManifestWriteFailed
+  Var LegacyRenameRepairPath
+  Var RenameIdentityPath
+  Var RenameIdentityHandle
+  Var RenameIdentityFailed
+  Var RenameIdentityVolumeSerial
+  Var RenameIdentityFileIndexHigh
+  Var RenameIdentityFileIndexLow
+  Var RenameExpectedVolumeSerial
+  Var RenameExpectedFileIndexHigh
+  Var RenameExpectedFileIndexLow
   Var ApoRollbackRegistrationCode
   Var ApoRollbackUnregistrationCode
   Var ApoRollbackStatus
@@ -144,24 +168,62 @@ Var renameIndex
       StrCpy $renamePath "${path}.old.$renameIndex"
       IntOp $renameIndex $renameIndex + 1
     ${EndWhile}
-    ; Write-ahead and close the manifest before Rename. A power loss can leave a
-    ; harmless nonexistent entry, but can never leave an untracked .old file.
-    ClearErrors
-    FileOpen $RenameManifestHandle "$RenameManifestPath" a
-    ${IfNot} ${Errors}
-      FileWrite $RenameManifestHandle "$renamePath$\r$\n"
-    ${EndIf}
-    ${If} $RenameManifestHandle != ""
-      FileClose $RenameManifestHandle
-      StrCpy $RenameManifestHandle ""
-    ${EndIf}
-    ${If} ${Errors}
-      DetailPrint "Could not durably record a renamed application file for rollback: $renamePath"
+    ; Capture the source file identity while holding a share-delete handle. The
+    ; cleanup record is therefore tied to the file object, not merely its path.
+    StrCpy $RenameIdentityPath "${path}"
+    Call QueryRenameFileIdentityAndHold
+    ${If} $RenameIdentityFailed == "1"
+      DetailPrint "Could not identify an application file before renaming it: ${path}"
       Call RollbackInstallTransaction
       Abort
     ${EndIf}
     ClearErrors
     Rename "${path}" "$renamePath"
+    ${If} ${Errors}
+      Call CloseRenameIdentityHandle
+      DetailPrint "Could not rename an in-use application file: ${path}"
+      Call RollbackInstallTransaction
+      Abort
+    ${EndIf}
+    ; Record only a Rename which the operating system confirmed. A crash before
+    ; this append can leak a harmless .old file, but cleanup can never adopt a
+    ; path which this transaction only planned to create.
+    !insertmacro AppendInstallerRecoveryManifestLine \
+      $RenameManifestHandle "$RenameManifestPath" \
+      "C|$RenameIdentityVolumeSerial|$RenameIdentityFileIndexHigh|$RenameIdentityFileIndexLow|$renamePath|C" \
+      $RenameManifestWriteFailed
+    ${If} $RenameManifestWriteFailed == "1"
+      Call CloseRenameIdentityHandle
+      DetailPrint "Could not confirm a renamed application file: $renamePath"
+      Call RollbackInstallTransaction
+      Abort
+    ${EndIf}
+    ; Keep the original file object alive until its identity record has been
+    ; closed, so its file ID cannot be recycled during the confirmation window.
+    Call CloseRenameIdentityHandle
+  ${EndIf}
+!macroend
+
+!macro RetireLegacyRenameRecoveryArtifact path
+  System::Call 'kernel32::GetFileAttributesW(w "${path}") i .r0 ?e'
+  Pop $1
+  ${If} $0 != ${INVALID_FILE_ATTRIBUTES}
+    IntOp $1 $0 & ${FILE_ATTRIBUTE_DIRECTORY}
+    ${If} $1 != 0
+      Goto retireLegacyRenameManifestFailed
+    ${EndIf}
+    IntOp $1 $0 & ${FILE_ATTRIBUTE_REPARSE_POINT}
+    ${If} $1 != 0
+      Goto retireLegacyRenameManifestFailed
+    ${EndIf}
+    ClearErrors
+    Delete "${path}"
+    ${If} ${Errors}
+      Goto retireLegacyRenameManifestFailed
+    ${EndIf}
+  ${ElseIf} $1 != ${ERROR_FILE_NOT_FOUND}
+  ${AndIf} $1 != ${ERROR_PATH_NOT_FOUND}
+    Goto retireLegacyRenameManifestFailed
   ${EndIf}
 !macroend
 
@@ -1232,6 +1294,16 @@ Function SaveInstallMetadataJournal
     StrCpy $InstallRecoveryFailed "1"
     Return
   ${EndIf}
+  Call PersistInstallRecoveryJournalVersion
+  ${If} $InstallRecoveryFailed == "1"
+    Return
+  ${EndIf}
+  ClearErrors
+  WriteRegDWORD HKLM ${INSTALLER_APP_RECOVERY_REGPATH} "RenameCleanupStarted" 0
+  ${If} ${Errors}
+    StrCpy $InstallRecoveryFailed "1"
+    Return
+  ${EndIf}
   WriteRegStr HKLM ${INSTALLER_APP_RECOVERY_REGPATH} "OldStartMenuFolder" "$OldStartMenuFolder"
   ${If} ${Errors}
     StrCpy $InstallRecoveryFailed "1"
@@ -1339,6 +1411,251 @@ Function RestoreInstallShortcuts
       Return
     ${EndIf}
   ${ElseIf} $0 != 0
+    StrCpy $InstallRecoveryFailed "1"
+  ${EndIf}
+FunctionEnd
+
+Function CloseRenameIdentityHandle
+  ${If} $RenameIdentityHandle != ""
+  ${AndIf} $RenameIdentityHandle != ${INVALID_HANDLE_VALUE}
+    System::Call 'kernel32::CloseHandle(p $RenameIdentityHandle) i .r0'
+  ${EndIf}
+  StrCpy $RenameIdentityHandle ""
+FunctionEnd
+
+Function QueryRenameFileIdentityAndHold
+  Call CloseRenameIdentityHandle
+  StrCpy $RenameIdentityFailed "1"
+  StrCpy $1 0
+  System::Call 'kernel32::CreateFileW(w "$RenameIdentityPath", i ${FILE_READ_ATTRIBUTES}, i ${FILE_SHARE_READ_WRITE_DELETE}, p 0, i ${OPEN_EXISTING}, i ${FILE_FLAG_OPEN_REPARSE_POINT}|${FILE_FLAG_BACKUP_SEMANTICS}, p 0) p .r0 ?e'
+  Pop $2
+  ${If} $0 == ${INVALID_HANDLE_VALUE}
+    Return
+  ${EndIf}
+  StrCpy $RenameIdentityHandle "$0"
+
+  System::Call 'kernel32::GetFileType(p r0) i .r6'
+  ${If} $6 != ${FILE_TYPE_DISK}
+    Goto queryRenameIdentityFailed
+  ${EndIf}
+  System::Call '*(i,&v24,i,&v12,i,i) p .r1'
+  ${If} $1 == 0
+    Goto queryRenameIdentityFailed
+  ${EndIf}
+  System::Call 'kernel32::GetFileInformationByHandle(p r0, p r1) i .r6 ?e'
+  Pop $7
+  ${If} $6 == 0
+    Goto queryRenameIdentityFailed
+  ${EndIf}
+  ; BY_HANDLE_FILE_INFORMATION: attributes, six FILETIME DWORDs, volume,
+  ; size high/low, link count, then file-index high/low.
+  System::Call '*$1(i .r2, &v24, i .r3, &v12, i .r4, i .r5)'
+  IntOp $6 $2 & ${FILE_ATTRIBUTE_DIRECTORY}
+  ${If} $6 != 0
+    Goto queryRenameIdentityFailed
+  ${EndIf}
+  IntOp $6 $2 & ${FILE_ATTRIBUTE_REPARSE_POINT}
+  ${If} $6 != 0
+    Goto queryRenameIdentityFailed
+  ${EndIf}
+  ${If} $4 == 0
+  ${AndIf} $5 == 0
+    Goto queryRenameIdentityFailed
+  ${EndIf}
+
+  StrCpy $RenameIdentityVolumeSerial "$3"
+  StrCpy $RenameIdentityFileIndexHigh "$4"
+  StrCpy $RenameIdentityFileIndexLow "$5"
+  System::Free $1
+  StrCpy $RenameIdentityFailed "0"
+  Return
+
+  queryRenameIdentityFailed:
+  ${If} $1 != 0
+    System::Free $1
+  ${EndIf}
+  Call CloseRenameIdentityHandle
+FunctionEnd
+
+Function DeleteRenameFileByIdentity
+  ; Open the candidate without following a reparse point, compare its stable file
+  ; identity, and mark that same handle for deletion. No path-based TOCTOU window
+  ; remains between the identity check and deletion.
+  Call CloseRenameIdentityHandle
+  StrCpy $RenameIdentityFailed "1"
+  StrCpy $1 0
+  StrCpy $6 0
+  System::Call 'kernel32::CreateFileW(w "$RenameIdentityPath", i ${DELETE_ACCESS}|${FILE_READ_ATTRIBUTES}, i ${FILE_SHARE_READ_WRITE}, p 0, i ${OPEN_EXISTING}, i ${FILE_FLAG_OPEN_REPARSE_POINT}|${FILE_FLAG_BACKUP_SEMANTICS}, p 0) p .r0 ?e'
+  Pop $2
+  ${If} $0 == ${INVALID_HANDLE_VALUE}
+    ${If} $2 == ${ERROR_FILE_NOT_FOUND}
+    ${OrIf} $2 == ${ERROR_PATH_NOT_FOUND}
+      StrCpy $RenameIdentityFailed "0"
+    ${EndIf}
+    Return
+  ${EndIf}
+  StrCpy $RenameIdentityHandle "$0"
+
+  System::Call 'kernel32::GetFileType(p r0) i .r7'
+  ${If} $7 != ${FILE_TYPE_DISK}
+    Goto deleteRenameIdentityFailed
+  ${EndIf}
+  System::Call '*(i,&v24,i,&v12,i,i) p .r1'
+  ${If} $1 == 0
+    Goto deleteRenameIdentityFailed
+  ${EndIf}
+  System::Call 'kernel32::GetFileInformationByHandle(p r0, p r1) i .r7 ?e'
+  Pop $8
+  ${If} $7 == 0
+    Goto deleteRenameIdentityFailed
+  ${EndIf}
+  System::Call '*$1(i .r2, &v24, i .r3, &v12, i .r4, i .r5)'
+  IntOp $7 $2 & ${FILE_ATTRIBUTE_DIRECTORY}
+  ${If} $7 != 0
+    Goto deleteRenameIdentityFailed
+  ${EndIf}
+  IntOp $7 $2 & ${FILE_ATTRIBUTE_REPARSE_POINT}
+  ${If} $7 != 0
+    Goto deleteRenameIdentityFailed
+  ${EndIf}
+  ${If} $4 == 0
+  ${AndIf} $5 == 0
+    Goto deleteRenameIdentityFailed
+  ${EndIf}
+  ${If} $3 != "$RenameExpectedVolumeSerial"
+  ${OrIf} $4 != "$RenameExpectedFileIndexHigh"
+  ${OrIf} $5 != "$RenameExpectedFileIndexLow"
+    DetailPrint "A renamed-file path now refers to a different file identity and was retained: $RenameIdentityPath"
+    Goto deleteRenameIdentityFailed
+  ${EndIf}
+
+  System::Call '*(&i1 1) p .r6'
+  ${If} $6 == 0
+    Goto deleteRenameIdentityFailed
+  ${EndIf}
+  System::Call 'kernel32::SetFileInformationByHandle(p r0, i ${FILE_DISPOSITION_INFO_CLASS}, p r6, i 1) i .r7 ?e'
+  Pop $8
+  ${If} $7 == 0
+    Goto deleteRenameIdentityFailed
+  ${EndIf}
+
+  System::Free $6
+  System::Free $1
+  Call CloseRenameIdentityHandle
+  StrCpy $RenameIdentityFailed "0"
+  Return
+
+  deleteRenameIdentityFailed:
+  ${If} $6 != 0
+    System::Free $6
+  ${EndIf}
+  ${If} $1 != 0
+    System::Free $1
+  ${EndIf}
+  Call CloseRenameIdentityHandle
+FunctionEnd
+
+Function FlushRenameCleanupJournal
+  StrCpy $InstallRecoveryFailed "0"
+  !if ${LIBPATH} != "lib32"
+    System::Call 'advapi32::RegOpenKeyExW(p ${WIN32_HKEY_LOCAL_MACHINE}, w "${INSTALLER_APP_RECOVERY_REGPATH}", i 0, i ${KEY_QUERY_VALUE_64}, *p .r0) i .r1'
+  !else
+    System::Call 'advapi32::RegOpenKeyExW(p ${WIN32_HKEY_LOCAL_MACHINE}, w "${INSTALLER_APP_RECOVERY_REGPATH}", i 0, i ${KEY_QUERY_VALUE}, *p .r0) i .r1'
+  !endif
+  ${If} $1 != 0
+    StrCpy $InstallRecoveryFailed "1"
+    Return
+  ${EndIf}
+  System::Call 'advapi32::RegFlushKey(p r0) i .r1'
+  System::Call 'advapi32::RegCloseKey(p r0) i .r2'
+  ${If} $1 != 0
+  ${OrIf} $2 != 0
+    StrCpy $InstallRecoveryFailed "1"
+  ${EndIf}
+FunctionEnd
+
+Function PersistInstallRecoveryJournalVersion
+  StrCpy $InstallRecoveryFailed "0"
+  ClearErrors
+  WriteRegDWORD HKLM ${INSTALLER_APP_RECOVERY_REGPATH} "JournalVersion" ${INSTALL_RECOVERY_JOURNAL_VERSION}
+  ${If} ${Errors}
+    StrCpy $InstallRecoveryFailed "1"
+    Return
+  ${EndIf}
+  ClearErrors
+  ReadRegDWORD $0 HKLM ${INSTALLER_APP_RECOVERY_REGPATH} "JournalVersion"
+  ${If} ${Errors}
+  ${OrIf} $0 != ${INSTALL_RECOVERY_JOURNAL_VERSION}
+    StrCpy $InstallRecoveryFailed "1"
+  ${EndIf}
+FunctionEnd
+
+Function RetireLegacyRenameManifest
+  ; v3.0.2 overwrote the start of this manifest on every append. Its remaining
+  ; path text cannot prove ownership, so never infer or delete any .old file from
+  ; it. Retire only the exact protected manifest and preserve all application
+  ; files; committed/rollback-cleanup are already irreversible decisions.
+  StrCpy $InstallRecoveryFailed "0"
+  ClearErrors
+  ReadRegStr $InstallRecoveryPhase HKLM ${INSTALLER_APP_RECOVERY_REGPATH} "Phase"
+  ${If} ${Errors}
+    StrCpy $InstallRecoveryFailed "1"
+    Return
+  ${ElseIf} $InstallRecoveryPhase != "committed"
+  ${AndIf} $InstallRecoveryPhase != "rollback-cleanup"
+    StrCpy $InstallRecoveryFailed "1"
+    Return
+  ${EndIf}
+
+  Call SecureExistingInstallRecoveryTree
+  ${If} $InstallRecoveryFailed == "1"
+    Return
+  ${EndIf}
+  ClearErrors
+  ReadRegDWORD $0 HKLM ${INSTALLER_APP_RECOVERY_REGPATH} "ProductRootCreated"
+  ${If} ${Errors}
+  ${OrIf} $0 != 1
+    StrCpy $InstallRecoveryFailed "1"
+    Return
+  ${EndIf}
+
+  StrCpy $LegacyRenameRepairPath "$InstallRollbackDirectory\renamed-files.v2"
+  !insertmacro RetireLegacyRenameRecoveryArtifact "$LegacyRenameRepairPath"
+  !insertmacro RetireLegacyRenameRecoveryArtifact "$RenameManifestPath"
+  Call PersistInstallRecoveryJournalVersion
+  ${If} $InstallRecoveryFailed == "1"
+    Return
+  ${EndIf}
+  ClearErrors
+  WriteRegDWORD HKLM ${INSTALLER_APP_RECOVERY_REGPATH} "RenameCleanupStarted" 1
+  ${If} ${Errors}
+    StrCpy $InstallRecoveryFailed "1"
+    Return
+  ${EndIf}
+  ClearErrors
+  ReadRegDWORD $0 HKLM ${INSTALLER_APP_RECOVERY_REGPATH} "RenameCleanupStarted"
+  ${If} ${Errors}
+  ${OrIf} $0 != 1
+    StrCpy $InstallRecoveryFailed "1"
+    Return
+  ${EndIf}
+  DetailPrint "Retired the corrupted v3.0.2 rename manifest; unprovable .old files were retained."
+  Return
+
+  retireLegacyRenameManifestFailed:
+  StrCpy $InstallRecoveryFailed "1"
+FunctionEnd
+
+Function PrepareRenameManifestForCleanup
+  StrCpy $InstallRecoveryFailed "0"
+  ClearErrors
+  ReadRegDWORD $0 HKLM ${INSTALLER_APP_RECOVERY_REGPATH} "JournalVersion"
+  ${If} ${Errors}
+    ; v3.0.2 did not write a journal version and used the broken append logic.
+    Call RetireLegacyRenameManifest
+    Return
+  ${EndIf}
+  ${If} $0 != ${INSTALL_RECOVERY_JOURNAL_VERSION}
     StrCpy $InstallRecoveryFailed "1"
   ${EndIf}
 FunctionEnd
@@ -1457,6 +1774,10 @@ Function CleanupCompletedInstallTransaction
   ; deleting transaction-owned .old entries and the secure snapshot, then clear
   ; the journal. It must never replay installation or rollback mutations.
   Call LoadInstallRecoveryTargetFromJournal
+  ${If} $InstallRecoveryFailed == "1"
+    Return
+  ${EndIf}
+  Call PrepareRenameManifestForCleanup
   ${If} $InstallRecoveryFailed == "1"
     Return
   ${EndIf}
@@ -1667,8 +1988,9 @@ Function DiscardRenamedProductFiles
   Call CloseRenameManifest
   StrCpy $InstallRecoveryFailed "0"
 
-  ; Delete only exact paths recorded after successful Rename calls. This avoids
-  ; treating arbitrary pre-existing *.old files as transaction-owned.
+  ; Delete only exact paths recorded after successful Rename calls. Cleanup gets
+  ; one durable attempt: after any crash/failure, the manifest is retired without
+  ; another product-file deletion so a replacement path can never be adopted.
   System::Call 'kernel32::GetFileAttributesW(w "$RenameManifestPath") i .r0 ?e'
   Pop $1
   ${If} $0 == ${INVALID_FILE_ATTRIBUTES}
@@ -1691,6 +2013,32 @@ Function DiscardRenamedProductFiles
   ${EndIf}
 
   ClearErrors
+  ReadRegDWORD $2 HKLM ${INSTALLER_APP_RECOVERY_REGPATH} "RenameCleanupStarted"
+  ${If} ${Errors}
+  ${OrIf} $2 != 0
+    DetailPrint "Renamed-file cleanup was already attempted or its state is unavailable; retaining application files."
+    Goto retireRenameManifest
+  ${EndIf}
+  ClearErrors
+  WriteRegDWORD HKLM ${INSTALLER_APP_RECOVERY_REGPATH} "RenameCleanupStarted" 1
+  ${If} ${Errors}
+    StrCpy $InstallRecoveryFailed "1"
+    Return
+  ${EndIf}
+  ClearErrors
+  ReadRegDWORD $2 HKLM ${INSTALLER_APP_RECOVERY_REGPATH} "RenameCleanupStarted"
+  ${If} ${Errors}
+  ${OrIf} $2 != 1
+    StrCpy $InstallRecoveryFailed "1"
+    Return
+  ${EndIf}
+  Call FlushRenameCleanupJournal
+  ${If} $InstallRecoveryFailed == "1"
+    DetailPrint "Renamed-file cleanup was not started because its durable marker could not be flushed."
+    Return
+  ${EndIf}
+
+  ClearErrors
   GetFullPathName $5 "$INSTDIR"
   ${If} ${Errors}
     StrCpy $InstallRecoveryFailed "1"
@@ -1706,40 +2054,72 @@ Function DiscardRenamedProductFiles
 
   readRenamedProductFile:
   ClearErrors
-  FileRead $0 $1
+  FileReadUTF16LE $0 $1
   ${If} ${Errors}
-    Goto closeRenameManifest
+    Goto closeAndRetireRenameManifest
   ${EndIf}
   ${StrTrimNewLines} $1 "$1"
   ${If} $1 != ""
-    ; Canonicalize each absolute entry before a delimiter-aware containment
-    ; check. Lexical tricks such as .. cannot escape the validated install tree.
+    ; Confirmation records include the source file identity and are framed at
+    ; both ends. A partial append after power loss is never interpreted as a path.
+    ${StrTok} $3 "$1" "|" "0" "0"
+    ${StrTok} $RenameExpectedVolumeSerial "$1" "|" "1" "0"
+    ${StrTok} $RenameExpectedFileIndexHigh "$1" "|" "2" "0"
+    ${StrTok} $RenameExpectedFileIndexLow "$1" "|" "3" "0"
+    ${StrTok} $RenameIdentityPath "$1" "|" "4" "0"
+    ${StrTok} $7 "$1" "|" "5" "0"
+    ${StrTok} $8 "$1" "|" "6" "0"
+    ${If} $3 != "C"
+    ${OrIf} $7 != "C"
+    ${OrIf} $8 != ""
+    ${OrIf} $RenameExpectedVolumeSerial == ""
+    ${OrIf} $RenameExpectedFileIndexHigh == ""
+    ${OrIf} $RenameExpectedFileIndexLow == ""
+    ${OrIf} $RenameIdentityPath == ""
+      DetailPrint "Retaining renamed files because the confirmation manifest is malformed."
+      Goto closeAndRetireRenameManifest
+    ${EndIf}
+
+    ; Canonicalize the parent separately so a previously removed exact file is
+    ; harmless. Lexical tricks such as .. cannot escape the validated tree.
+    ${GetParent} "$RenameIdentityPath" $4
+    ${GetFileName} "$RenameIdentityPath" $9
+    ${If} $4 == ""
+    ${OrIf} $9 == ""
+      DetailPrint "Retaining renamed files because a confirmation path is incomplete."
+      Goto closeAndRetireRenameManifest
+    ${EndIf}
     ClearErrors
-    GetFullPathName $4 "$1"
+    GetFullPathName $4 "$4"
     ${If} ${Errors}
-      StrCpy $InstallRecoveryFailed "1"
+      DetailPrint "Retaining renamed files because a confirmation path could not be canonicalized."
+      Goto closeAndRetireRenameManifest
     ${Else}
+      StrCpy $4 "$4\$9"
+      StrCpy $RenameIdentityPath "$4"
       StrLen $7 "$6"
       StrCpy $8 "$4" $7
       ${If} $8 == "$6"
-        ClearErrors
-        Delete /REBOOTOK "$4"
-        ${If} ${Errors}
-          StrCpy $InstallRecoveryFailed "1"
+        Call DeleteRenameFileByIdentity
+        ${If} $RenameIdentityFailed == "1"
+          DetailPrint "A confirmed renamed file could not be safely deleted and was retained: $4"
+          Goto closeAndRetireRenameManifest
         ${EndIf}
       ${Else}
         DetailPrint "Refused an out-of-scope rename-manifest entry: $1"
-        StrCpy $InstallRecoveryFailed "1"
+        Goto closeAndRetireRenameManifest
       ${EndIf}
     ${EndIf}
+  ${Else}
+    DetailPrint "Retaining renamed files because the confirmation manifest contains a blank record."
+    Goto closeAndRetireRenameManifest
   ${EndIf}
   Goto readRenamedProductFile
 
-  closeRenameManifest:
+  closeAndRetireRenameManifest:
   FileClose $0
-  ${If} $InstallRecoveryFailed == "1"
-    Return
-  ${EndIf}
+
+  retireRenameManifest:
   ClearErrors
   Delete "$RenameManifestPath"
   ${If} ${Errors}
@@ -2426,6 +2806,12 @@ Function RollbackInstallTransaction
     Return
   ${EndIf}
   StrCpy $InstallRollbackState "0"
+  Call PrepareRenameManifestForCleanup
+  ${If} $InstallRecoveryFailed == "1"
+    StrCpy $ApoRollbackStatus "Rollback completed; rename-manifest migration is deferred to the next installer run. Recovery files and journal were retained."
+    DetailPrint "$ApoRollbackStatus"
+    Return
+  ${EndIf}
   Call DiscardRenamedProductFiles
   ${If} $InstallRecoveryFailed == "1"
     StrCpy $ApoRollbackStatus "Rollback completed; renamed-file cleanup is deferred to the next installer run. Recovery files and journal were retained."

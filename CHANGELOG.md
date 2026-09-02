@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.3
+
+- Fixed the v3.0.2 installer recovery loop caused by NSIS append mode preserving a file without moving its write pointer to the end. The next installer now retires the corrupted protected manifest, keeps ambiguous `.old` backups untouched, finishes committed recovery cleanup, and continues installation.
+- Records renamed application files only after Windows confirms the rename, uses UTF-16 framed records, binds cleanup to each file's stable identity, deletes through the verified handle, and flushes a one-shot cleanup gate before touching product files.
+- Added a native NSIS append regression harness to the release build in addition to the installer transaction contract tests.
+
 ## 3.0.2
 
 - Rebuilt the fork-specific changes directly on the current `Mixomo/EqAPO64_with_VST3_support` main-line history while preserving its original Equalizer APO and VST-hosting foundation.
