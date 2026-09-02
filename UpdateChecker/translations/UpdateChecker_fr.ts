@@ -26,8 +26,8 @@
     </message>
     <message>
         <location filename="../main.cpp" line="147"/>
-        <source>The installed version %0 of Equalizer APO is up to date.</source>
-        <translation>La version installée %0 d&apos;Equalizer APO est à jour.</translation>
+        <source>The installed Loudness Correction for Equalizer APO version %0 is up to date.</source>
+        <translation>La version installée %0 de Loudness Correction for Equalizer APO est à jour.</translation>
     </message>
     <message>
         <location filename="../main.cpp" line="155"/>
@@ -64,8 +64,8 @@
     </message>
     <message>
         <location filename="../UpdateChecker.ui" line="54"/>
-        <source>A newer version of Equalizer APO is available:</source>
-        <translation>Une nouvelle version d&apos;Equalizer APO est disponible:</translation>
+        <source>A newer Loudness Correction for Equalizer APO release is available:</source>
+        <translation>Une nouvelle version de Loudness Correction for Equalizer APO est disponible :</translation>
     </message>
 </context>
 </TS>

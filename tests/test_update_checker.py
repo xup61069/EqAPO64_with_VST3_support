@@ -12,6 +12,16 @@ MAIN_SOURCE = (ROOT / "UpdateChecker" / "main.cpp").read_text(encoding="utf-8")
 DIALOG_SOURCE = (ROOT / "UpdateChecker" / "UpdateChecker.cpp").read_text(
     encoding="utf-8"
 )
+DIALOG_UI = (ROOT / "UpdateChecker" / "UpdateChecker.ui").read_text(
+    encoding="utf-8"
+)
+SHIPPED_DOCUMENT_LINKS = tuple(
+    path.read_text(encoding="utf-8")
+    for path in (
+        ROOT / "Setup" / "Configuration tutorial (online).url",
+        ROOT / "Setup" / "Configuration reference (online).url",
+    )
+)
 
 
 class UpdateCheckerTests(unittest.TestCase):
@@ -39,6 +49,22 @@ class UpdateCheckerTests(unittest.TestCase):
         self.assertIn("if (silentMode)\n\t\treturn;", MAIN_SOURCE)
         self.assertGreaterEqual(MAIN_SOURCE.count("result = 2;"), 3)
         self.assertIn("if (!autoMode && !silentMode)", MAIN_SOURCE)
+
+    def test_user_facing_identity_is_this_fork(self) -> None:
+        product_name = "Loudness Correction for Equalizer APO"
+        self.assertIn(product_name, MAIN_SOURCE)
+        self.assertIn(product_name, DIALOG_UI)
+        self.assertNotIn(
+            "A newer version of Equalizer APO is available", DIALOG_UI
+        )
+
+    def test_shipped_document_shortcuts_use_this_forks_https_docs(self) -> None:
+        expected_root = "URL=https://github.com/xup61069/loudness-correction-apo"
+        for shortcut in SHIPPED_DOCUMENT_LINKS:
+            with self.subTest(shortcut=shortcut):
+                self.assertIn(expected_root, shortcut)
+                self.assertNotIn("URL=http://", shortcut)
+                self.assertNotIn("sourceforge.net/p/equalizerapo/wiki", shortcut)
 
 
 if __name__ == "__main__":

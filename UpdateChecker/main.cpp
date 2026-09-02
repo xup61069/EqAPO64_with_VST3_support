@@ -236,7 +236,7 @@ int main(int argc, char* argv[])
 					{
 						if (!autoMode && !silentMode)
 							QMessageBox::information(nullptr, UpdateChecker::tr("No update available"),
-								UpdateChecker::tr("The installed version %0 of Equalizer APO is up to date.").arg(version));
+								UpdateChecker::tr("The installed Loudness Correction for Equalizer APO version %0 is up to date.").arg(version));
 					}
 					else
 					{

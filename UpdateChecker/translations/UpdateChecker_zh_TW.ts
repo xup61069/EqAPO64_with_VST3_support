@@ -30,8 +30,8 @@
     </message>
     <message>
         <location filename="../main.cpp" line="234"/>
-        <source>The installed version %0 of Equalizer APO is up to date.</source>
-        <translation>安裝的 Equalizer APO %0 已是最新版本。</translation>
+        <source>The installed Loudness Correction for Equalizer APO version %0 is up to date.</source>
+        <translation>已安裝的 Equalizer APO 響度校正 %0 是最新版本。</translation>
     </message>
     <message>
         <location filename="../main.cpp" line="261"/>
@@ -73,8 +73,8 @@
     </message>
     <message>
         <location filename="../UpdateChecker.ui" line="54"/>
-        <source>A newer version of Equalizer APO is available:</source>
-        <translation>有一個新版本的 Equalizer APO 可用：</translation>
+        <source>A newer Loudness Correction for Equalizer APO release is available:</source>
+        <translation>有新版 Equalizer APO 響度校正可用：</translation>
     </message>
 </context>
 </TS>
