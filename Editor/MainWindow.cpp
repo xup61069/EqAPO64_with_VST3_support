@@ -3365,14 +3365,17 @@ bool MainWindow::snapshotLayoutIsValid() const
 	// The table deliberately accepts a zero horizontal minimum so wide text
 	// can compress instead of forcing an outer scrollbar. A zero scrollbar
 	// range alone therefore cannot prove that a child was not clipped. Check
-	// the representative GUIs and every visible descendant against the actual
-	// geometry allocated by its immediate parent.
-	const auto fitsInsideParent = [](QWidget* widget)
+	// the representative GUIs and every visible descendant against the owning
+	// filter GUI. Mapping to that stable boundary avoids false positives from
+	// native-style implementation widgets that intentionally overlap frames.
+	const auto fitsInsideContainer = [](QWidget* container, QWidget* widget)
 	{
-		QWidget* parent = widget == NULL ? NULL : widget->parentWidget();
-		const bool fits = parent != NULL
+		const QRect geometryInContainer = container == NULL || widget == NULL
+			? QRect()
+			: QRect(widget->mapTo(container, QPoint(0, 0)), widget->size());
+		const bool fits = container != NULL
 			&& widget->width() > 0 && widget->height() > 0
-			&& parent->rect().contains(widget->geometry());
+			&& container->rect().contains(geometryInContainer);
 		if (!fits)
 		{
 			qWarning().noquote()
@@ -3381,8 +3384,14 @@ bool MainWindow::snapshotLayoutIsValid() const
 					? QStringLiteral("<null>")
 					: QString::fromLatin1(widget->metaObject()->className()))
 				<< (widget == NULL ? QString() : widget->objectName())
-				<< "geometry" << (widget == NULL ? QRect() : widget->geometry())
-				<< "parentRect" << (parent == NULL ? QRect() : parent->rect());
+				<< "geometry" << geometryInContainer
+				<< "container"
+				<< (container == NULL
+					? QStringLiteral("<null>")
+					: QString::fromLatin1(container->metaObject()->className()))
+				<< (container == NULL ? QString() : container->objectName())
+				<< "containerRect"
+				<< (container == NULL ? QRect() : container->rect());
 		}
 		return fits;
 	};
@@ -3403,12 +3412,12 @@ bool MainWindow::snapshotLayoutIsValid() const
 			return false;
 		for (QWidget* gui : guis)
 		{
-			if (!fitsInsideParent(gui))
+			if (!fitsInsideContainer(gui->parentWidget(), gui))
 				return false;
 			for (QWidget* child : gui->findChildren<QWidget*>())
 			{
 				if (child->isVisible() && !child->isWindow()
-					&& !fitsInsideParent(child))
+					&& !fitsInsideContainer(gui, child))
 				{
 					return false;
 				}

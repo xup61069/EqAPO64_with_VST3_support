@@ -63,6 +63,40 @@ UpdateChecker::~UpdateChecker()
 {
 }
 
+bool UpdateChecker::snapshotLayoutIsValid() const
+{
+#ifdef EQAPO_ENABLE_UI_SNAPSHOTS
+	const QList<QWidget*> heightSensitiveWidgets{
+		ui.sectionLabel,
+		ui.titleLabel,
+		ui.installedCaptionLabel,
+		ui.installedVersionLabel,
+		ui.availableCaptionLabel,
+		ui.availableVersionLabel,
+		ui.statusProgressBar,
+		ui.releaseNotesLabel,
+		ui.skipButton,
+		ui.laterButton,
+		ui.retryButton,
+		ui.goButton
+	};
+	for (QWidget* widget : heightSensitiveWidgets)
+	{
+		if (!widget->isVisible())
+			continue;
+		const QRect geometryInDialog(widget->mapTo(this, QPoint(0, 0)), widget->size());
+		if (widget->height() < widget->sizeHint().height()
+			|| !rect().contains(geometryInDialog))
+		{
+			qWarning() << "Snapshot layout clipped" << widget->objectName()
+				<< "geometry" << geometryInDialog << "size hint" << widget->sizeHint();
+			return false;
+		}
+	}
+#endif
+	return true;
+}
+
 void UpdateChecker::showChecking()
 {
 	downloadUrl.clear();
@@ -166,8 +200,13 @@ void UpdateChecker::applyState(State newState)
 		refreshStatusProperty("danger");
 	}
 
-	const int targetHeight = isAvailable ? 530 : 380;
-	setMinimumHeight(isAvailable ? 460 : 340);
+	const int preferredHeight = isAvailable ? 530 : 380;
+	const int baseMinimumHeight = isAvailable ? 460 : 340;
+	setMinimumHeight(baseMinimumHeight);
+	layout()->activate();
+	const int contentMinimumHeight = layout()->minimumSize().height();
+	const int targetHeight = qMax(preferredHeight, contentMinimumHeight);
+	setMinimumHeight(qMax(baseMinimumHeight, contentMinimumHeight));
 	if (!isVisible() || height() <= 530)
 		resize(qMax(width(), 560), targetHeight);
 

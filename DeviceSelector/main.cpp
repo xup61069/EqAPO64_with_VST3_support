@@ -99,6 +99,7 @@ int main(int argc, char* argv[])
 	else
 	{
 		DeviceSelector dialog;
+		UiSnapshot::prepareForCapture(dialog);
 		dialog.show();
 		UiSnapshot::schedule(dialog, app);
 		result = app.exec();

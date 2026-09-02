@@ -105,6 +105,7 @@ int main(int argc, char* argv[])
 		QDir configDir(configPath);
 
 		MainWindow w(configDir);
+		UiSnapshot::prepareForCapture(w);
 		w.show();
 
 		QCommandLineParser parser;

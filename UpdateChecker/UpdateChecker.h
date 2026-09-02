@@ -39,6 +39,7 @@ public:
 	void showUpToDate(const QString& availableVersion);
 	void showUpdateAvailable(const QJsonDocument& doc);
 	void showFailure(const QString& message);
+	bool snapshotLayoutIsValid() const;
 
 signals:
 	void retryRequested();

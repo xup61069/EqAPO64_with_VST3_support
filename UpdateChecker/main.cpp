@@ -259,9 +259,13 @@ int main(int argc, char* argv[])
 	{
 		UpdateChecker dialog(nullptr, version);
 		ManualUpdateSession session(&dialog, version);
+		UiSnapshot::prepareForCapture(dialog);
 		dialog.show();
 		if (UiSnapshot::requested())
-			UiSnapshot::schedule(dialog, app);
+			UiSnapshot::schedule(dialog, app, [&dialog]
+			{
+				return dialog.snapshotLayoutIsValid();
+			});
 		else
 			QTimer::singleShot(0, &session, [&session] { session.start(); });
 		return app.exec();

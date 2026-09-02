@@ -64,8 +64,14 @@ class UiProductizationTests(unittest.TestCase):
         self.assertIn('qEnvironmentVariable("EQAPO_UI_SNAPSHOT")', test_build)
         self.assertIn('"EQAPO_UI_SNAPSHOT_SCENARIO"', test_build)
         self.assertIn('"EQAPO_UI_SNAPSHOT_LOCALE"', test_build)
+        self.assertIn("widget.setAttribute(Qt::WA_DontShowOnScreen, true)", test_build)
+        self.assertIn('QGuiApplication::platformName() != QStringLiteral("windows")', test_build)
+        self.assertIn("metrics.inFontUcs4('A')", test_build)
+        self.assertIn("metrics.inFontUcs4('0')", test_build)
+        self.assertIn("metrics.inFontUcs4(0x6e2c)", test_build)
         self.assertIn("validator && !validator()", test_build)
         self.assertNotIn("EQAPO_UI_SNAPSHOT", production_build)
+        self.assertNotIn("WA_DontShowOnScreen", production_build)
         self.assertRegex(
             production_build,
             r"inline QString outputPath\(\)\s*\{\s*return QString\(\);\s*\}",
@@ -123,6 +129,24 @@ class UiProductizationTests(unittest.TestCase):
         self.assertIn('"text-150"', script)
         self.assertIn('"1.5"', script)
         self.assertIn("EQAPO_UI_FONT_SCALE", script)
+        self.assertIn('EnvironmentVariables["QT_QPA_PLATFORM"] = "windows"', script)
+        self.assertIn('"platforms\\qwindows$platformDebugSuffix.dll"', script)
+        self.assertNotIn("qoffscreen", script)
+        self.assertIn("function Invoke-UiSnapshotCapture", script)
+        self.assertEqual(script.count("[System.Diagnostics.ProcessStartInfo]::new()"), 1)
+        capture_function = script[
+            script.index("function Invoke-UiSnapshotCapture") :
+            script.index("$executables = @{}")
+        ]
+        self.assertEqual(capture_function.count("ReadToEndAsync()"), 2)
+        self.assertNotIn(".ReadToEnd()", capture_function)
+        self.assertLess(
+            capture_function.index("ReadToEndAsync()"),
+            capture_function.index("WaitForExit(25000)"),
+        )
+        self.assertIn("GetAwaiter().GetResult()", capture_function)
+        self.assertNotIn("$process.Kill($true)", script)
+        self.assertIn("$process.Kill()", script)
         self.assertIn("Expected exactly 72 UI snapshots", script)
         self.assertIn('FilePrefix = "editor-dense-zh-tw"', script)
         self.assertIn('SnapshotScenario = "dense"', script)
@@ -130,14 +154,27 @@ class UiProductizationTests(unittest.TestCase):
         self.assertIn("state.FilePrefix", script)
         self.assertIn(
             'EnvironmentVariables["EQAPO_UI_SNAPSHOT_SCENARIO"] = '
-            "$state.SnapshotScenario",
+            "$State.SnapshotScenario",
             script,
         )
         self.assertNotIn('if ($state.SnapshotScenario -ne "")', script)
         self.assertIn("scenario.Label", script)
-        self.assertIn("Remove-Item -LiteralPath $target", script)
+        self.assertIn("Remove-Item -LiteralPath $Target", script)
         self.assertIn('"manifest.json"', script)
         self.assertIn("sha256", script)
+        for base_size in (
+            "Editor = @{ Width = 1024; Height = 768 }",
+            "DeviceSelector = @{ Width = 820; Height = 620 }",
+            "UpdateChecker = @{ Width = 640; Height = 380 }",
+        ):
+            self.assertIn(base_size, script)
+        self.assertIn('if ($scenario.FontScale -eq "1.0")', script)
+        self.assertIn("[System.Globalization.CultureInfo]::InvariantCulture", script)
+        self.assertIn("The snapshot window may have been constrained", script)
+
+        self.assertNotIn("$windowsSmokeDirectory", script)
+        self.assertIn("keep their top-level widgets off the physical desktop", script)
+        self.assertIn("while still using qwindows", script)
 
         root_guard = script[
             script.index("$normalizedRoot =") :
@@ -205,6 +242,19 @@ class UiProductizationTests(unittest.TestCase):
         self.assertIn("UiSnapshot::localeName()", EDITOR_MAIN)
         self.assertIn("w.loadSnapshotScenario(scenario)", EDITOR_MAIN)
         self.assertIn("w.snapshotLayoutIsValid()", EDITOR_MAIN)
+        for relative_path, declaration in (
+            ("Editor/main.cpp", "MainWindow w(configDir);"),
+            ("DeviceSelector/main.cpp", "DeviceSelector dialog;"),
+            ("UpdateChecker/main.cpp", "UpdateChecker dialog(nullptr, version);"),
+        ):
+            source = (ROOT / relative_path).read_text(encoding="utf-8")
+            with self.subTest(snapshot_prepare=relative_path):
+                self.assertLess(
+                    source.index(declaration), source.index("UiSnapshot::prepareForCapture")
+                )
+                self.assertLess(
+                    source.index("UiSnapshot::prepareForCapture"), source.index(".show();")
+                )
 
         dense = MAIN_WINDOW[
             MAIN_WINDOW.index("bool MainWindow::loadSnapshotScenario") :
@@ -251,8 +301,12 @@ class UiProductizationTests(unittest.TestCase):
         self.assertGreaterEqual(layout_contract.count("horizontalScrollBar()->maximum() != 0"), 2)
         self.assertIn('QStringLiteral("treeWidget")', layout_contract)
         self.assertIn("denseGuiObjectNames", layout_contract)
-        self.assertIn("parent->rect().contains(widget->geometry())", layout_contract)
+        self.assertIn("widget->mapTo(container, QPoint(0, 0))", layout_contract)
+        self.assertIn("container->rect().contains(geometryInContainer)", layout_contract)
         self.assertIn("gui->findChildren<QWidget*>()", layout_contract)
+        self.assertIn(
+            "snapshot failed for $($State.Label)/$Theme/$($Scenario.Label)", capture
+        )
 
         test_snapshot, production_snapshot = snapshot.split("#else", 1)
         production_snapshot = production_snapshot.split("#endif", 1)[0]
@@ -626,6 +680,13 @@ class UiProductizationTests(unittest.TestCase):
             with self.subTest(update_state=token):
                 self.assertIn(token, UPDATE_CHECKER)
         self.assertIn("retryRequested", UPDATE_CHECKER)
+        self.assertIn("layout()->activate()", UPDATE_CHECKER)
+        self.assertIn("layout()->minimumSize().height()", UPDATE_CHECKER)
+        self.assertIn("qMax(preferredHeight, contentMinimumHeight)", UPDATE_CHECKER)
+        self.assertIn("bool UpdateChecker::snapshotLayoutIsValid() const", UPDATE_CHECKER)
+        self.assertIn("widget->height() < widget->sizeHint().height()", UPDATE_CHECKER)
+        update_main = (ROOT / "UpdateChecker" / "main.cpp").read_text(encoding="utf-8")
+        self.assertIn("dialog.snapshotLayoutIsValid()", update_main)
 
     def test_device_test_shutdown_is_cooperative_and_preserves_errors(self) -> None:
         worker = (ROOT / "DeviceSelector" / "DeviceTestThread.cpp").read_text(

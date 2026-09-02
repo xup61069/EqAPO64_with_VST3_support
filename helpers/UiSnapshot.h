@@ -14,6 +14,7 @@
 #include <QApplication>
 #include <QDir>
 #include <QFileInfo>
+#include <QFontMetrics>
 #include <QPixmap>
 #include <QTimer>
 #include <QWidget>
@@ -48,6 +49,24 @@ namespace UiSnapshot
 		return QStringLiteral("en");
 	}
 
+	inline void prepareForCapture(QWidget& widget)
+	{
+		if (requested())
+			widget.setAttribute(Qt::WA_DontShowOnScreen, true);
+	}
+
+	inline bool environmentIsValid(const QWidget& widget)
+	{
+		if (QGuiApplication::platformName() != QStringLiteral("windows"))
+			return false;
+
+		const QFontMetrics metrics(widget.font());
+		if (!metrics.inFontUcs4('A') || !metrics.inFontUcs4('0'))
+			return false;
+		return !localeName().startsWith(QStringLiteral("zh_"))
+			|| metrics.inFontUcs4(0x6e2c);
+	}
+
 	inline void schedule(
 		QWidget& widget,
 		QApplication& application,
@@ -65,6 +84,11 @@ namespace UiSnapshot
 		QTimer::singleShot(delay, &widget,
 			[&widget, &application, path, validator]
 		{
+			if (!environmentIsValid(widget))
+			{
+				application.exit(88);
+				return;
+			}
 			if (validator && !validator())
 			{
 				application.exit(87);
@@ -95,6 +119,17 @@ namespace UiSnapshot
 	inline QString localeName()
 	{
 		return QString();
+	}
+
+	inline void prepareForCapture(QWidget& widget)
+	{
+		Q_UNUSED(widget);
+	}
+
+	inline bool environmentIsValid(const QWidget& widget)
+	{
+		Q_UNUSED(widget);
+		return true;
 	}
 
 	inline void schedule(

@@ -38,6 +38,11 @@ $outputPrefix = $OutputDirectory.TrimEnd([System.IO.Path]::DirectorySeparatorCha
 $snapshotRecords = [System.Collections.Generic.List[object]]::new()
 
 $apps = @("Editor", "DeviceSelector", "UpdateChecker")
+$expectedBaseSizes = @{
+	Editor = @{ Width = 1024; Height = 768 }
+	DeviceSelector = @{ Width = 820; Height = 620 }
+	UpdateChecker = @{ Width = 640; Height = 380 }
+}
 $appStates = @{
 	Editor = @(
 		@{ Label = "default"; FilePrefix = "editor"; SnapshotScenario = ""; Locale = "en" },
@@ -109,6 +114,11 @@ if (Test-Path -LiteralPath $legacyPreviewDirectory) {
 
 $qtBin = Join-Path $QtRoot "bin"
 $qtPlugins = Join-Path $QtRoot "plugins"
+$platformDebugSuffix = if ($Configuration -eq "Debug") { "d" } else { "" }
+$requiredPlatformPlugin = Join-Path $qtPlugins "platforms\qwindows$platformDebugSuffix.dll"
+if (!(Test-Path -LiteralPath $requiredPlatformPlugin)) {
+	throw "Required Qt platform plugin was not found: $requiredPlatformPlugin"
+}
 $runtimeBin = Join-Path $thirdParty "vcpkg_installed\x64-windows\bin"
 $productBin = Join-Path $root "x64\$Configuration"
 $snapshotProductBin = Join-Path $root "_build\ui-snapshot-bin-$Configuration"
@@ -166,8 +176,117 @@ function Resolve-AppExecutable([string]$Name) {
 	throw "$Name.exe was not found. Build the Qt applications first."
 }
 
+function Invoke-UiSnapshotCapture {
+	param(
+		[string]$AppName,
+		[string]$Executable,
+		[hashtable]$State,
+		[string]$Theme,
+		[hashtable]$Scenario,
+		[string]$Target,
+		[string]$DelayMs = "900"
+	)
+
+	if (Test-Path -LiteralPath $Target) {
+		Remove-Item -LiteralPath $Target -Force
+	}
+
+	$startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+	$startInfo.FileName = $Executable
+	$startInfo.WorkingDirectory = $root
+	$startInfo.UseShellExecute = $false
+	$startInfo.CreateNoWindow = $true
+	$startInfo.RedirectStandardOutput = $true
+	$startInfo.RedirectStandardError = $true
+	$startInfo.EnvironmentVariables["QT_QPA_PLATFORM"] = "windows"
+	$startInfo.EnvironmentVariables["QT_QPA_PLATFORM_PLUGIN_PATH"] = Join-Path $qtPlugins "platforms"
+	$startInfo.EnvironmentVariables["QT_SCALE_FACTOR"] = $Scenario.DpiScale
+	$startInfo.EnvironmentVariables["EQAPO_UI_FONT_SCALE"] = $Scenario.FontScale
+	$startInfo.EnvironmentVariables["EQAPO_UI_THEME"] = $Theme
+	$startInfo.EnvironmentVariables["EQAPO_UI_SNAPSHOT"] = $Target
+	$startInfo.EnvironmentVariables["EQAPO_UI_SNAPSHOT_DELAY_MS"] = $DelayMs
+	$startInfo.EnvironmentVariables["EQAPO_UI_SNAPSHOT_LOCALE"] = $State.Locale
+	# ProcessStartInfo inherits the parent environment. Always overwrite the
+	# scenario so a previous manual dense capture cannot contaminate a run.
+	$startInfo.EnvironmentVariables["EQAPO_UI_SNAPSHOT_SCENARIO"] = $State.SnapshotScenario
+	$startInfo.EnvironmentVariables["PATH"] = "$qtBin;$runtimeBin;$productBin;$($startInfo.EnvironmentVariables['PATH'])"
+
+	$process = [System.Diagnostics.Process]::new()
+	$process.StartInfo = $startInfo
+	try {
+		[void]$process.Start()
+		# Drain both redirected pipes concurrently. Waiting before reading can
+		# deadlock when Qt diagnostics fill either OS pipe buffer.
+		$stdoutTask = $process.StandardOutput.ReadToEndAsync()
+		$stderrTask = $process.StandardError.ReadToEndAsync()
+		if (!$process.WaitForExit(25000)) {
+			$process.Kill()
+			if (!$process.WaitForExit(5000)) {
+				throw "$AppName could not be terminated after timing out on the Windows platform."
+			}
+			$stdout = $stdoutTask.GetAwaiter().GetResult()
+			$stderr = $stderrTask.GetAwaiter().GetResult()
+			if (![string]::IsNullOrWhiteSpace($stdout)) {
+				Write-Host $stdout
+			}
+			if (![string]::IsNullOrWhiteSpace($stderr)) {
+				Write-Host $stderr
+			}
+			throw "$AppName timed out on the Windows platform while capturing $($State.Label)/$Theme/$($Scenario.Label)."
+		}
+		$stdout = $stdoutTask.GetAwaiter().GetResult()
+		$stderr = $stderrTask.GetAwaiter().GetResult()
+		if ($process.ExitCode -ne 0) {
+			if (![string]::IsNullOrWhiteSpace($stdout)) {
+				Write-Host $stdout
+			}
+			if (![string]::IsNullOrWhiteSpace($stderr)) {
+				Write-Host $stderr
+			}
+			throw "$AppName Windows snapshot failed for $($State.Label)/$Theme/$($Scenario.Label) with exit code $($process.ExitCode)."
+		}
+	}
+	finally {
+		$process.Dispose()
+	}
+
+	if (!(Test-Path -LiteralPath $Target) -or (Get-Item -LiteralPath $Target).Length -lt 1024) {
+		throw "$AppName did not produce a valid Windows snapshot: $Target"
+	}
+
+	$bytes = [System.IO.File]::ReadAllBytes($Target)
+	$pngSignature = @(137, 80, 78, 71, 13, 10, 26, 10)
+	for ($signatureIndex = 0; $signatureIndex -lt $pngSignature.Count; ++$signatureIndex) {
+		if ($bytes[$signatureIndex] -ne $pngSignature[$signatureIndex]) {
+			throw "$AppName produced a file without a valid PNG signature: $Target"
+		}
+	}
+	$width = ([uint32]$bytes[16] -shl 24) -bor
+		([uint32]$bytes[17] -shl 16) -bor
+		([uint32]$bytes[18] -shl 8) -bor [uint32]$bytes[19]
+	$height = ([uint32]$bytes[20] -shl 24) -bor
+		([uint32]$bytes[21] -shl 16) -bor
+		([uint32]$bytes[22] -shl 8) -bor [uint32]$bytes[23]
+	if ($width -lt 300 -or $height -lt 180) {
+		throw "$AppName produced an unexpectedly small snapshot ($width x $height): $Target"
+	}
+
+	return [pscustomobject]@{
+		Width = [int]$width
+		Height = [int]$height
+		Sha256 = (Get-FileHash -LiteralPath $Target -Algorithm SHA256).Hash.ToLowerInvariant()
+	}
+}
+
+$executables = @{}
 foreach ($appName in $apps) {
-	$executable = Resolve-AppExecutable $appName
+	$executables[$appName] = Resolve-AppExecutable $appName
+}
+
+# Snapshot-enabled builds keep their top-level widgets off the physical desktop
+# while still using qwindows. This preserves native Windows font rendering and
+# prevents the CI runner's work area from clamping the requested viewport.
+foreach ($appName in $apps) {
 	foreach ($state in $appStates[$appName]) {
 		foreach ($theme in $themes) {
 			foreach ($scenario in $scenarios) {
@@ -176,62 +295,27 @@ foreach ($appName in $apps) {
 			if (!$target.StartsWith($outputPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
 				throw "Snapshot target escaped the output directory: $target"
 			}
-			if (Test-Path -LiteralPath $target) {
-				Remove-Item -LiteralPath $target -Force
-			}
-
-			$startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-			$startInfo.FileName = $executable
-			$startInfo.WorkingDirectory = $root
-			$startInfo.UseShellExecute = $false
-			$startInfo.CreateNoWindow = $true
-			$startInfo.RedirectStandardOutput = $true
-			$startInfo.RedirectStandardError = $true
-			$startInfo.EnvironmentVariables["QT_QPA_PLATFORM"] = "windows"
-			$startInfo.EnvironmentVariables["QT_QPA_PLATFORM_PLUGIN_PATH"] = Join-Path $qtPlugins "platforms"
-			$startInfo.EnvironmentVariables["QT_SCALE_FACTOR"] = $scenario.DpiScale
-			$startInfo.EnvironmentVariables["EQAPO_UI_FONT_SCALE"] = $scenario.FontScale
-			$startInfo.EnvironmentVariables["EQAPO_UI_THEME"] = $theme
-			$startInfo.EnvironmentVariables["EQAPO_UI_SNAPSHOT"] = $target
-			$startInfo.EnvironmentVariables["EQAPO_UI_SNAPSHOT_DELAY_MS"] = "900"
-			$startInfo.EnvironmentVariables["EQAPO_UI_SNAPSHOT_LOCALE"] = $state.Locale
-			# ProcessStartInfo inherits the parent environment. Always overwrite the
-			# scenario so a previous manual dense capture cannot contaminate the
-			# default-state matrix entries.
-			$startInfo.EnvironmentVariables["EQAPO_UI_SNAPSHOT_SCENARIO"] = $state.SnapshotScenario
-			$startInfo.EnvironmentVariables["PATH"] = "$qtBin;$runtimeBin;$productBin;$($startInfo.EnvironmentVariables['PATH'])"
-
-			$process = [System.Diagnostics.Process]::new()
-			$process.StartInfo = $startInfo
-			[void]$process.Start()
-			if (!$process.WaitForExit(25000)) {
-				$process.Kill($true)
-				throw "$appName timed out while capturing $($state.Label)/$theme/$($scenario.Label)."
-			}
-			$stdout = $process.StandardOutput.ReadToEnd()
-			$stderr = $process.StandardError.ReadToEnd()
-			if ($process.ExitCode -ne 0) {
-				throw "$appName snapshot failed with exit code $($process.ExitCode).`n$stdout`n$stderr"
-			}
-			if (!(Test-Path -LiteralPath $target) -or (Get-Item -LiteralPath $target).Length -lt 1024) {
-				throw "$appName did not produce a valid snapshot: $target"
-			}
-
-			$bytes = [System.IO.File]::ReadAllBytes($target)
-			$pngSignature = @(137, 80, 78, 71, 13, 10, 26, 10)
-			for ($signatureIndex = 0; $signatureIndex -lt $pngSignature.Count; ++$signatureIndex) {
-				if ($bytes[$signatureIndex] -ne $pngSignature[$signatureIndex]) {
-					throw "$appName produced a file without a valid PNG signature: $target"
+			$capture = Invoke-UiSnapshotCapture `
+				-AppName $appName `
+				-Executable $executables[$appName] `
+				-State $state `
+				-Theme $theme `
+				-Scenario $scenario `
+				-Target $target
+			if ($scenario.FontScale -eq "1.0") {
+				$dpiScale = [double]::Parse(
+					[string]$scenario.DpiScale,
+					[System.Globalization.CultureInfo]::InvariantCulture)
+				$baseSize = $expectedBaseSizes[$appName]
+				$expectedWidth = [int][Math]::Round(
+					[double]$baseSize["Width"] * $dpiScale,
+					[System.MidpointRounding]::AwayFromZero)
+				$expectedHeight = [int][Math]::Round(
+					[double]$baseSize["Height"] * $dpiScale,
+					[System.MidpointRounding]::AwayFromZero)
+				if ($capture.Width -ne $expectedWidth -or $capture.Height -ne $expectedHeight) {
+					throw "$appName produced $($capture.Width) x $($capture.Height) for $($state.Label)/$theme/$($scenario.Label); expected $expectedWidth x $expectedHeight at DPI scale $($scenario.DpiScale). The snapshot window may have been constrained by the desktop work area."
 				}
-			}
-			$width = ([uint32]$bytes[16] -shl 24) -bor
-				([uint32]$bytes[17] -shl 16) -bor
-				([uint32]$bytes[18] -shl 8) -bor [uint32]$bytes[19]
-			$height = ([uint32]$bytes[20] -shl 24) -bor
-				([uint32]$bytes[21] -shl 16) -bor
-				([uint32]$bytes[22] -shl 8) -bor [uint32]$bytes[23]
-			if ($width -lt 300 -or $height -lt 180) {
-				throw "$appName produced an unexpectedly small snapshot ($width x $height): $target"
 			}
 			$snapshotRecords.Add([pscustomobject]@{
 				app = $appName
@@ -242,9 +326,9 @@ foreach ($appName in $apps) {
 				dpiScale = $scenario.DpiScale
 				fontScale = $scenario.FontScale
 				file = $fileName
-				width = $width
-				height = $height
-				sha256 = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant()
+				width = $capture.Width
+				height = $capture.Height
+				sha256 = $capture.Sha256
 			})
 			}
 		}
