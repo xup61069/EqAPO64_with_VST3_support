@@ -26,7 +26,9 @@ UpdateChecker::UpdateChecker(QWidget* parent, const QJsonDocument& doc)
 	ui.setupUi(this);
 
 	QJsonObject docObj = doc.object();
-	downloadUrl = docObj.value("download-url").toString();
+	downloadUrl = QUrl(docObj.value("download-url").toString(), QUrl::StrictMode);
+	if (!downloadUrl.isValid() || downloadUrl.scheme() != "https")
+		ui.goButton->setEnabled(false);
 
 	QJsonArray versionsArray = docObj.value("versions").toArray();
 	QString html = "<style>\n.date{font-size:small;font-style:italic;color:gray;}\nul{margin:5px;}\nli{margin:2px;}\n</style>\n";
@@ -41,11 +43,12 @@ UpdateChecker::UpdateChecker(QWidget* parent, const QJsonDocument& doc)
 			first = false;
 		}
 		QDate date = QDate::fromString(versionObj.value("date").toString(), Qt::ISODate);
-		html.append(QString("<div><b>%0 </b><span class=\"date\">(%1)</span></div>").arg(version).arg(QLocale().toString(date, QLocale::ShortFormat)));
+		html.append(QString("<div><b>%0 </b><span class=\"date\">(%1)</span></div>")
+			.arg(version.toHtmlEscaped()).arg(QLocale().toString(date, QLocale::ShortFormat).toHtmlEscaped()));
 		html.append("<ul>");
 		QJsonArray infoArray = versionObj.value("info").toArray();
 		for (QJsonValue v : infoArray)
-			html.append("<li>" + v.toString() + "</li>");
+			html.append("<li>" + v.toString().toHtmlEscaped() + "</li>");
 		html.append("</ul>");
 	}
 
@@ -69,6 +72,8 @@ UpdateChecker::~UpdateChecker()
 
 void UpdateChecker::goToWebsite()
 {
+	if (!downloadUrl.isValid() || downloadUrl.scheme() != "https")
+		return;
 	QDesktopServices::openUrl(downloadUrl);
 
 	QSettings settings(QString::fromWCharArray(UPDATE_CHECKER_REGPATH), QSettings::NativeFormat);

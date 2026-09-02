@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <QUrl>
 #include <QtWidgets/QDialog>
 #include <helpers/RegistryHelper.h>
 #include "ui_UpdateChecker.h"
@@ -39,6 +40,6 @@ private:
 	void skipThisVersion();
 
 	Ui::UpdateCheckerClass ui;
-	QString downloadUrl;
+	QUrl downloadUrl;
 	QString newestVersion;
 };

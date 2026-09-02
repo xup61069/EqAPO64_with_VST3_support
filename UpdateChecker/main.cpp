@@ -23,6 +23,8 @@
 #include <QCommandLineParser>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QRegularExpression>
+#include <QVersionNumber>
 #include <QtWidgets/QApplication>
 #include <helpers/TaskSchedulerHelper.h>
 #include "UpdateChecker.h"
@@ -30,7 +32,73 @@
 
 using namespace std::chrono_literals;
 
-void showFailureMessage(QString message, QString title);
+void showFailureMessage(QString message, QString title, bool silentMode);
+
+namespace
+{
+	const QUrl releaseApiUrl("https://api.github.com/repos/xup61069/loudness-correction-apo/releases/latest");
+
+	bool isTransientNetworkError(QNetworkReply::NetworkError error)
+	{
+		return error == QNetworkReply::HostNotFoundError
+			|| error == QNetworkReply::TimeoutError
+			|| error == QNetworkReply::TemporaryNetworkFailureError
+			|| error == QNetworkReply::NetworkSessionFailedError;
+	}
+
+	bool createUpdateDocument(const QJsonDocument& githubDocument, QJsonDocument& updateDocument,
+		QVersionNumber& releaseVersion, QString& releaseVersionText)
+	{
+		if (!githubDocument.isObject())
+			return false;
+
+		QJsonObject releaseObject = githubDocument.object();
+		releaseVersionText = releaseObject.value("tag_name").toString().trimmed();
+		if (releaseVersionText.startsWith('v', Qt::CaseInsensitive))
+			releaseVersionText.remove(0, 1);
+
+		qsizetype suffixIndex = 0;
+		releaseVersion = QVersionNumber::fromString(releaseVersionText, &suffixIndex);
+		if (releaseVersion.isNull() || suffixIndex != releaseVersionText.size())
+			return false;
+
+		QUrl downloadUrl(releaseObject.value("html_url").toString(), QUrl::StrictMode);
+		if (!downloadUrl.isValid() || downloadUrl.scheme() != "https"
+			|| downloadUrl.host().compare("github.com", Qt::CaseInsensitive) != 0)
+			return false;
+
+		QDateTime publishedAt = QDateTime::fromString(
+			releaseObject.value("published_at").toString(), Qt::ISODate);
+		if (!publishedAt.isValid())
+			return false;
+
+		QJsonArray releaseNotes;
+		const QString body = releaseObject.value("body").toString();
+		for (QString line : body.split(QRegularExpression("[\\r\\n]+"), Qt::SkipEmptyParts))
+		{
+			line.remove(QRegularExpression("^\\s*(?:#{1,6}\\s+|[-*+]\\s+|\\d+[.)]\\s+)"));
+			line = line.trimmed();
+			if (line.isEmpty() || line == "---")
+				continue;
+			if (line.size() > 300)
+				line = line.left(300) + QString::fromUtf8("…");
+			releaseNotes.append(line);
+			if (releaseNotes.size() == 12)
+				break;
+		}
+
+		QJsonObject versionObject;
+		versionObject.insert("version", releaseVersionText);
+		versionObject.insert("date", publishedAt.date().toString(Qt::ISODate));
+		versionObject.insert("info", releaseNotes);
+
+		QJsonObject updateObject;
+		updateObject.insert("download-url", downloadUrl.toString(QUrl::FullyEncoded));
+		updateObject.insert("versions", QJsonArray{ versionObject });
+		updateDocument = QJsonDocument(updateObject);
+		return true;
+	}
+}
 
 int main(int argc, char* argv[])
 {
@@ -55,8 +123,10 @@ int main(int argc, char* argv[])
 	QCommandLineOption autoOption("a", "Automatic mode (no dialog if no new version, respect skip version, only check every 24 hours)");
 	QCommandLineOption installOption("i", "Install scheduled task");
 	QCommandLineOption uninstallOption("u", "Uninstall scheduled task");
-	parser.addOptions(QList<QCommandLineOption>() << autoOption << installOption << uninstallOption);
+	QCommandLineOption silentOption("s", "Suppress dialogs and report failures through the exit code");
+	parser.addOptions(QList<QCommandLineOption>() << autoOption << installOption << uninstallOption << silentOption);
 	parser.process(app);
+	bool silentMode = parser.isSet(silentOption);
 	if (parser.isSet(installOption))
 	{
 		try
@@ -67,7 +137,8 @@ int main(int argc, char* argv[])
 		}
 		catch (TaskSchedulerException e)
 		{
-			QMessageBox::critical(nullptr, UpdateChecker::tr("Error installing Update Checker"), QString::fromStdWString(e.getMessage()));
+			if (!silentMode)
+				QMessageBox::critical(nullptr, UpdateChecker::tr("Error installing Update Checker"), QString::fromStdWString(e.getMessage()));
 			return 2;
 		}
 		return 0;
@@ -80,34 +151,25 @@ int main(int argc, char* argv[])
 		}
 		catch (TaskSchedulerException e)
 		{
-			QMessageBox::critical(nullptr, UpdateChecker::tr("Error uninstalling Update Checker"), QString::fromStdWString(e.getMessage()));
+			if (!silentMode)
+				QMessageBox::critical(nullptr, UpdateChecker::tr("Error uninstalling Update Checker"), QString::fromStdWString(e.getMessage()));
 			return 2;
 		}
 		return 0;
 	}
 	bool autoMode = parser.isSet(autoOption);
 
-	QString version = QString("%0.%1").arg(MAJOR).arg(MINOR);
-	if (REVISION != 0)
-		version += QString(".%0").arg(REVISION);
+	QString version = QString("%0.%1.%2").arg(MAJOR).arg(MINOR).arg(REVISION);
 
-	QString url = "https://equalizerapo.sourceforge.io/checkVersion?installed=" + QUrl::toPercentEncoding(version);
+	QSettings settings(QString::fromWCharArray(UPDATE_CHECKER_REGPATH), QSettings::NativeFormat);
+	QString skipVersion;
 	if (autoMode)
 	{
-		QSettings settings(QString::fromWCharArray(UPDATE_CHECKER_REGPATH), QSettings::NativeFormat);
 		QDateTime lastCheckDate = settings.value("lastCheckDate").toDateTime();
 
 		if (lastCheckDate.isValid() && lastCheckDate.toUTC().daysTo(QDateTime::currentDateTimeUtc()) < 1)
 			return 1;
-		settings.setValue("lastCheckDate", QDateTime::currentDateTime(QTimeZone::systemTimeZone()).toString(Qt::DateFormat::ISODate));
-
-		QString skipVersion = settings.value("skipVersion").toString();
-		if (!skipVersion.isEmpty())
-			url += "&skip=" + QUrl::toPercentEncoding(skipVersion);
-	}
-	else
-	{
-		url += "&manual=true";
+		skipVersion = settings.value("skipVersion").toString();
 	}
 
 	QNetworkAccessManager manager;
@@ -115,20 +177,23 @@ int main(int argc, char* argv[])
 	int tries = autoMode ? 10 : 1;
 	while (tries-- > 0)
 	{
-		QNetworkRequest request(QUrl(url, QUrl::StrictMode));
+		QNetworkRequest request(releaseApiUrl);
+		request.setHeader(QNetworkRequest::UserAgentHeader, QString("loudness-correction-apo-UpdateChecker/%0").arg(version));
+		request.setRawHeader("Accept", "application/vnd.github+json");
+		request.setRawHeader("X-GitHub-Api-Version", "2022-11-28");
+		request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+		request.setTransferTimeout(10s);
 		reply = manager.get(request);
 		QEventLoop loop;
 		QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-		QTimer timer;
-		timer.setInterval(10s);
-		timer.setSingleShot(true);
-		QObject::connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
 		loop.exec();
 
-		if (reply->isFinished() && reply->error() != QNetworkReply::HostNotFoundError)
+		if (reply->error() == QNetworkReply::NoError || !isTransientNetworkError(reply->error()) || tries == 0)
 			break;
-		else if (tries > 0)
-			QThread::sleep(5);
+
+		delete reply;
+		reply = nullptr;
+		QThread::sleep(5);
 	}
 
 	int result = 0;
@@ -136,39 +201,63 @@ int main(int argc, char* argv[])
 	{
 		if (reply->error() != QNetworkReply::NoError)
 		{
-			showFailureMessage(reply->errorString(), UpdateChecker::tr("Error while checking for update"));
+			showFailureMessage(reply->errorString(), UpdateChecker::tr("Error while checking for update"), silentMode);
+			result = 2;
 		}
 		else
 		{
-			QByteArray json = reply->readAll();
-			if (json.isEmpty())
+			QJsonParseError error;
+			QJsonDocument githubDocument = QJsonDocument::fromJson(reply->readAll(), &error);
+			if (error.error != QJsonParseError::NoError)
 			{
-				if (!autoMode)
-					QMessageBox::information(nullptr, UpdateChecker::tr("No update available"), UpdateChecker::tr("The installed version %0 of Equalizer APO is up to date.").arg(version));
+				showFailureMessage(error.errorString(), UpdateChecker::tr("Error while reading response of update check"), silentMode);
+				result = 2;
 			}
 			else
 			{
-				QJsonParseError error;
-				QJsonDocument doc = QJsonDocument::fromJson(json, &error);
-				if (error.error != QJsonParseError::NoError)
+				QJsonDocument updateDocument;
+				QVersionNumber availableVersion;
+				QString availableVersionText;
+				if (!createUpdateDocument(githubDocument, updateDocument, availableVersion, availableVersionText))
 				{
-					showFailureMessage(error.errorString(), UpdateChecker::tr("Error while reading response of update check"));
+					showFailureMessage(UpdateChecker::tr("The update service returned invalid release data."),
+						UpdateChecker::tr("Error while reading response of update check"), silentMode);
+					result = 2;
 				}
 				else
 				{
-					UpdateChecker dialog(nullptr, doc);
-					dialog.show();
-					result = app.exec();
+					if (autoMode)
+						settings.setValue("lastCheckDate", QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+
+					QVersionNumber installedVersion = QVersionNumber::fromString(version);
+					bool updateAvailable = QVersionNumber::compare(availableVersion, installedVersion) > 0;
+					bool skipped = autoMode && skipVersion == availableVersionText;
+					if (!updateAvailable || skipped)
+					{
+						if (!autoMode && !silentMode)
+							QMessageBox::information(nullptr, UpdateChecker::tr("No update available"),
+								UpdateChecker::tr("The installed version %0 of Equalizer APO is up to date.").arg(version));
+					}
+					else
+					{
+						UpdateChecker dialog(nullptr, updateDocument);
+						dialog.show();
+						result = app.exec();
+					}
 				}
 			}
 		}
 	}
 
+	delete reply;
 	return result;
 }
 
-void showFailureMessage(QString message, QString title)
+void showFailureMessage(QString message, QString title, bool silentMode)
 {
+	if (silentMode)
+		return;
+
 	QSettings settings(QString::fromWCharArray(UPDATE_CHECKER_REGPATH), QSettings::NativeFormat);
 	bool hideFailureMessage = settings.value("hideFailureMessage").toBool();
 	if (!hideFailureMessage)
