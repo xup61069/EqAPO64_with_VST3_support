@@ -207,21 +207,22 @@ void FrequencyPlotView::mousePressEvent(QMouseEvent* event)
 {
 	QGraphicsView::mousePressEvent(event);
 
-	setLastMousePos(event->pos());
+	setLastMousePos(event->position().toPoint());
 }
 
 void FrequencyPlotView::mouseMoveEvent(QMouseEvent* event)
 {
 	if (event->buttons() & Qt::RightButton)
 	{
-		horizontalScrollBar()->setValue(horizontalScrollBar()->value() - (event->x() - lastMousePos.x()));
-		verticalScrollBar()->setValue(verticalScrollBar()->value() - (event->y() - lastMousePos.y()));
+		QPoint position = event->position().toPoint();
+		horizontalScrollBar()->setValue(horizontalScrollBar()->value() - (position.x() - lastMousePos.x()));
+		verticalScrollBar()->setValue(verticalScrollBar()->value() - (position.y() - lastMousePos.y()));
 	}
 	else
 	{
 		QGraphicsView::mouseMoveEvent(event);
 	}
-	setLastMousePos(event->pos());
+	setLastMousePos(event->position().toPoint());
 }
 
 void FrequencyPlotView::leaveEvent(QEvent*)

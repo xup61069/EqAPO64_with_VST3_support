@@ -30,7 +30,7 @@ void MiddleClickTabBar::mouseReleaseEvent(QMouseEvent* event)
 {
 	if (event->button() == Qt::MiddleButton)
 	{
-		int tabIndex = tabAt(event->pos());
+		int tabIndex = tabAt(event->position().toPoint());
 		if (tabIndex != -1)
 		{
 			emit tabCloseRequested(tabIndex);

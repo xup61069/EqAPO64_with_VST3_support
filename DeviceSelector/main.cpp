@@ -20,6 +20,7 @@
 #include "stdafx.h"
 #include <DeviceAPOInfo.h>
 #include <helpers/RegistryHelper.h>
+#include <helpers/ServiceHelper.h>
 #include <ObjBase.h>
 #include <QtWidgets/QApplication>
 #include <VoicemeeterAPOInfo.h>
@@ -47,8 +48,22 @@ int main(int argc, char* argv[])
 	if (deviceSelectorTranslator.load(
 		QLocale(), ":/translations/DeviceSelector", "_"))
 		app.installTranslator(&deviceSelectorTranslator);
+	const bool silentMode = app.arguments().contains("/s", Qt::CaseInsensitive);
 
-	if (app.arguments().contains("/u"))
+	if (app.arguments().contains("/r", Qt::CaseInsensitive))
+	{
+		try
+		{
+			ServiceHelper::restartService(L"AudioSrv");
+			return 0;
+		}
+		catch (ServiceException&)
+		{
+			return 1;
+		}
+	}
+
+	if (app.arguments().contains("/u", Qt::CaseInsensitive))
 	{
 		for (int index = 0; index <= 1; index++)
 		{
@@ -64,10 +79,13 @@ int main(int argc, char* argv[])
 				}
 				catch (RegistryException e)
 				{
-					QMessageBox::critical(nullptr,
-						DeviceSelector::tr(
-							"Error while accessing the registry"),
-						QString::fromStdWString(e.getMessage()));
+					if (!silentMode)
+					{
+						QMessageBox::critical(nullptr,
+							DeviceSelector::tr(
+								"Error while accessing the registry"),
+							QString::fromStdWString(e.getMessage()));
+					}
 					result = -1;
 				}
 			}

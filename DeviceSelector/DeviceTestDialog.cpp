@@ -150,6 +150,7 @@ void DeviceTestDialog::closeEvent(QCloseEvent* event)
 {
 	if (thread != nullptr)
 		thread->terminate();
+	QDialog::closeEvent(event);
 }
 
 void DeviceTestDialog::log(const QString& message)

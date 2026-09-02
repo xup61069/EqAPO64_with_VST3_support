@@ -58,7 +58,7 @@ std::vector<std::wstring> VSTPluginFilter::initialize(float sampleRate, unsigned
 	{
 		LogF(L"The VST plugin %s does not expose audio inputs or outputs.", libPath.c_str());
 		skipProcessing = true;
-		effectChannelCount = channelCount;
+		effectChannelCount = static_cast<unsigned>(channelCount);
 	}
 	// round up
 	effectCount = (channelCount + (effectChannelCount - 1)) / effectChannelCount;

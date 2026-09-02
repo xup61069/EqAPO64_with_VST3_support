@@ -230,7 +230,7 @@ void VoicemeeterClient::initSoftware()
 		if (rep == 1)
 		{
 			wchar_t message[512];
-			wsprintf(message, L"Voicemeeter Output Insert already in use by:\n%S", clientName);
+			swprintf_s(message, _countof(message), L"Voicemeeter Output Insert already in use by:\n%S", clientName);
 			throw InitError(message);
 		}
 		else if (rep != 0)

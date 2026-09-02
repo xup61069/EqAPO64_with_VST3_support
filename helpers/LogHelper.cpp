@@ -61,11 +61,11 @@ void LogHelper::log(const char* file, int line, const void* caller, bool trace, 
 	if (trace && !enableTrace)
 		return;
 
-	FILE* fp;
+	FILE* fp = NULL;
 	if (presetFP == NULL)
 	{
 		errno_t err = _wfopen_s(&fp, logPath.c_str(), L"at");
-		if (err != 0)
+		if (err != 0 || fp == NULL)
 			return;
 	}
 	else

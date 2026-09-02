@@ -878,10 +878,12 @@ void VSTPluginInstance::stopProcessing()
 
 bool VSTPluginInstance::startEditing(HWND hWnd, short* width, short* height)
 {
-	if (width != NULL)
-		*width = 400;
-	if (height != NULL)
-		*height = 300;
+	short fallbackWidth = 400;
+	short fallbackHeight = 300;
+	short* editorWidth = width != NULL ? width : &fallbackWidth;
+	short* editorHeight = height != NULL ? height : &fallbackHeight;
+	*editorWidth = fallbackWidth;
+	*editorHeight = fallbackHeight;
 
 	if (library->isVST3())
 	{
@@ -895,10 +897,8 @@ bool VSTPluginInstance::startEditing(HWND hWnd, short* width, short* height)
 		ViewRect rect;
 		if (vst3View->getSize(&rect) == kResultOk)
 		{
-			if (width != NULL)
-				*width = (short)max<int32>(1, rect.getWidth());
-			if (height != NULL)
-				*height = (short)max<int32>(1, rect.getHeight());
+			*editorWidth = (short)max<int32>(1, rect.getWidth());
+			*editorHeight = (short)max<int32>(1, rect.getHeight());
 		}
 		tresult platformResult = vst3View->isPlatformTypeSupported(kPlatformTypeHWND);
 		if (platformResult != kResultOk && platformResult != kNotImplemented)
@@ -909,7 +909,7 @@ bool VSTPluginInstance::startEditing(HWND hWnd, short* width, short* height)
 		registerVST3EditorHostWindowClass();
 		vst3EditorHostWindow = CreateWindowExW(0, vst3EditorHostWindowClass, L"",
 			WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_VISIBLE,
-			0, 0, *width, *height, hWnd, NULL, GetModuleHandleW(NULL), NULL);
+			0, 0, *editorWidth, *editorHeight, hWnd, NULL, GetModuleHandleW(NULL), NULL);
 		if (vst3EditorHostWindow == NULL)
 		{
 			stopEditing();
@@ -922,13 +922,11 @@ bool VSTPluginInstance::startEditing(HWND hWnd, short* width, short* height)
 		}
 		if (vst3View->getSize(&rect) == kResultOk)
 		{
-			if (width != NULL)
-				*width = (short)max<int32>(1, rect.getWidth());
-			if (height != NULL)
-				*height = (short)max<int32>(1, rect.getHeight());
+			*editorWidth = (short)max<int32>(1, rect.getWidth());
+			*editorHeight = (short)max<int32>(1, rect.getHeight());
 			vst3View->onSize(&rect);
 		}
-		SetWindowPos(vst3EditorHostWindow, NULL, 0, 0, *width, *height, SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+		SetWindowPos(vst3EditorHostWindow, NULL, 0, 0, *editorWidth, *editorHeight, SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 		EnumChildWindows(vst3EditorHostWindow, showChildWindow, 0);
 		return true;
 	}
@@ -936,15 +934,19 @@ bool VSTPluginInstance::startEditing(HWND hWnd, short* width, short* height)
 	if (effect == NULL)
 		return false;
 
-	vst_rect_t* rect;
+	vst_rect_t* rect = NULL;
 	effect->control(effect, VST_EFFECT_OPCODE_EDITOR_GET_RECT, 0, 0, &rect, 0.0f);
 	effect->control(effect, VST_EFFECT_OPCODE_EDITOR_OPEN, 0, 0, hWnd, 0.0f);
+	rect = NULL;
 	effect->control(effect, VST_EFFECT_OPCODE_EDITOR_GET_RECT, 0, 0, &rect, 0.0f);
+	if (rect == NULL)
+	{
+		effect->control(effect, VST_EFFECT_OPCODE_EDITOR_CLOSE, 0, 0, NULL, 0.0f);
+		return false;
+	}
 
-	if (width != NULL)
-		*width = rect->right - rect->left;
-	if (height != NULL)
-		*height = rect->bottom - rect->top;
+	*editorWidth = rect->right - rect->left;
+	*editorHeight = rect->bottom - rect->top;
 	return true;
 }
 

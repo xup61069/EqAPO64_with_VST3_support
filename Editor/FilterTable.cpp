@@ -33,6 +33,8 @@
 #include <QJsonDocument>
 #include <QSettings>
 
+#include <memory>
+
 #include "MainWindow.h"
 #include "FilterTableRow.h"
 #include "FilterTableMimeData.h"
@@ -507,9 +509,12 @@ void FilterTable::updateChannels()
 
 void FilterTable::addActionTriggered()
 {
-	QMenu* menu = createAddPopupMenu();
+	std::unique_ptr<QMenu> menu(createAddPopupMenu());
 	QAction* addAction = qobject_cast<QAction*>(QObject::sender());
-	QToolBar* toolBar = qobject_cast<QToolBar*>(addAction->parentWidget());
+	QToolBar* toolBar = addAction != NULL ? qobject_cast<QToolBar*>(addAction->parent()) : NULL;
+	if (addAction == NULL || toolBar == NULL)
+		return;
+
 	QRect rect = toolBar->actionGeometry(addAction);
 	QPoint p = toolBar->mapToGlobal(QPoint(rect.x(), rect.y() + rect.height()));
 	QAction* action = menu->exec(p);
@@ -614,7 +619,7 @@ void FilterTable::mousePressEvent(QMouseEvent* event)
 {
 	if (event->buttons() & Qt::LeftButton)
 	{
-		int row = rowForPos(event->pos(), false);
+		int row = rowForPos(event->position().toPoint(), false);
 		if (row != -1)
 		{
 			Item* item = items[row];
@@ -650,7 +655,7 @@ void FilterTable::mousePressEvent(QMouseEvent* event)
 			ensureRowVisible(row);
 			update();
 
-			dragStartPos = event->pos();
+			dragStartPos = event->position().toPoint();
 		}
 		else
 		{
@@ -664,7 +669,7 @@ void FilterTable::mouseReleaseEvent(QMouseEvent* event)
 {
 	if (event->button() == Qt::LeftButton)
 	{
-		int row = rowForPos(event->pos(), false);
+		int row = rowForPos(event->position().toPoint(), false);
 		if (row != -1)
 		{
 			Item* item = items[row];
@@ -687,7 +692,7 @@ void FilterTable::mouseMoveEvent(QMouseEvent* event)
 {
 	if (event->buttons() & Qt::LeftButton)
 	{
-		if ((event->pos() - dragStartPos).manhattanLength() >= QApplication::startDragDistance())
+		if ((event->position().toPoint() - dragStartPos).manhattanLength() >= QApplication::startDragDistance())
 		{
 			QString text;
 			QList<QVariantMap> prefsList;
@@ -760,7 +765,7 @@ void FilterTable::dragEnterEvent(QDragEnterEvent* event)
 {
 	if (event->mimeData()->hasText())
 	{
-		if (event->keyboardModifiers() & Qt::ControlModifier)
+		if (event->modifiers() & Qt::ControlModifier)
 			event->setDropAction(Qt::CopyAction);
 		else
 			event->setDropAction(Qt::MoveAction);
@@ -774,12 +779,12 @@ void FilterTable::dragMoveEvent(QDragMoveEvent* event)
 {
 	if (event->mimeData()->hasText())
 	{
-		if (event->keyboardModifiers() & Qt::ControlModifier)
+		if (event->modifiers() & Qt::ControlModifier)
 			event->setDropAction(Qt::CopyAction);
 		else
 			event->setDropAction(Qt::MoveAction);
 
-		int dropRow = rowForPos(event->pos(), true);
+		int dropRow = rowForPos(event->position().toPoint(), true);
 
 		QRect rect = gridLayout->itemAtPosition(dropRow == -1 ? gridLayout->rowCount() - 2 : dropRow, 0)->geometry();
 		insertArrow->move(0, rect.top() - insertArrow->height() / 2 - gridLayout->verticalSpacing() / 2);
@@ -801,7 +806,7 @@ void FilterTable::dropEvent(QDropEvent* event)
 	const QMimeData* mimeData = event->mimeData();
 	if (mimeData->hasText())
 	{
-		if (event->keyboardModifiers() & Qt::ControlModifier)
+		if (event->modifiers() & Qt::ControlModifier)
 			event->setDropAction(Qt::CopyAction);
 		else
 			event->setDropAction(Qt::MoveAction);
@@ -813,7 +818,7 @@ void FilterTable::dropEvent(QDropEvent* event)
 		if (filterTableMimeData != NULL)
 			prefsList = filterTableMimeData->getPrefsList();
 
-		int dropRow = rowForPos(event->pos(), true);
+		int dropRow = rowForPos(event->position().toPoint(), true);
 		if (dropRow == -1)
 			dropRow = items.size();
 
@@ -955,7 +960,7 @@ bool FilterTable::eventFilter(QObject* obj, QEvent* event)
 		{
 			QMouseEvent* mouseEvent = (QMouseEvent*)event;
 
-			if ((mouseEvent->globalPos() - scrollStartPoint).manhattanLength() > GUIHelper::scale(30))
+			if ((mouseEvent->globalPosition().toPoint() - scrollStartPoint).manhattanLength() > GUIHelper::scale(30))
 				scrollingNow = false;
 		}
 	}
