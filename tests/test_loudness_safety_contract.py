@@ -217,8 +217,22 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         failed_read = get_body.split("if (FAILED(res))", maxsplit=1)[1]
         self.assertLess(failed_read.index("cleanup();"), failed_read.index("initEndpoint()"))
 
-    def test_missing_or_unreadable_endpoint_bypasses_runtime_filter(self) -> None:
-        self.assertIn("if (!_runtimeContext.flowKnown || _runtimeContext.isCapture)", FILTER_SOURCE)
+    def test_global_binding_uses_windows_default_without_apo_metadata(self) -> None:
+        can_track_body = FILTER_SOURCE.split(
+            "bool LoudnessCorrectionFilter::canTrackAutomaticVolume() const",
+            maxsplit=1,
+        )[1].split(
+            "std::wstring LoudnessCorrectionFilter::getVolumeControllerEndpointId() const",
+            maxsplit=1,
+        )[0]
+        global_binding = can_track_body.index(
+            "if (_parameters.binding == FilterParameters::BINDING_ALL)"
+        )
+        runtime_context = can_track_body.index(
+            "if (!_runtimeContext.flowKnown || _runtimeContext.isCapture)"
+        )
+        self.assertLess(global_binding, runtime_context)
+        self.assertIn("return true;", can_track_body[global_binding:runtime_context])
         self.assertIn("_runtimeContext.isCapture", FILTER_SOURCE)
         self.assertGreaterEqual(
             FILTER_SOURCE.count("_runtimeBypass.store(true"),
@@ -329,6 +343,19 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         self.assertIn("use Global for VB-Audio Matrix", gui_ui)
         self.assertIn("new VolumeController(requestedEndpointId)", gui_source)
         self.assertIn("endpointId = volumeController->getEndpointId()", gui_source)
+        refresh_body = gui_source.split(
+            "void LoudnessCorrectionFilterGUI::refreshVolumeController()",
+            maxsplit=1,
+        )[1].split(
+            "void LoudnessCorrectionFilterGUI::updateAutomaticVolumeUi()",
+            maxsplit=1,
+        )[0]
+        self.assertRegex(
+            refresh_body,
+            r"if \(getBindingMode\(\) ==\s+"
+            r"LoudnessCorrectionFilter::FilterParameters::BINDING_SINGLE &&\s+"
+            r"!selectedEndpointIsRender\)",
+        )
         play_handler = calibration_source.split(
             "void LoudnessCorrectionFilterGUIDialog::on_playButton_clicked()",
             maxsplit=1,

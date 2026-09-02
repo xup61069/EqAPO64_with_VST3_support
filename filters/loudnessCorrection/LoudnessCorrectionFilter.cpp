@@ -97,10 +97,14 @@ LoudnessCorrectionFilter::~LoudnessCorrectionFilter()
 
 bool LoudnessCorrectionFilter::canTrackAutomaticVolume() const
 {
+	// Preserve Mixomo's original Windows-volume binding: global mode reads the
+	// default eRender/eMultimedia endpoint independently of APO endpoint metadata.
+	// Source: https://github.com/Mixomo/EqAPO64_with_VST3_support/blob/e81f9c3d1faead9abef08aeb16ce6647ccd9d078/filters/loudnessCorrection/VolumeController.cpp#L24-L49
+	if (_parameters.binding == FilterParameters::BINDING_ALL)
+		return true;
 	if (!_runtimeContext.flowKnown || _runtimeContext.isCapture)
 		return false;
-	return _parameters.binding == FilterParameters::BINDING_ALL ||
-		!_runtimeContext.endpointId.empty();
+	return !_runtimeContext.endpointId.empty();
 }
 
 std::wstring LoudnessCorrectionFilter::getVolumeControllerEndpointId() const

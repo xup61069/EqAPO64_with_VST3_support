@@ -498,14 +498,17 @@ namespace
 			LoudnessCorrectionFilter::FilterParameters::BINDING_ALL;
 		LoudnessCorrectionFilter filter(parameters);
 
-		bool passed = !LoudnessCorrectionFilterTestAccess::canTrackAutomaticVolume(
+		// Global binding preserves the original Mixomo behavior: it reads the
+		// Windows default render/multimedia volume without depending on APO
+		// endpoint metadata.
+		bool passed = LoudnessCorrectionFilterTestAccess::canTrackAutomaticVolume(
 			filter);
 		FilterRuntimeContext context;
 		context.flowKnown = true;
 		context.isCapture = true;
 		context.endpointId = L"capture-endpoint";
 		filter.setRuntimeContext(context);
-		passed = !LoudnessCorrectionFilterTestAccess::canTrackAutomaticVolume(
+		passed = LoudnessCorrectionFilterTestAccess::canTrackAutomaticVolume(
 			filter) && passed;
 
 		context.isCapture = false;
@@ -523,6 +526,10 @@ namespace
 		context.endpointId = L"render-endpoint";
 		singleFilter.setRuntimeContext(context);
 		passed = LoudnessCorrectionFilterTestAccess::canTrackAutomaticVolume(
+			singleFilter) && passed;
+		context.isCapture = true;
+		singleFilter.setRuntimeContext(context);
+		passed = !LoudnessCorrectionFilterTestAccess::canTrackAutomaticVolume(
 			singleFilter) && passed;
 
 		printf("Loudness runtime context: %s\n", passed ? "passed" : "failed");
