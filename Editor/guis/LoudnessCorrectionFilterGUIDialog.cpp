@@ -30,7 +30,7 @@
 
 namespace
 {
-	bool isDefaultWaveRenderEndpoint(const std::wstring& endpointId)
+	bool isDefaultConsoleRenderEndpoint(const std::wstring& endpointId)
 	{
 		if (endpointId.empty())
 			return false;
@@ -72,7 +72,7 @@ LoudnessCorrectionFilterGUIDialog::LoudnessCorrectionFilterGUIDialog(
 	ui(new Ui::LoudnessCorrectionFilterGUIDialog),
 	endpointId(endpointId),
 	playbackUsesSelectedEndpoint(
-		automaticVolumeAvailable && isDefaultWaveRenderEndpoint(endpointId))
+		automaticVolumeAvailable && isDefaultConsoleRenderEndpoint(endpointId))
 {
 	ui->setupUi(this);
 	ui->levelSpinBox->setRange(1, 100);
@@ -89,7 +89,7 @@ LoudnessCorrectionFilterGUIDialog::LoudnessCorrectionFilterGUIDialog(
 			"Test-noise playback is blocked to prevent calibration on the wrong speaker."));
 	}
 	connect(&endpointGuardTimer, &QTimer::timeout, this, [this]() {
-		if (buffer.size() > 0 && !isDefaultWaveRenderEndpoint(this->endpointId))
+		if (buffer.size() > 0 && !isDefaultConsoleRenderEndpoint(this->endpointId))
 		{
 			on_stopButton_clicked();
 			QMessageBox::warning(
@@ -117,7 +117,7 @@ void LoudnessCorrectionFilterGUIDialog::on_playButton_clicked()
 	// Recheck immediately before playback: the Windows default can change while
 	// the dialog is open, and PlaySound would then route to a different speaker.
 	if (!playbackUsesSelectedEndpoint ||
-		!isDefaultWaveRenderEndpoint(endpointId))
+		!isDefaultConsoleRenderEndpoint(endpointId))
 	{
 		QMessageBox::warning(
 			this,

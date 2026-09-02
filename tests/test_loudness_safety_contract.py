@@ -186,7 +186,7 @@ class LoudnessSafetyContractTests(unittest.TestCase):
             maxsplit=1,
         )[1]
         self.assertLess(
-            play_handler.index("isDefaultWaveRenderEndpoint(endpointId)"),
+            play_handler.index("isDefaultConsoleRenderEndpoint(endpointId)"),
             play_handler.index("PlaySoundA("),
         )
         self.assertIn("GetDefaultAudioEndpoint(eRender, eConsole", calibration_source)
