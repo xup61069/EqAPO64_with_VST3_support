@@ -61,6 +61,9 @@
 using namespace std;
 using namespace mup;
 
+static_assert(std::atomic<FilterConfiguration*>::is_always_lock_free,
+	"Realtime configuration handoff requires lock-free atomic pointers.");
+
 FilterEngine::FilterEngine()
 	: allocatedFrameCount(0),
 	  preMix(false),
@@ -75,8 +78,9 @@ FilterEngine::FilterEngine()
 	  lastInPlace(true),
 	  parser(nullptr),
 	  currentConfig(nullptr),
-	  nextConfig(nullptr),
-	  previousConfig(nullptr),
+	  pendingConfig(nullptr),
+	  retiredConfig(nullptr),
+	  hasInitialConfiguration(false),
 	  transitionCounter(0),
 	  transitionLength(0),
 	  loadSemaphore(NULL),
@@ -108,18 +112,7 @@ FilterEngine::FilterEngine()
 
 FilterEngine::~FilterEngine()
 {
-	// Make sure notification thread is terminated before cleaning up, otherwise deleted memory might be accessed in loadConfig
-	if (threadHandle != NULL)
-	{
-		SetEvent(shutdownEvent);
-		if (WaitForSingleObject(threadHandle, INFINITE) == WAIT_OBJECT_0)
-		{
-			TraceF(L"Successfully terminated directory change notification thread");
-		}
-		CloseHandle(shutdownEvent);
-		CloseHandle(threadHandle);
-		threadHandle = NULL;
-	}
+	stopNotificationThread();
 
 	cleanupConfigurations();
 
@@ -152,6 +145,15 @@ void FilterEngine::resizeBuffers(unsigned frameCount) {
 			for (unsigned i = 0; i < outputChannelCount; ++i) {
 				outputBuf2D[i] = make_unique<double[]>(frameCount);
 			}
+
+			// Cache the raw channel arrays while allocations are allowed. The
+			// non-interleaved audio callbacks can then remain allocation-free.
+			inputBufPointers.resize(inputChannelCount);
+			for (unsigned i = 0; i < inputChannelCount; ++i)
+				inputBufPointers[i] = inputBuf2D[i].get();
+			outputBufPointers.resize(outputChannelCount);
+			for (unsigned i = 0; i < outputChannelCount; ++i)
+				outputBufPointers[i] = outputBuf2D[i].get();
 		}
 		catch (const std::bad_alloc& e) {
 			LogF(L"FATAL: Failed to allocate audio buffers. Exception: %S", e.what());
@@ -177,6 +179,19 @@ void FilterEngine::setDeviceInfo(bool capture, bool postMixInstalled, const wstr
 
 void FilterEngine::initialize(float sampleRate, unsigned inputChannelCount, unsigned realChannelCount, unsigned outputChannelCount, unsigned channelMask, unsigned maxFrameCount, const wstring& customPath)
 {
+	// LockForProcess may be called again on the same APO instance. Stop an old
+	// notification thread before clearing a pending transition; otherwise that
+	// thread could remain blocked forever waiting for the retired generation.
+	stopNotificationThread();
+	if (loadSemaphore != NULL)
+		CloseHandle(loadSemaphore);
+	loadSemaphore = CreateSemaphore(NULL, 1, 1, NULL);
+	if (loadSemaphore == NULL)
+	{
+		LogF(L"Could not create the configuration reload semaphore: %s",
+			StringHelper::getSystemErrorString(GetLastError()).c_str());
+	}
+
 	EnterCriticalSection(&loadSection);
 
 	cleanupConfigurations();
@@ -244,7 +259,7 @@ void FilterEngine::initialize(float sampleRate, unsigned inputChannelCount, unsi
 	{
 		loadConfig(customPath);
 
-		if (threadHandle == NULL && customPath.empty())
+		if (threadHandle == NULL && customPath.empty() && loadSemaphore != NULL)
 		{
 			shutdownEvent = CreateEventW(NULL, true, false, NULL);
 			if (shutdownEvent == NULL)
@@ -275,12 +290,7 @@ void FilterEngine::loadConfig(const wstring& customPath)
 {
 	EnterCriticalSection(&loadSection);
 	timer.start();
-	if (previousConfig != NULL)
-	{
-		previousConfig->~FilterConfiguration();
-		MemoryHelper::free(previousConfig);
-		previousConfig = NULL;
-	}
+	reclaimRetiredConfiguration();
 
 	allChannelNames = ChannelHelper::getChannelNames(max(realChannelCount, outputChannelCount), channelMask);
 
@@ -320,10 +330,26 @@ void FilterEngine::loadConfig(const wstring& customPath)
 	double loadTime = timer.stop();
 	TraceF(L"Finished loading configuration after %lf milliseconds", loadTime * 1000.0);
 
-	if (currentConfig == NULL)
+	if (!hasInitialConfiguration)
+	{
 		currentConfig = config;
+		hasInitialConfiguration = true;
+	}
 	else
-		nextConfig = config;
+	{
+		FilterConfiguration* expected = nullptr;
+		if (!pendingConfig.compare_exchange_strong(
+			expected, config,
+			std::memory_order_release,
+			std::memory_order_relaxed))
+		{
+			// The semaphore protocol normally guarantees an empty pending slot.
+			// A direct, overlapping loadConfig call is rejected without touching
+			// the configuration currently in use by the audio thread.
+			LogF(L"Discarding an overlapping configuration reload");
+			destroyConfiguration(config);
+		}
+	}
 
 	LeaveCriticalSection(&loadSection);
 }
@@ -342,6 +368,12 @@ void FilterEngine::loadConfigFile(const wstring& path)
 			if (error != ERROR_SHARING_VIOLATION)
 			{
 				LogF(L"Error while reading configuration file %s: %s", path.c_str(), StringHelper::getSystemErrorString(error).c_str());
+				return;
+			}
+			if (shutdownEvent != NULL &&
+				WaitForSingleObject(shutdownEvent, 0) == WAIT_OBJECT_0)
+			{
+				TraceF(L"Configuration reload cancelled during shutdown");
 				return;
 			}
 
@@ -509,11 +541,40 @@ void convertDoubleToFloat(float* dest, const double* src, size_t count) {
 #endif
 }
 
+void FilterEngine::commitCompletedTransition(
+	FilterConfiguration* pending) noexcept
+{
+	if (pending == nullptr || transitionCounter < transitionLength)
+		return;
+
+	// Only the audio thread removes a published pending configuration. The
+	// compare/exchange also makes a stale snapshot harmless if the lifecycle
+	// owner has already stopped processing and begun teardown.
+	FilterConfiguration* expected = pending;
+	if (!pendingConfig.compare_exchange_strong(
+		expected, nullptr,
+		std::memory_order_acq_rel,
+		std::memory_order_acquire))
+	{
+		return;
+	}
+
+	FilterConfiguration* const retired = currentConfig;
+	currentConfig = pending;
+	transitionCounter = 0;
+	retiredConfig.store(retired, std::memory_order_release);
+	if (loadSemaphore != NULL)
+		ReleaseSemaphore(loadSemaphore, 1, NULL);
+}
+
 
 // Process interleaved audio (float*)
 void FilterEngine::process(float* output, float* input, unsigned frameCount)
 {
-	if (currentConfig->isEmpty() && nextConfig == NULL)
+	FilterConfiguration* const active = currentConfig;
+	FilterConfiguration* const pending =
+		pendingConfig.load(std::memory_order_acquire);
+	if (active == nullptr || (active->isEmpty() && pending == nullptr))
 	{
 		// Bypass mode: if no filters are active, just copy input to output if necessary.
 		if (realChannelCount == outputChannelCount && input != output) {
@@ -522,44 +583,47 @@ void FilterEngine::process(float* output, float* input, unsigned frameCount)
 		return;
 	}
 
-	// Ensure our internal buffers are large enough
-	resizeBuffers(frameCount);
+	// The host is expected to respect maxFrameCount. Never resize from the
+	// realtime callback if it does not.
+	if (frameCount > allocatedFrameCount)
+	{
+		if (realChannelCount == outputChannelCount && input != output)
+			memcpy(output, input, outputChannelCount * frameCount * sizeof(float));
+		return;
+	}
 
 	// Conversion from float to double using SIMD
 	const unsigned inputSampleCount = inputChannelCount * frameCount;
 	convertFloatToDouble(inputBuf1D.data(), input, inputSampleCount);
 
 	// The core processing logic remains unchanged
-	currentConfig->read(inputBuf1D.data(), frameCount);
-	currentConfig->process(frameCount);
+	active->read(inputBuf1D.data(), frameCount);
+	active->process(frameCount);
 
-	if (nextConfig != NULL)
+	if (pending != nullptr)
 	{
-		nextConfig->read(inputBuf1D.data(), frameCount);
-		nextConfig->process(frameCount);
-		transitionCounter = currentConfig->doTransition(nextConfig, frameCount, transitionCounter, transitionLength);
+		pending->read(inputBuf1D.data(), frameCount);
+		pending->process(frameCount);
+		transitionCounter = active->doTransition(
+			pending, frameCount, transitionCounter, transitionLength);
 	}
 
-	currentConfig->write(outputBuf1D.data(), frameCount);
+	active->write(outputBuf1D.data(), frameCount);
 
 	// Conversion from double back to float using SIMD
 	const unsigned outputSampleCount = outputChannelCount * frameCount;
 	convertDoubleToFloat(output, outputBuf1D.data(), outputSampleCount);
 
-	if (nextConfig != NULL && transitionCounter >= transitionLength)
-	{
-		previousConfig = currentConfig;
-		currentConfig = nextConfig;
-		nextConfig = NULL;
-		transitionCounter = 0;
-		ReleaseSemaphore(loadSemaphore, 1, NULL);
-	}
+	commitCompletedTransition(pending);
 }
 
 // Process non-interleaved audio (float**)
 void FilterEngine::process(float** output, float** input, unsigned frameCount)
 {
-	if (currentConfig->isEmpty() && nextConfig == NULL)
+	FilterConfiguration* const active = currentConfig;
+	FilterConfiguration* const pending =
+		pendingConfig.load(std::memory_order_acquire);
+	if (active == nullptr || (active->isEmpty() && pending == nullptr))
 	{
 		// Bypass mode
 		if (realChannelCount == outputChannelCount && input != output) {
@@ -569,13 +633,15 @@ void FilterEngine::process(float** output, float** input, unsigned frameCount)
 		return;
 	}
 
-	resizeBuffers(frameCount);
-
-	// Create temporary raw pointer arrays for the FilterConfiguration interface
-	vector<double*> tempInputPtrs(inputChannelCount);
-	vector<double*> tempOutputPtrs(outputChannelCount);
-	for (unsigned i = 0; i < inputChannelCount; ++i) tempInputPtrs[i] = inputBuf2D[i].get();
-	for (unsigned i = 0; i < outputChannelCount; ++i) tempOutputPtrs[i] = outputBuf2D[i].get();
+	if (frameCount > allocatedFrameCount)
+	{
+		if (realChannelCount == outputChannelCount && input != output)
+		{
+			for (unsigned c = 0; c < realChannelCount; ++c)
+				memcpy(output[c], input[c], frameCount * sizeof(float));
+		}
+		return;
+	}
 
 	// Optimized conversion for each channel
 	for (unsigned c = 0; c < inputChannelCount; c++) {
@@ -583,38 +649,34 @@ void FilterEngine::process(float** output, float** input, unsigned frameCount)
 	}
 
 	// Core processing logic is the same
-	currentConfig->read(tempInputPtrs.data(), frameCount);
-	currentConfig->process(frameCount);
+	active->read(inputBufPointers.data(), frameCount);
+	active->process(frameCount);
 
-	if (nextConfig != NULL)
+	if (pending != nullptr)
 	{
-		nextConfig->read(tempInputPtrs.data(), frameCount);
-		nextConfig->process(frameCount);
-		transitionCounter = currentConfig->doTransition(nextConfig, frameCount, transitionCounter, transitionLength);
+		pending->read(inputBufPointers.data(), frameCount);
+		pending->process(frameCount);
+		transitionCounter = active->doTransition(
+			pending, frameCount, transitionCounter, transitionLength);
 	}
 
-	currentConfig->write(tempOutputPtrs.data(), frameCount);
+	active->write(outputBufPointers.data(), frameCount);
 
 	// Optimized conversion back for each channel
 	for (unsigned c = 0; c < outputChannelCount; c++) {
 		convertDoubleToFloat(output[c], outputBuf2D[c].get(), frameCount);
 	}
 
-	// Transition logic remains the same
-	if (nextConfig != NULL && transitionCounter >= transitionLength)
-	{
-		previousConfig = currentConfig;
-		currentConfig = nextConfig;
-		nextConfig = NULL;
-		transitionCounter = 0;
-		ReleaseSemaphore(loadSemaphore, 1, NULL);
-	}
+	commitCompletedTransition(pending);
 }
 
 // Process interleaved audio (double*) - native double precision without conversion
 void FilterEngine::process(double* output, double* input, unsigned frameCount)
 {
-	if (currentConfig->isEmpty() && nextConfig == NULL)
+	FilterConfiguration* const active = currentConfig;
+	FilterConfiguration* const pending =
+		pendingConfig.load(std::memory_order_acquire);
+	if (active == nullptr || (active->isEmpty() && pending == nullptr))
 	{
 		// Bypass mode: if no filters are active, just copy input to output if necessary.
 		if (realChannelCount == outputChannelCount && input != output) {
@@ -624,32 +686,29 @@ void FilterEngine::process(double* output, double* input, unsigned frameCount)
 	}
 
 	// Direct double-precision processing - no float conversion needed!
-	currentConfig->read(input, frameCount);
-	currentConfig->process(frameCount);
+	active->read(input, frameCount);
+	active->process(frameCount);
 
-	if (nextConfig != NULL)
+	if (pending != nullptr)
 	{
-		nextConfig->read(input, frameCount);
-		nextConfig->process(frameCount);
-		transitionCounter = currentConfig->doTransition(nextConfig, frameCount, transitionCounter, transitionLength);
+		pending->read(input, frameCount);
+		pending->process(frameCount);
+		transitionCounter = active->doTransition(
+			pending, frameCount, transitionCounter, transitionLength);
 	}
 
-	currentConfig->write(output, frameCount);
+	active->write(output, frameCount);
 
-	if (nextConfig != NULL && transitionCounter >= transitionLength)
-	{
-		previousConfig = currentConfig;
-		currentConfig = nextConfig;
-		nextConfig = NULL;
-		transitionCounter = 0;
-		ReleaseSemaphore(loadSemaphore, 1, NULL);
-	}
+	commitCompletedTransition(pending);
 }
 
 // Process non-interleaved audio (double**) - native double precision without conversion
 void FilterEngine::process(double** output, double** input, unsigned frameCount)
 {
-	if (currentConfig->isEmpty() && nextConfig == NULL)
+	FilterConfiguration* const active = currentConfig;
+	FilterConfiguration* const pending =
+		pendingConfig.load(std::memory_order_acquire);
+	if (active == nullptr || (active->isEmpty() && pending == nullptr))
 	{
 		// Bypass mode
 		if (realChannelCount == outputChannelCount && input != output) {
@@ -660,26 +719,20 @@ void FilterEngine::process(double** output, double** input, unsigned frameCount)
 	}
 
 	// Direct double-precision processing - no float conversion needed!
-	currentConfig->read(input, frameCount);
-	currentConfig->process(frameCount);
+	active->read(input, frameCount);
+	active->process(frameCount);
 
-	if (nextConfig != NULL)
+	if (pending != nullptr)
 	{
-		nextConfig->read(input, frameCount);
-		nextConfig->process(frameCount);
-		transitionCounter = currentConfig->doTransition(nextConfig, frameCount, transitionCounter, transitionLength);
+		pending->read(input, frameCount);
+		pending->process(frameCount);
+		transitionCounter = active->doTransition(
+			pending, frameCount, transitionCounter, transitionLength);
 	}
 
-	currentConfig->write(output, frameCount);
+	active->write(output, frameCount);
 
-	if (nextConfig != NULL && transitionCounter >= transitionLength)
-	{
-		previousConfig = currentConfig;
-		currentConfig = nextConfig;
-		nextConfig = NULL;
-		transitionCounter = 0;
-		ReleaseSemaphore(loadSemaphore, 1, NULL);
-	}
+	commitCompletedTransition(pending);
 }
 #pragma AVRT_CODE_END
 
@@ -763,28 +816,62 @@ void FilterEngine::addFilters(vector<IFilter*> filters)
 	}
 }
 
+void FilterEngine::destroyConfiguration(
+	FilterConfiguration* configuration) noexcept
+{
+	if (configuration == nullptr)
+		return;
+
+	configuration->~FilterConfiguration();
+	MemoryHelper::free(configuration);
+}
+
+void FilterEngine::reclaimRetiredConfiguration() noexcept
+{
+	FilterConfiguration* const retired = retiredConfig.exchange(
+		nullptr, std::memory_order_acq_rel);
+	destroyConfiguration(retired);
+}
+
+void FilterEngine::stopNotificationThread() noexcept
+{
+	// The lifecycle owner calls this only while audio callbacks are quiescent.
+	// Signalling first also interrupts either semaphore wait in the notification
+	// thread, including a reload whose transition never received another block.
+	if (threadHandle != NULL)
+	{
+		if (shutdownEvent != NULL)
+			SetEvent(shutdownEvent);
+		if (WaitForSingleObject(threadHandle, INFINITE) == WAIT_OBJECT_0)
+			TraceF(L"Successfully terminated directory change notification thread");
+		CloseHandle(threadHandle);
+		threadHandle = NULL;
+	}
+	if (shutdownEvent != NULL)
+	{
+		CloseHandle(shutdownEvent);
+		shutdownEvent = NULL;
+	}
+}
+
 void FilterEngine::cleanupConfigurations()
 {
-	if (currentConfig != NULL)
-	{
-		currentConfig->~FilterConfiguration();
-		MemoryHelper::free(currentConfig);
-		currentConfig = NULL;
-	}
+	// Processing has stopped before this lifecycle cleanup begins. Clear each
+	// ownership slot first, then destroy only distinct objects so a partially
+	// completed handoff cannot cause a double free.
+	FilterConfiguration* const active = currentConfig;
+	currentConfig = nullptr;
+	FilterConfiguration* const pending = pendingConfig.exchange(
+		nullptr, std::memory_order_acq_rel);
+	FilterConfiguration* const retired = retiredConfig.exchange(
+		nullptr, std::memory_order_acq_rel);
+	hasInitialConfiguration = false;
 
-	if (nextConfig != NULL)
-	{
-		nextConfig->~FilterConfiguration();
-		MemoryHelper::free(nextConfig);
-		nextConfig = NULL;
-	}
-
-	if (previousConfig != NULL)
-	{
-		previousConfig->~FilterConfiguration();
-		MemoryHelper::free(previousConfig);
-		previousConfig = NULL;
-	}
+	destroyConfiguration(active);
+	if (pending != active)
+		destroyConfiguration(pending);
+	if (retired != active && retired != pending)
+		destroyConfiguration(retired);
 }
 
 unsigned long __stdcall FilterEngine::notificationThread(void* parameter)
@@ -884,6 +971,32 @@ unsigned long __stdcall FilterEngine::notificationThread(void* parameter)
 
 			engine->loadConfig();
 			ResetEvent(registryEvent);
+
+			// The audio thread releases the semaphore only after it has stopped
+			// using the old active configuration and published it as retired.
+			// Reclaim it here, outside the realtime callback, then restore the
+			// single reload token for the next notification.
+			DWORD retirementWait = WaitForMultipleObjects(
+				2, loadHandles, false, INFINITE);
+			if (retirementWait == WAIT_OBJECT_0)
+			{
+				// Shutdown also releases ownership through cleanupConfigurations.
+				break;
+			}
+			if (retirementWait != WAIT_OBJECT_0 + 1)
+			{
+				LogFStatic(L"Configuration retirement wait failed: %s",
+					StringHelper::getSystemErrorString(GetLastError()).c_str());
+				break;
+			}
+
+			engine->reclaimRetiredConfiguration();
+			if (!ReleaseSemaphore(engine->loadSemaphore, 1, NULL))
+			{
+				LogFStatic(L"Could not restore the configuration reload token: %s",
+					StringHelper::getSystemErrorString(GetLastError()).c_str());
+				break;
+			}
 		}
 		else
 		{

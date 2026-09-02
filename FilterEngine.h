@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <string>
 #include <vector>
 #include <unordered_set>
@@ -69,13 +70,18 @@ public:
 
 private:
 	void addFilters(std::vector<IFilter*> filters);
+	void commitCompletedTransition(FilterConfiguration* pending) noexcept;
 	void cleanupConfigurations();
+	static void destroyConfiguration(FilterConfiguration* configuration) noexcept;
+	void reclaimRetiredConfiguration() noexcept;
+	void stopNotificationThread() noexcept;
 	static unsigned long __stdcall notificationThread(void* parameter);
 	void resizeBuffers(unsigned frameCount);
 
 	std::vector<IFilterFactory*> factories;
 
 	std::vector<std::unique_ptr<double[]>> inputBuf2D, outputBuf2D;
+	std::vector<double*> inputBufPointers, outputBufPointers;
 	std::vector<double> inputBuf1D, outputBuf1D;
 	unsigned allocatedFrameCount;
 
@@ -105,9 +111,12 @@ private:
 	bool lastInPlace;
 	mup::ParserX* parser;
 
+	// The active configuration is published during initialize and thereafter
+	// belongs exclusively to the audio thread until processing has stopped.
 	FilterConfiguration* currentConfig;
-	FilterConfiguration* nextConfig;
-	FilterConfiguration* previousConfig;
+	std::atomic<FilterConfiguration*> pendingConfig;
+	std::atomic<FilterConfiguration*> retiredConfig;
+	bool hasInitialConfiguration;
 
 	unsigned transitionCounter;
 	unsigned transitionLength;
