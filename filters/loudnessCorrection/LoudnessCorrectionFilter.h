@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <complex>
 #include <regex>
 #include <vector>
 
@@ -30,18 +31,27 @@ public:
 
 	struct FilterParameters
 	{
+		enum BindingMode
+		{
+			BINDING_SINGLE = 0,
+			BINDING_ALL = 1
+		};
+
 		bool state;
 		float referenceLevel;
 		float referenceOffset;
 		float attenuation;
 		float manualVolume;
 		bool useManualVolume;
+		BindingMode binding;
 
 		std::vector<char> serialize()
 		{
 			ParameterArchive archive;
 			archive.add(1, L"Schema");
 			archive.add(std::wstring(L"FormulaLoudnessV1"), L"Model");
+			archive.add(std::wstring(
+				binding == BINDING_ALL ? L"All" : L"Single"), L"Binding");
 			archive.add(state, L"State");
 			archive.add(referenceLevel, L"ReferenceLevel");
 			archive.add(referenceOffset, L"ReferenceOffset");
@@ -65,6 +75,8 @@ public:
 			// so the editor must ask the user which interpretation to preserve.
 			if (!(isFormulaSchema && isFormulaModel))
 				return true;
+			size_t bindingCount = archive.count(std::wregex(
+				L"(?:^|\\s)Binding(?=\\s|$)", std::regex_constants::icase));
 			if (archive.count(std::wregex(L"(?:^|\\s)Schema(?=\\s|$)",
 					std::regex_constants::icase)) != 1 ||
 				archive.count(std::wregex(L"(?:^|\\s)Model(?=\\s|$)",
@@ -75,10 +87,33 @@ public:
 					std::regex_constants::icase)) != 1 ||
 				archive.count(std::wregex(L"(?:^|\\s)ReferenceOffset(?=\\s|$)",
 					std::regex_constants::icase)) != 1 ||
+				bindingCount > 1 ||
 				archive.count(std::wregex(L"(?:^|\\s)Attenuation(?=\\s|$)",
 					std::regex_constants::icase)) > 1 ||
 				archive.count(std::wregex(L"(?:^|\\s)Volume(?=\\s|$)",
 					std::regex_constants::icase)) > 1)
+			{
+				return true;
+			}
+			if (bindingCount == 0)
+			{
+				// Schema 1 profiles written before Binding was introduced used
+				// exact APO-endpoint tracking.
+				binding = BINDING_SINGLE;
+			}
+			else if (archive.find(std::wregex(
+				L"(?:^|\\s)Binding\\s+All(?=\\s|$)",
+				std::regex_constants::icase)))
+			{
+				binding = BINDING_ALL;
+			}
+			else if (archive.find(std::wregex(
+				L"(?:^|\\s)Binding\\s+Single(?=\\s|$)",
+				std::regex_constants::icase)))
+			{
+				binding = BINDING_SINGLE;
+			}
+			else
 			{
 				return true;
 			}
@@ -126,6 +161,7 @@ public:
 			  attenuation(1.0f),
 			  manualVolume(0.0f),
 			  useManualVolume(false),
+			  binding(BINDING_SINGLE),
 			  _isInitialized(false)
 		{
 		}
@@ -137,6 +173,7 @@ public:
 			  attenuation(1.0f),
 			  manualVolume(0.0f),
 			  useManualVolume(false),
+			  binding(BINDING_SINGLE),
 			  _isInitialized(false)
 		{
 			_isInitialized = !deSerialize<T>(input);
@@ -198,12 +235,28 @@ private:
 	static constexpr double PI = 3.1415926535897932384626433832795;
 	static constexpr double MAX_FILTER_GAIN_DB = 48.0;
 	static constexpr double HEADROOM_MARGIN_DB = 1.0;
+	static constexpr double FINAL_RESPONSE_NUMERICAL_TOLERANCE_DB = 1.0e-6;
+	static constexpr double SUBSONIC_CROSSOVER_FREQUENCY_HZ = 25.0;
+	static const size_t CROSSOVER_SECTION_COUNT = 14;
+	static const unsigned CROSSOVER_BUTTERWORTH_ORDER = 14;
+	static constexpr double CROSSOVER_HISTORY_PREWARM_SECONDS = 1.0;
+	static constexpr double BYPASS_FADE_SECONDS = 0.01;
+	static constexpr double FILTER_WARMUP_SECONDS = 0.25;
 	static constexpr double COEFFICIENT_CROSSFADE_SECONDS = 0.1;
 	static const unsigned FIT_ITERATIONS = 4;
 	static const unsigned RESPONSE_SCAN_POINTS = 4097;
 	static const unsigned RESPONSE_REFINEMENT_ITERATIONS = 32;
 
 	void computeResponseInverse();
+	static bool isSafeCrossoverHandoff(
+		double previousRaw,
+		double currentRaw,
+		double previousIdentity,
+		double currentIdentity,
+		double& handoffStep,
+		double& naturalStep);
+	bool canTrackAutomaticVolume() const;
+	std::wstring getVolumeControllerEndpointId() const;
 	void calculateBandGains(
 		double currentVolumeDb,
 		std::vector<double>& outGains,
@@ -211,7 +264,22 @@ private:
 	double calculateHeadroomGain(const std::vector<double>& gains) const;
 	void publishVolumeUpdate(double currentVolumeDb, std::vector<double>& scratchGains);
 	void computeBiquadCoeffs(size_t bandIndex, double gainDb, BiquadCoeffs& coeffs) const;
+	void computeCrossoverCoeffs(
+		bool highPass,
+		size_t sectionIndex,
+		BiquadCoeffs& coeffs) const;
+	std::complex<double> biquadResponse(
+		const BiquadCoeffs& coeffs,
+		double frequency) const;
 	double biquadResponseDb(size_t bandIndex, double gainDb, double frequency) const;
+	double guardedResponseDb(
+		const std::vector<double>& gains,
+		double outputGainLinear,
+		double frequency) const;
+	double findMaximumResponseDb(
+		const std::vector<double>& gains,
+		double outputGainLinear,
+		bool includeSubsonicCrossover) const;
 
 	static unsigned long __stdcall parameterUpdateThread(void* parameter);
 
@@ -221,6 +289,8 @@ private:
 
 	FilterParameters _parameters;
 	FilterRuntimeContext _runtimeContext;
+	bool _hasInitialAutomaticVolume;
+	double _initialAutomaticVolume;
 	std::atomic<bool> _runtimeBypass;
 	std::atomic<bool> _recoveryPending;
 	size_t _channelCount;
@@ -230,16 +300,37 @@ private:
 	// Both banks are allocated during initialize(). A new bank starts with
 	// cleared state, warms silently, and then crossfades without allocating.
 	std::vector<std::vector<BiQuad>> _biquadBanks[2]; // [bank][channel][band]
+	std::vector<std::vector<BiQuad>> _lowpassBanks[2]; // [bank][channel][section]
+	std::vector<std::vector<BiQuad>> _highpassBanks[2]; // [bank][channel][section]
 	size_t _activeBankIndex;
 	size_t _transitionBankIndex;
+	unsigned _crossoverPrewarmPosition;
+	unsigned _crossoverPrewarmLength;
 	unsigned _warmupPosition;
+	unsigned _warmupLength;
 	unsigned _crossfadePosition;
 	unsigned _crossfadeLength;
+	unsigned _bypassFadePosition;
+	unsigned _bypassFadeLength;
 	bool _warmupActive;
 	bool _crossfadeActive;
+	bool _bypassFadeActive;
+	bool _runtimeBypassWasActive;
 	bool _transitionFromBypass;
+	bool _crossoverPrewarmActive;
+	bool _crossoverHandoffActive;
+	std::vector<unsigned char> _crossoverDomainActive;
+	std::vector<unsigned char> _crossoverHandoffHasPrevious;
+	std::vector<double> _crossoverHandoffPreviousRaw;
+	std::vector<double> _crossoverHandoffPreviousIdentity;
+	size_t _crossoverDomainChannelCount;
+	double _maximumCrossoverHandoffStep;
 	double _inverseResponseMatrix[NUM_BANDS][NUM_BANDS];
 	BiquadCoeffs _pendingCoeffs[NUM_BANDS];
+	BiquadCoeffs _lowpassCoeffs[CROSSOVER_SECTION_COUNT];
+	BiquadCoeffs _highpassCoeffs[CROSSOVER_SECTION_COUNT];
+	bool _bankIdentity[2];
+	bool _pendingIdentity;
 	double _outputGainLinear;
 	double _targetOutputGainLinear;
 	double _pendingOutputGainLinear;

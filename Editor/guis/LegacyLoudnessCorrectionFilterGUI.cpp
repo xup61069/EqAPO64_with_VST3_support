@@ -117,7 +117,7 @@ void LegacyLoudnessCorrectionFilterGUI::store(QString& command, QString& paramet
 	command = "LoudnessCorrection";
 	if (migration == Migration::KeepFormula)
 	{
-		parameters = QString("Schema 1 Model FormulaLoudnessV1 State %1 ReferenceLevel %2 ReferenceOffset %3 Attenuation %4")
+		parameters = QString("Schema 1 Model FormulaLoudnessV1 Binding Single State %1 ReferenceLevel %2 ReferenceOffset %3 Attenuation %4")
 			.arg(wasEnabled ? 1 : 0)
 			.arg(referenceLevel, 0, 'f', 1)
 			.arg(referenceOffset, 0, 'f', 1)
@@ -130,7 +130,7 @@ void LegacyLoudnessCorrectionFilterGUI::store(QString& command, QString& paramet
 	// At the former neutral Windows volume, ReferenceOffset makes the current
 	// formula level equal the 80-phon reference, preserving the neutral point.
 	double convertedNeutralVolume = (std::max)(-100.0, (std::min)(0.0, neutralVolumeDb));
-	parameters = QString("Schema 1 Model FormulaLoudnessV1 State 1 ReferenceLevel 80 ReferenceOffset %1 Attenuation %2")
+	parameters = QString("Schema 1 Model FormulaLoudnessV1 Binding All State 1 ReferenceLevel 80 ReferenceOffset %1 Attenuation %2")
 		.arg(convertedNeutralVolume, 0, 'f', 1)
 		.arg(strength, 0, 'f', 3);
 	if (useManualVolume)

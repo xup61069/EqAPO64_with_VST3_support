@@ -31,14 +31,16 @@ LoudnessCorrectionFilterGUI::LoudnessCorrectionFilterGUI(
 	double refLevel,
 	double refOffset,
 	double att,
+	LoudnessCorrectionFilter::FilterParameters::BindingMode binding,
 	bool useManualVolume,
 	double manualVolume,
 	const std::wstring& endpointIdentifier,
-	bool automaticVolumeAvailable)
+	bool selectedEndpointIsRender)
 	: IFilterGUI(),
 	  ui(new Ui::LoudnessCorrectionFilterGUI),
 	  state(state),
-	  automaticVolumeAvailable(automaticVolumeAvailable),
+	  selectedEndpointIsRender(selectedEndpointIsRender),
+	  automaticVolumeAvailable(false),
 	  endpointIdentifier(endpointIdentifier),
 	  endpointId(),
 	  lastVolume(std::numeric_limits<double>::quiet_NaN())
@@ -56,34 +58,13 @@ LoudnessCorrectionFilterGUI::LoudnessCorrectionFilterGUI(
 	ui->refOffsetSpinBox->setValue((int)refOffset);
 	ui->attSpinBox->setValue(att);
 
-	// A syntactically valid endpoint ID is not enough: confirm that its volume
-	// can actually be read before allowing an automatic configuration to be
-	// saved from the editor.
-	if (this->automaticVolumeAvailable)
-	{
-		volumeController.reset(new VolumeController(endpointIdentifier));
-		double endpointVolume = 0.0;
-		if (FAILED(volumeController->getVolume(endpointVolume)) ||
-			!std::isfinite(endpointVolume))
-		{
-			this->automaticVolumeAvailable = false;
-			volumeController.reset();
-		}
-		else
-		{
-			lastVolume = endpointVolume;
-			endpointId = volumeController->getEndpointId();
-		}
-	}
+	bool bindingBlocked = ui->bindingComboBox->blockSignals(true);
+	ui->bindingComboBox->setCurrentIndex(
+		binding == LoudnessCorrectionFilter::FilterParameters::BINDING_ALL ? 1 : 0);
+	ui->bindingComboBox->blockSignals(bindingBlocked);
+	refreshVolumeController();
+	updateAutomaticVolumeUi();
 
-	if (!this->automaticVolumeAvailable)
-	{
-		ui->manualVolumeCheckBox->setText(tr("Manual volume (required):"));
-		ui->manualVolumeCheckBox->setToolTip(
-			tr("Automatic volume is available only for the selected playback endpoint. "
-				"Use manual volume for an input or unavailable endpoint."));
-		ui->volumeSpinBox->setToolTip(ui->manualVolumeCheckBox->toolTip());
-	}
 	bool blocked = ui->manualVolumeCheckBox->blockSignals(true);
 	ui->manualVolumeCheckBox->setChecked(
 		useManualVolume || !this->automaticVolumeAvailable);
@@ -112,7 +93,13 @@ LoudnessCorrectionFilterGUI::~LoudnessCorrectionFilterGUI()
 void LoudnessCorrectionFilterGUI::store(QString& command, QString& parameters)
 {
 	command = "LoudnessCorrection";
-	parameters = QString("Schema 1 Model FormulaLoudnessV1 State %0 ReferenceLevel %1 ReferenceOffset %2 Attenuation ").arg(state ? 1 : 0).arg(ui->refLevelSpinBox->value()).arg(ui->refOffsetSpinBox->value());
+	QString binding = getBindingMode() ==
+		LoudnessCorrectionFilter::FilterParameters::BINDING_ALL ? "All" : "Single";
+	parameters = QString("Schema 1 Model FormulaLoudnessV1 Binding %1 State %2 ReferenceLevel %3 ReferenceOffset %4 Attenuation ")
+		.arg(binding)
+		.arg(state ? 1 : 0)
+		.arg(ui->refLevelSpinBox->value())
+		.arg(ui->refOffsetSpinBox->value());
 	double att = ui->attSpinBox->value();
 	if (att == 0.0 || att == 1.0)
 		parameters += QString("%0").arg(att, 0, 'f', 1);
@@ -122,6 +109,71 @@ void LoudnessCorrectionFilterGUI::store(QString& command, QString& parameters)
 	if (ui->manualVolumeCheckBox->isChecked())
 		parameters += QString(" Volume %0").arg(
 			ui->volumeSpinBox->value(), 0, 'f', 1);
+}
+
+LoudnessCorrectionFilter::FilterParameters::BindingMode
+LoudnessCorrectionFilterGUI::getBindingMode() const
+{
+	return ui->bindingComboBox->currentIndex() == 1 ?
+		LoudnessCorrectionFilter::FilterParameters::BINDING_ALL :
+		LoudnessCorrectionFilter::FilterParameters::BINDING_SINGLE;
+}
+
+std::wstring LoudnessCorrectionFilterGUI::getRequestedEndpointId() const
+{
+	if (getBindingMode() == LoudnessCorrectionFilter::FilterParameters::BINDING_ALL)
+		return L"";
+	return endpointIdentifier;
+}
+
+void LoudnessCorrectionFilterGUI::refreshVolumeController()
+{
+	volumeController.reset();
+	endpointId.clear();
+	automaticVolumeAvailable = false;
+	lastVolume = std::numeric_limits<double>::quiet_NaN();
+	if (!selectedEndpointIsRender)
+		return;
+
+	std::wstring requestedEndpointId = getRequestedEndpointId();
+	if (getBindingMode() == LoudnessCorrectionFilter::FilterParameters::BINDING_SINGLE &&
+		requestedEndpointId.empty())
+	{
+		return;
+	}
+
+	// Resolve the actual endpoint used by either binding strategy. Calibration
+	// guards and the displayed automatic value both use this resolved identity.
+	volumeController.reset(new VolumeController(requestedEndpointId));
+	double endpointVolume = 0.0;
+	if (FAILED(volumeController->getVolume(endpointVolume)) ||
+		!std::isfinite(endpointVolume))
+	{
+		volumeController.reset();
+		return;
+	}
+
+	automaticVolumeAvailable = true;
+	lastVolume = endpointVolume;
+	endpointId = volumeController->getEndpointId();
+}
+
+void LoudnessCorrectionFilterGUI::updateAutomaticVolumeUi()
+{
+	if (automaticVolumeAvailable)
+	{
+		ui->manualVolumeCheckBox->setText(tr("Manual volume:"));
+		ui->manualVolumeCheckBox->setToolTip(tr(
+			"Use this when a DAC or amplifier hardware knob controls the real listening level."));
+	}
+	else
+	{
+		ui->manualVolumeCheckBox->setText(tr("Manual volume (required):"));
+		ui->manualVolumeCheckBox->setToolTip(tr(
+			"Automatic volume is unavailable for this playback binding. "
+			"Use manual volume for an input or unreadable endpoint."));
+	}
+	ui->volumeSpinBox->setToolTip(ui->manualVolumeCheckBox->toolTip());
 }
 
 void LoudnessCorrectionFilterGUI::on_refLevelSpinBox_valueChanged(int value)
@@ -144,6 +196,30 @@ void LoudnessCorrectionFilterGUI::on_attSpinBox_valueChanged(double value)
 	bool previousValue = ui->attDial->blockSignals(true);
 	ui->attDial->setValue(round(value * 100.0));
 	ui->attDial->blockSignals(previousValue);
+
+	emit updateModel();
+}
+
+void LoudnessCorrectionFilterGUI::on_bindingComboBox_currentIndexChanged(int index)
+{
+	(void)index;
+	bool manual = ui->manualVolumeCheckBox->isChecked();
+	double manualVolume = ui->volumeSpinBox->value();
+	refreshVolumeController();
+	updateAutomaticVolumeUi();
+
+	if (!automaticVolumeAvailable)
+	{
+		bool blocked = ui->manualVolumeCheckBox->blockSignals(true);
+		ui->manualVolumeCheckBox->setChecked(true);
+		ui->manualVolumeCheckBox->blockSignals(blocked);
+		ui->volumeSpinBox->setValue(manualVolume);
+		ui->volumeSpinBox->setEnabled(true);
+	}
+	else if (!manual)
+	{
+		ui->volumeSpinBox->setValue(lastVolume);
+	}
 
 	emit updateModel();
 }
@@ -173,17 +249,14 @@ void LoudnessCorrectionFilterGUI::on_manualVolumeCheckBox_toggled(bool checked)
 	else
 	{
 		if (!volumeController)
-			volumeController.reset(new VolumeController(endpointIdentifier));
+			volumeController.reset(new VolumeController(getRequestedEndpointId()));
 		double endpointVolume = 0.0;
 		if (FAILED(volumeController->getVolume(endpointVolume)) ||
 			!std::isfinite(endpointVolume))
 		{
 			automaticVolumeAvailable = false;
 			volumeController.reset();
-			ui->manualVolumeCheckBox->setText(tr("Manual volume (required):"));
-			ui->manualVolumeCheckBox->setToolTip(
-				tr("Automatic volume is available only for the selected playback endpoint. "
-					"Use manual volume for an input or unavailable endpoint."));
+			updateAutomaticVolumeUi();
 			bool blocked = ui->manualVolumeCheckBox->blockSignals(true);
 			ui->manualVolumeCheckBox->setChecked(true);
 			ui->manualVolumeCheckBox->blockSignals(blocked);
@@ -214,11 +287,23 @@ void LoudnessCorrectionFilterGUI::on_volumeSpinBox_valueChanged(double value)
 
 void LoudnessCorrectionFilterGUI::on_calibrateButton_clicked()
 {
+	if (!ui->manualVolumeCheckBox->isChecked() && !tryUpdateVolume())
+	{
+		QMessageBox::warning(
+			this,
+			tr("Calibration not applied"),
+			tr("The bound playback volume could not be read. Reconnect the device, choose another binding, or use manual volume and try again."));
+		return;
+	}
+
 	bool previousState = state;
 	state = false;
 	emit updateModel();
 
-	LoudnessCorrectionFilterGUIDialog dialog(endpointId, automaticVolumeAvailable);
+	LoudnessCorrectionFilterGUIDialog dialog(
+		endpointId,
+		automaticVolumeAvailable,
+		getBindingMode() == LoudnessCorrectionFilter::FilterParameters::BINDING_ALL);
 	if (dialog.exec() == QDialog::Accepted)
 	{
 		if (!ui->manualVolumeCheckBox->isChecked() && !tryUpdateVolume())
@@ -226,7 +311,7 @@ void LoudnessCorrectionFilterGUI::on_calibrateButton_clicked()
 			QMessageBox::warning(
 				this,
 				tr("Calibration not applied"),
-				tr("The selected endpoint volume could not be read. The measured level was not applied; reconnect the device or use manual volume and try again."));
+				tr("The bound playback volume could not be read. The measured level was not applied; reconnect the device, choose another binding, or use manual volume and try again."));
 			state = previousState;
 			emit updateModel();
 			return;

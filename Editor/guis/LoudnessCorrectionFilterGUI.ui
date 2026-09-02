@@ -13,7 +13,7 @@
   <property name="windowTitle">
    <string notr="true"/>
   </property>
-  <layout class="QGridLayout" name="gridLayout" columnstretch="0,0,0,0,0,0,0,0,0,0,0,0,0,0,0">
+  <layout class="QGridLayout" name="gridLayout" columnstretch="0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0">
    <property name="leftMargin">
     <number>0</number>
    </property>
@@ -29,7 +29,7 @@
    <property name="spacing">
     <number>0</number>
    </property>
-   <item row="1" column="13">
+   <item row="1" column="14">
     <widget class="QDoubleSpinBox" name="volumeSpinBox">
      <property name="enabled">
       <bool>false</bool>
@@ -80,7 +80,7 @@
      </property>
     </widget>
    </item>
-   <item row="0" column="14">
+   <item row="0" column="15">
     <spacer name="horizontalSpacer_4">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -93,7 +93,7 @@
      </property>
     </spacer>
    </item>
-   <item row="0" column="13">
+   <item row="0" column="14">
     <widget class="QCheckBox" name="manualVolumeCheckBox">
      <property name="toolTip">
       <string>Use this when a DAC or amplifier hardware knob controls the real listening level.</string>
@@ -320,14 +320,38 @@ Alexander Walch</string>
      </property>
     </widget>
    </item>
-   <item row="0" column="11" rowspan="2">
+   <item row="0" column="11">
+    <widget class="QLabel" name="bindingLabel">
+     <property name="text">
+      <string>Volume binding:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="11">
+    <widget class="QComboBox" name="bindingComboBox">
+     <property name="toolTip">
+      <string>Single follows the current APO playback endpoint. Global follows the Windows default Multimedia playback volume across all APO instances; use Global for VB-Audio Matrix.</string>
+     </property>
+     <item>
+      <property name="text">
+       <string>Single endpoint</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Global (Windows default)</string>
+      </property>
+     </item>
+    </widget>
+   </item>
+   <item row="0" column="12" rowspan="2">
     <widget class="QPushButton" name="calibrateButton">
      <property name="text">
       <string>Calibrate</string>
      </property>
     </widget>
    </item>
-   <item row="0" column="12">
+   <item row="0" column="13">
     <spacer name="horizontalSpacer_6">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>

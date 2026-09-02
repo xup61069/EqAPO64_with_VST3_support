@@ -11,6 +11,11 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 FILTER_ENGINE = (ROOT / "FilterEngine.cpp").read_text(encoding="utf-8")
+FILTER_ENGINE_HEADER = (ROOT / "FilterEngine.h").read_text(encoding="utf-8")
+EQUALIZER_APO_SOURCE = (
+    ROOT / "EqualizerAPO" / "EqualizerAPO.cpp"
+).read_text(encoding="utf-8")
+FILTER_INTERFACE = (ROOT / "IFilter.h").read_text(encoding="utf-8")
 FILTER_HEADER = (
     ROOT / "filters" / "loudnessCorrection" / "LoudnessCorrectionFilter.h"
 ).read_text(encoding="utf-8")
@@ -23,6 +28,9 @@ FILTER_SOURCE = (
 VOLUME_SOURCE = (
     ROOT / "filters" / "loudnessCorrection" / "VolumeController.cpp"
 ).read_text(encoding="utf-8")
+VOLUME_HEADER = (
+    ROOT / "filters" / "loudnessCorrection" / "VolumeController.h"
+).read_text(encoding="utf-8")
 BENCHMARK_SOURCE = (ROOT / "Benchmark" / "Benchmark.cpp").read_text(
     encoding="utf-8"
 )
@@ -30,11 +38,15 @@ RUNTIME_TEST_SOURCE = (
     ROOT / "scripts" / "test-runtime-loudness.ps1"
 ).read_text(encoding="utf-8")
 GUI_PATH = ROOT / "Editor" / "guis" / "LoudnessCorrectionFilterGUI.cpp"
+GUI_UI_PATH = ROOT / "Editor" / "guis" / "LoudnessCorrectionFilterGUI.ui"
 CALIBRATION_PATH = (
     ROOT / "Editor" / "guis" / "LoudnessCorrectionFilterGUIDialog.cpp"
 )
 GUI_FACTORY_PATH = (
     ROOT / "Editor" / "guis" / "LoudnessCorrectionFilterGUIFactory.cpp"
+)
+GUI_FACTORY_HEADER_PATH = (
+    ROOT / "Editor" / "guis" / "LoudnessCorrectionFilterGUIFactory.h"
 )
 LEGACY_GUI_PATH = (
     ROOT / "Editor" / "guis" / "LegacyLoudnessCorrectionFilterGUI.cpp"
@@ -83,7 +95,8 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         )
         self.assertIn("return std::wstring(input);", PARAMETER_ARCHIVE_HEADER)
         self.assertIn(
-            '"Schema 1 Model FormulaLoudnessV1 ", 0', BENCHMARK_SOURCE
+            '"Schema 1 Model FormulaLoudnessV1 Binding All ", 0',
+            BENCHMARK_SOURCE,
         )
         self.assertIn('checkCase("marked-round-trip"', BENCHMARK_SOURCE)
         self.assertIn(
@@ -103,6 +116,7 @@ class LoudnessSafetyContractTests(unittest.TestCase):
 
         self.assertGreaterEqual(len(marked_configs), 4)
         self.assertTrue(all("State " in config for config in marked_configs))
+        self.assertTrue(all("Binding Single" in config for config in marked_configs))
         self.assertEqual(
             unmarked_configs,
             [
@@ -128,15 +142,58 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         context_index = FILTER_ENGINE.index("filter->setRuntimeContext(runtimeContext)")
         initialize_index = FILTER_ENGINE.index("filter->initialize(")
         self.assertLess(context_index, initialize_index)
+        self.assertIn("bool flowKnown = false;", FILTER_INTERFACE)
+        self.assertIn("deviceInfoKnown(false)", FILTER_ENGINE)
+        self.assertIn("this->deviceInfoKnown = true;", FILTER_ENGINE)
+        self.assertIn("runtimeContext.flowKnown = deviceInfoKnown;", FILTER_ENGINE)
         self.assertIn("runtimeContext.endpointId = deviceGuid;", FILTER_ENGINE)
         self.assertNotIn('L"{0.0.0.00000000}."', FILTER_ENGINE)
         self.assertNotIn('L"{0.0.1.00000000}."', FILTER_ENGINE)
 
-    def test_volume_tracking_never_falls_back_to_another_device(self) -> None:
+    def test_apo_reuse_clears_stale_device_identity_before_lookup(self) -> None:
+        self.assertIn("void clearDeviceInfo();", FILTER_ENGINE_HEADER)
+        clear_body = FILTER_ENGINE.split(
+            "void FilterEngine::clearDeviceInfo()", maxsplit=1
+        )[1].split("void FilterEngine::setDeviceInfo", maxsplit=1)[0]
+        for reset in (
+            "deviceInfoKnown = false;",
+            "capture = false;",
+            "postMixInstalled = true;",
+            "deviceName.clear();",
+            "connectionName.clear();",
+            "deviceGuid.clear();",
+            "deviceString.clear();",
+        ):
+            self.assertIn(reset, clear_body)
+        initialize_body = EQUALIZER_APO_SOURCE.split(
+            "HRESULT EqualizerAPO::Initialize", maxsplit=1
+        )[1].split("HRESULT EqualizerAPO::IsInputFormatSupported", maxsplit=1)[0]
+        self.assertLess(
+            initialize_body.index("engine.clearDeviceInfo();"),
+            initialize_body.index("DeviceAPOInfo apoInfo;"),
+        )
+        self.assertIn("runFilterEngineDeviceInfoReuseTests", BENCHMARK_SOURCE)
+
+    def test_volume_binding_is_explicit_and_never_uses_an_implicit_fallback(self) -> None:
+        self.assertIn('archive.add(std::wstring(', FILTER_HEADER)
+        self.assertIn('L"All" : L"Single"', FILTER_HEADER)
+        self.assertIn("bindingCount > 1", FILTER_HEADER)
+        self.assertIn("binding = BINDING_SINGLE", FILTER_HEADER)
         self.assertIn(
             "deviceEnumerator->GetDevice(_requestedEndpointId.c_str(), &device)",
             VOLUME_SOURCE,
         )
+        self.assertIn("if (!_requestedEndpointId.empty())", VOLUME_SOURCE)
+        self.assertIn(
+            "GetDefaultAudioEndpoint(eRender, eMultimedia, &device)",
+            VOLUME_SOURCE,
+        )
+        self.assertIn(
+            "if (_parameters.binding == FilterParameters::BINDING_ALL)",
+            FILTER_SOURCE,
+        )
+        self.assertIn("return L\"\";", FILTER_SOURCE)
+        self.assertIn("_runtimeContext.isCapture", FILTER_SOURCE)
         self.assertIn("EnumAudioEndpoints(", VOLUME_SOURCE)
         self.assertIn("ENDPOINT_GUID_PROPERTY", VOLUME_SOURCE)
         self.assertIn("candidate->OpenPropertyStore(", VOLUME_SOURCE)
@@ -144,7 +201,24 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         self.assertNotIn("waveOutGetVolume", VOLUME_SOURCE)
         self.assertNotIn("GetMasterVolumeLevelScalar", VOLUME_SOURCE)
 
+    def test_global_default_rebind_failure_clears_the_old_endpoint(self) -> None:
+        self.assertIn("bool refreshEndpointIfChanged();", VOLUME_HEADER)
+        refresh_body = VOLUME_SOURCE.split(
+            "bool VolumeController::refreshEndpointIfChanged()", maxsplit=1
+        )[1].split("HRESULT VolumeController::getVolume", maxsplit=1)[0]
+        self.assertGreaterEqual(refresh_body.count("cleanup();"), 4)
+        changed_body = refresh_body.split("if (changed)", maxsplit=1)[1]
+        self.assertLess(changed_body.index("cleanup();"), changed_body.index("initEndpoint()"))
+        get_body = VOLUME_SOURCE.split(
+            "HRESULT VolumeController::getVolume", maxsplit=1
+        )[1].split("HRESULT VolumeController::setVolume", maxsplit=1)[0]
+        self.assertIn("if (!refreshEndpointIfChanged())", get_body)
+        self.assertIn("return E_FAIL;", get_body)
+        failed_read = get_body.split("if (FAILED(res))", maxsplit=1)[1]
+        self.assertLess(failed_read.index("cleanup();"), failed_read.index("initEndpoint()"))
+
     def test_missing_or_unreadable_endpoint_bypasses_runtime_filter(self) -> None:
+        self.assertIn("if (!_runtimeContext.flowKnown || _runtimeContext.isCapture)", FILTER_SOURCE)
         self.assertIn("_runtimeContext.isCapture", FILTER_SOURCE)
         self.assertGreaterEqual(
             FILTER_SOURCE.count("_runtimeBypass.store(true"),
@@ -152,7 +226,7 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         )
         self.assertIn("_runtimeBypass.load(std::memory_order_acquire)", FILTER_SOURCE)
         self.assertIn(
-            "VolumeController volumeController(self->_runtimeContext.endpointId)",
+            "VolumeController volumeController(self->getVolumeControllerEndpointId())",
             FILTER_SOURCE,
         )
         self.assertIn(
@@ -162,21 +236,54 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         self.assertIn("_recoveryPending", FILTER_HEADER)
         self.assertIn("_transitionFromBypass", FILTER_HEADER)
         self.assertIn("if (!recovering && std::isfinite(lastVolume)", FILTER_SOURCE)
-        self.assertIn("crossfade from the unfiltered signal", FILTER_SOURCE)
+        self.assertIn("_hasInitialAutomaticVolume = true;", FILTER_SOURCE)
+        self.assertIn("self->_hasInitialAutomaticVolume ?", FILTER_SOURCE)
+        self.assertIn("self->_initialAutomaticVolume", FILTER_SOURCE)
+        self.assertIn(
+            "crossfade from the common magnitude-unity A = L + H domain",
+            FILTER_SOURCE,
+        )
 
     def test_dynamic_coefficients_use_preallocated_crossfade_banks(self) -> None:
         self.assertIn("_biquadBanks[2]", FILTER_HEADER)
+        self.assertIn("_lowpassBanks[2]", FILTER_HEADER)
+        self.assertIn("_highpassBanks[2]", FILTER_HEADER)
+        self.assertIn("CROSSOVER_SECTION_COUNT = 14", FILTER_HEADER)
+        self.assertIn("CROSSOVER_BUTTERWORTH_ORDER = 14", FILTER_HEADER)
+        self.assertIn("CROSSOVER_HISTORY_PREWARM_SECONDS = 1.0", FILTER_HEADER)
+        self.assertIn("BYPASS_FADE_SECONDS = 0.01", FILTER_HEADER)
+        self.assertIn("FILTER_WARMUP_SECONDS = 0.25", FILTER_HEADER)
         self.assertIn("COEFFICIENT_CROSSFADE_SECONDS = 0.1", FILTER_HEADER)
+        self.assertIn("FINAL_RESPONSE_NUMERICAL_TOLERANCE_DB = 1.0e-6", FILTER_HEADER)
         self.assertIn("TryEnterCriticalSection", FILTER_SOURCE)
         self.assertIn("resetState()", FILTER_SOURCE)
         self.assertIn("_warmupActive", FILTER_SOURCE)
         self.assertIn("_crossfadeActive", FILTER_SOURCE)
-        self.assertIn("inputChannel[frame] * _targetOutputGainLinear", FILTER_SOURCE)
+        self.assertIn("highpassIdentitySample * outputGainLinear", FILTER_SOURCE)
+        self.assertIn("lowpass + highpass * correction", FILTER_SOURCE)
+        self.assertIn("_crossoverPrewarmActive", FILTER_SOURCE)
+        self.assertIn("isSafeCrossoverHandoff", FILTER_SOURCE)
+        self.assertIn("handoffStep <= naturalStep + tolerance", FILTER_SOURCE)
+        self.assertNotIn("CROSSOVER_HANDOFF_BRIDGE_SAMPLES", FILTER_HEADER)
+        self.assertIn("_crossoverDomainActive", FILTER_HEADER)
+        self.assertIn("!_bypassFadeActive", FILTER_SOURCE)
+        self.assertIn(
+            "residualGain * (audibleComposite - activeSample.identity)",
+            FILTER_SOURCE,
+        )
+        self.assertIn("_coeffsUpdated.store(!initialIdentity", FILTER_SOURCE)
+        runtime_bypass_body = FILTER_SOURCE.split(
+            "else if (runtimeBypass && !crossoverDomainReady)", maxsplit=1
+        )[1].split("bool recoveryReady", maxsplit=1)[0]
+        self.assertNotIn("_crossoverPrewarmActive = false", runtime_bypass_body)
+        self.assertIn("_lowpassBanks[_transitionBankIndex][channel][section] =", FILTER_SOURCE)
+        self.assertIn("_highpassBanks[_transitionBankIndex][channel][section] =", FILTER_SOURCE)
         process_body = FILTER_SOURCE.split(
             "void LoudnessCorrectionFilter::process", maxsplit=1
         )[1]
         self.assertNotIn(".resize(", process_body)
         self.assertNotIn(".push_back(", process_body)
+        self.assertNotIn("new ", process_body)
         self.assertIn('"loudness-transition-test"', BENCHMARK_SOURCE)
         self.assertIn("runLoudnessParameterCodecTests", BENCHMARK_SOURCE)
         self.assertIn("Loudness parameter codec", BENCHMARK_SOURCE)
@@ -187,8 +294,18 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         self.assertIn("duplicate.isInitialized()", BENCHMARK_SOURCE)
         self.assertIn("8k-minus100-to-0", BENCHMARK_SOURCE)
         self.assertIn("8k-0-to-minus100", BENCHMARK_SOURCE)
-        self.assertIn("runLoudnessRecoveryCase", BENCHMARK_SOURCE)
-        self.assertIn("Runtime bypass was not bit-transparent", BENCHMARK_SOURCE)
+        self.assertIn("runLoudnessCrossoverCoefficientTests", BENCHMARK_SOURCE)
+        self.assertIn("runLoudnessRuntimeContextTests", BENCHMARK_SOURCE)
+        self.assertIn("runLoudnessSubsonicSineCase", BENCHMARK_SOURCE)
+        self.assertIn("runLoudnessAdaptiveHandoffSweep", BENCHMARK_SOURCE)
+        self.assertIn("runLoudnessExactHandoffCase", BENCHMARK_SOURCE)
+        self.assertIn("runLoudnessCommonDomainCase", BENCHMARK_SOURCE)
+        self.assertIn("runLoudnessPartialHandoffFailureCase", BENCHMARK_SOURCE)
+        self.assertIn("FAILURE_AT_WARMUP", BENCHMARK_SOURCE)
+        self.assertIn("FAILURE_AT_CROSSFADE", BENCHMARK_SOURCE)
+        self.assertIn("12.7711", BENCHMARK_SOURCE)
+        self.assertIn("maximumSecondDifferenceRatio", BENCHMARK_SOURCE)
+        self.assertIn("bypassFadeStartCount", BENCHMARK_SOURCE)
         self.assertIn("--loudness-transition-test", RUNTIME_TEST_SOURCE)
 
     @unittest.skipUnless(
@@ -197,24 +314,66 @@ class LoudnessSafetyContractTests(unittest.TestCase):
     )
     def test_editor_requires_readable_endpoint_and_rechecks_calibration(self) -> None:
         gui_source = GUI_PATH.read_text(encoding="utf-8")
+        gui_ui = GUI_UI_PATH.read_text(encoding="utf-8")
         calibration_source = CALIBRATION_PATH.read_text(encoding="utf-8")
         self.assertIn("FAILED(volumeController->getVolume(endpointVolume))", gui_source)
         self.assertIn('tr("Manual volume (required):")', gui_source)
+        self.assertIn('name="bindingComboBox"', gui_ui)
+        self.assertIn(
+            "Single endpoint", gui_ui
+        )
+        self.assertIn(
+            "Global (Windows default)",
+            gui_ui,
+        )
+        self.assertIn("use Global for VB-Audio Matrix", gui_ui)
+        self.assertIn("new VolumeController(requestedEndpointId)", gui_source)
+        self.assertIn("endpointId = volumeController->getEndpointId()", gui_source)
         play_handler = calibration_source.split(
             "void LoudnessCorrectionFilterGUIDialog::on_playButton_clicked()",
             maxsplit=1,
         )[1]
         self.assertLess(
-            play_handler.index("isDefaultConsoleRenderEndpoint(endpointId)"),
+            play_handler.index("isPlaybackEndpointStillValid()"),
             play_handler.index("PlaySoundA("),
         )
-        self.assertIn("GetDefaultAudioEndpoint(eRender, eConsole", calibration_source)
+        playback_body = play_handler.split(
+            "void LoudnessCorrectionFilterGUIDialog::on_stopButton_clicked()",
+            maxsplit=1,
+        )[0]
+        first_check = playback_body.index("isPlaybackEndpointStillValid()")
+        second_check = playback_body.index(
+            "isPlaybackEndpointStillValid()", first_check + 1
+        )
+        decode_complete = playback_body.index("buffer.close();")
+        play_sound = playback_body.index("PlaySoundA(buffer.data().data()")
+        self.assertLess(decode_complete, second_check)
+        self.assertLess(second_check, play_sound)
+        self.assertIn("GetDefaultAudioEndpoint(eRender, role", calibration_source)
+        self.assertIn("isDefaultRenderEndpoint(endpointId, eConsole)", calibration_source)
+        self.assertIn("isDefaultRenderEndpoint(endpointId, eMultimedia)", calibration_source)
         self.assertIn("endpointGuardTimer.start(250)", calibration_source)
         self.assertIn("&QTimer::timeout", calibration_source)
         self.assertIn("&& !tryUpdateVolume())", gui_source)
         self.assertIn('tr("Calibration not applied")', gui_source)
         self.assertIn("ui->bothRadioButton->hide()", calibration_source)
         self.assertIn("Schema 1 Model FormulaLoudnessV1", gui_source)
+
+        gui_factory_source = GUI_FACTORY_PATH.read_text(encoding="utf-8")
+        gui_factory_header = GUI_FACTORY_HEADER_PATH.read_text(encoding="utf-8")
+        self.assertIn(
+            "bool getSelectedRenderEndpoint(std::wstring& endpointId) const;",
+            gui_factory_header,
+        )
+        selected_render_body = gui_factory_source.split(
+            "bool LoudnessCorrectionFilterGUIFactory::getSelectedRenderEndpoint(",
+            maxsplit=1,
+        )[1]
+        self.assertIn("endpointId = selectedDevice->getDeviceGuid();", selected_render_body)
+        self.assertIn("return true;", selected_render_body)
+        self.assertNotIn("if (deviceGuid.empty())", selected_render_body)
+        self.assertIn("selectedEndpointIsRender", gui_factory_source)
+        self.assertIn("selectedEndpointIsRender && !endpointId.empty()", gui_factory_source)
 
     @unittest.skipUnless(
         GUI_FACTORY_PATH.is_file() and LEGACY_GUI_PATH.is_file(),
@@ -238,6 +397,8 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         self.assertIn("Keep existing formula values", legacy_gui_source)
         self.assertIn("Convert original shelf profile", legacy_gui_source)
         self.assertIn("Schema 1 Model FormulaLoudnessV1", legacy_gui_source)
+        self.assertIn("FormulaLoudnessV1 Binding Single", legacy_gui_source)
+        self.assertIn("FormulaLoudnessV1 Binding All", legacy_gui_source)
         self.assertIn("values below -100 dB will be clamped", legacy_gui_source)
         self.assertIn("retired headroom mode has no direct equivalent", legacy_gui_source)
         self.assertIn("(std::max)(-100.0", legacy_gui_source)

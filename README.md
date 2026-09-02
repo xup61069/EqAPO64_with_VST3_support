@@ -52,15 +52,16 @@ Setup keeps a persistent recovery journal outside the application directory whil
 
 1. Open **Equalizer APO Configuration Editor** and select the playback endpoint you intend to use.
 2. Add **Advanced filters → Loudness correction**.
-3. Leave **Manual volume** off to track the selected playback endpoint, or enable it when Windows cannot represent the actual listening volume.
-4. Set the reference level and correction strength. Use calibration only if a suitable SPL meter is available.
-5. Confirm the stored command is enabled and contains `State 1`.
+3. Choose **Single endpoint** to follow the playback endpoint on which this APO instance is running. Choose **Global (Windows default)** when every loudness-correction instance should share the Windows default Multimedia playback volume, as in a VB-Audio Matrix routing setup.
+4. Leave **Manual volume** off for automatic tracking, or enable it when Windows cannot represent the actual listening volume.
+5. Set the reference level and correction strength. Use calibration only if a suitable SPL meter is available.
+6. Confirm the stored command is enabled and contains `State 1`.
 
 The filter compensates for changes in perceived tonal balance as listening level changes. It is not track loudness normalization, a room-correction system, a hearing test, an automatic microphone measurement, or a limiter.
 
 ## Loudness-correction behavior
 
-The engine evaluates a 29-point formula parameter table from 20 Hz through 12.5 kHz and fits the representable points to up to 29 Q=3 peaking filters. At lower sample rates, center frequencies above 90% of Nyquist are omitted. Volume-driven coefficient changes use a preallocated second filter bank, an inaudible background warm-up of that bank, and a 100 ms crossfade without interrupting the output.
+The engine evaluates a 29-point formula parameter table from 20 Hz through 12.5 kHz and fits the representable points to up to 29 Q=3 peaking filters. At lower sample rates, center frequencies above 90% of Nyquist are omitted. A fixed 28th-order Linkwitz-Riley crossover forms the common uncorrected `A = L + H` domain, while the fitted correction is applied only to the high-pass contribution. In native extreme-case tests, the settled A-domain magnitude from 1-19 Hz remains within 0.01 dB of unity without inheriting the correction branch's headroom attenuation. The 0.01 dB figure is a settled-magnitude guarantee; the cold raw-to-A handoff may change phase and is governed instead by a one-sample output-step bound. On initialization, the filter outputs the raw input for at least 1.0 s while building crossover history. It then moves each channel into A only at a sampled raw/A crossing whose handoff step is no greater than the larger of the two signals' natural one-sample steps. There is deliberately no timeout: if a safe crossing does not occur, the affected channel remains uncorrected and correction is not enabled. After every channel has entered A, the correction bank warms silently for 250 ms and fades in over 100 ms. Later volume-driven coefficient changes reuse the live crossover history and crossfade between preallocated banks in the A domain over 100 ms.
 
 The current estimated level is:
 
@@ -76,6 +77,7 @@ clamp(ReferenceLevel + Volume - ReferenceOffset, 0, 100)
 |---|---:|---|
 | `Schema` | `1` | Identifies the versioned parameter layout. |
 | `Model` | `FormulaLoudnessV1` | Identifies this formula profile without making a conformance claim. |
+| `Binding` | `Single` or `All` | `Single` follows this APO instance's actual playback endpoint. `All` makes all instances follow the current Windows default Multimedia playback endpoint. Ignored when manual `Volume` is present. |
 | `State` | `0` or `1` | Internal bypass or enabled state. New filters use `1`. |
 | `ReferenceLevel` | 1–100 phon | Selects the neutral reference contour. The default is 80 phon. |
 | `ReferenceOffset` | −100 to +100 dB | Subtracted from the estimated current level. A positive value therefore requests stronger low-level compensation. |
@@ -93,11 +95,16 @@ The UI permits a 1–100 phon reference and the runtime clamps the calculated cu
 
 ### Automatic and manual volume
 
-Automatic mode is bound to the actual playback endpoint selected by Equalizer APO. It never falls back to a different Windows device. If that endpoint disappears or its volume cannot be read, the filter temporarily outputs uncorrected audio and resumes through a warm-up and crossfade after the endpoint recovers.
+Automatic mode has two explicit bindings:
+
+- **Single endpoint** (`Binding Single`) follows the actual playback endpoint on which that APO instance is running. It never falls back to the Windows default or another device. Use this for ordinary physical outputs and whenever each endpoint must follow its own volume.
+- **Global (Windows default)** (`Binding All`) makes every loudness-correction instance follow the master volume of the current Windows default `eRender`/`eMultimedia` endpoint. Use this when VB-Audio Matrix or a similar routing graph needs several APO instances to share one volume control. The controller checks the default identity at least once every two seconds; after it detects a change, it discards the old endpoint before binding the new one. A failed rebind fails closed through the 10 ms behavior below instead of returning to the old endpoint.
+
+If the required endpoint disappears, is replaced but cannot be rebound, or its volume cannot be read, automatic correction fails closed. Before the cold handoff, output remains raw. Once the A domain is active, only the correction residual is faded to the uncorrected `A = L + H` path over 10 ms. After the configured source recovers, the target bank warms silently for 250 ms and correction fades back in over 100 ms; if the cold handoff is still pending, recovery remains uncorrected until that handoff is safe. If Windows cannot identify whether the APO is on a render or capture flow, automatic mode also remains bypassed.
 
 Automatic tracking sees the Windows endpoint volume only. It cannot detect an application's own volume slider, an analog amplifier or speaker knob, or gain changes made after the Windows endpoint. Use manual mode for those systems and update the manual value whenever the real attenuation changes.
 
-Capture/input processing requires an explicit manual `Volume`. Automatic tracking and built-in calibration-noise playback are playback-only.
+Capture/input processing requires an explicit manual `Volume`. Automatic tracking and built-in calibration-noise playback are playback-only. When `Volume` is present, it overrides automatic tracking and `Binding` has no runtime effect.
 
 ### Calibration
 
@@ -109,33 +116,39 @@ Calibration estimates the 1 kHz listening level at 0 dB tracked volume. It does 
 4. Set the application playing the test to full application volume, play the built-in pink noise, and enter the measured dB SPL value manually.
 5. Keep using the same Windows-volume or manual-volume method after saving the calibration. If an external hardware knob controls volume, keep its calibrated position or update the manual value.
 
-The built-in player is available only when the selected endpoint is readable and is also the Windows default **Console** playback endpoint. Otherwise playback is blocked to avoid calibrating the wrong speaker. If the default endpoint changes during playback, the noise stops.
+The built-in player is available only when the selected endpoint is readable and is also the Windows default **Console** playback endpoint. Global binding additionally requires that endpoint to be the default **Multimedia** playback endpoint, because that is the volume source being calibrated. Otherwise playback is blocked to avoid calibrating the wrong speaker. The destination is checked again immediately before playback; if either required default changes during decoding or playback, the noise is not started or is stopped.
 
 ### Headroom
 
-The filter estimates the steady-state peak of the fitted cascade over a dense frequency grid, refines local maxima, and attenuates by that peak plus a 1 dB margin. This reduces clipping risk but is not a sample-peak or true-peak limiter. Transients, multitone signals, later plug-ins, and other gain stages can still clip, so retain additional output headroom where necessary.
+The filter estimates the steady-state peak of the fitted correction branch over a dense frequency grid, refines local maxima, and attenuates that branch by the peak plus a 1 dB margin. It then scans the complete A-domain-plus-correction transfer and reduces the correction branch further if needed. This headroom gain is applied only to the corrected high-pass contribution; the common uncorrected `A = L + H` path is not globally attenuated, so the settled sub-20 Hz magnitude is not pulled down with the correction branch. This reduces clipping risk but is not a sample-peak or true-peak limiter. Transients, multitone signals, later plug-ins, and other gain stages can still clip, so retain additional output headroom where necessary.
 
 ## Configuration and migration
 
 An automatic-volume configuration uses:
 
 ```text
-LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0
+LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0
 ```
 
 Adding `Volume -38.0` selects manual mode:
 
 ```text
-LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0
+LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0
+```
+
+For a VB-Audio Matrix-style shared-volume graph, use `Binding All` and omit `Volume`:
+
+```text
+LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding All State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0
 ```
 
 ### Original Mixomo shelf-profile entries
 
-The original Mixomo filter used the same field names for a different shelf-filter model. Because some valid old shelf settings overlap the values written by early formula releases, every unmarked entry is left textually unchanged and bypassed until its meaning is chosen in Configuration Editor. When the values could represent either model, the editor offers both choices. **Convert original shelf profile** preserves the former neutral Windows-volume point by mapping `old ReferenceLevel - old ReferenceOffset` to the new `ReferenceOffset`, maps `Attenuation` to correction strength, preserves a manual volume when present, clamps volume values below −100 dB, and then enables the marked formula profile. The two response models are not identical, so review and recalibrate after conversion.
+The original Mixomo filter used the same field names for a different shelf-filter model. Because some valid old shelf settings overlap the values written by early formula releases, every unmarked entry is left textually unchanged and bypassed until its meaning is chosen in Configuration Editor. When the values could represent either model, the editor offers both choices. **Convert original shelf profile** preserves the former neutral Windows-volume point by mapping `old ReferenceLevel - old ReferenceOffset` to the new `ReferenceOffset`, maps `Attenuation` to correction strength, preserves a manual volume when present, clamps volume values below −100 dB, selects `Binding All` to retain Mixomo's shared-default-volume behavior, and then enables the marked formula profile. The two response models are not identical, so review and recalibrate after conversion.
 
 ### Previously released formula entries
 
-An unmarked formula entry from v3.0.0 or v3.0.1 is also bypassed rather than guessed. Choose **Keep existing formula values** to add the explicit `Schema 1 Model FormulaLoudnessV1` marker while preserving its values and enabled state. If the same numbers are also valid under the original shelf model, the shelf-conversion choice is shown beside it. The marker prevents future or unrelated models from being silently reinterpreted.
+An unmarked formula entry from v3.0.0 or v3.0.1 is also bypassed rather than guessed. Choose **Keep existing formula values** to add the explicit `Schema 1 Model FormulaLoudnessV1` marker with `Binding Single` while preserving its other values and enabled state. If the same numbers are also valid under the original shelf model, the shelf-conversion choice is shown beside it. The marker prevents future or unrelated models from being silently reinterpreted. Marked Schema 1 entries written before `Binding` existed also load as `Single`.
 
 ### Entries from v2.0.0
 
@@ -180,8 +193,9 @@ Configuration files and registry backups are preserved unless **Remove configura
 |---|---|
 | No audible processing | Confirm the endpoint is enabled in Device Selector, the command is not commented out, and it contains `State 1`. Restart the Windows audio service or reboot after device-registration changes. |
 | Loudness correction remains flat | Check that `Attenuation` is above zero and that the current level differs from the reference contour. |
-| Automatic volume is unavailable | Use a playback endpoint whose Windows volume can be read, or enable manual `Volume`. Capture endpoints always require manual mode. |
-| Calibration is blocked | Make the selected endpoint the Windows default Console playback device, confirm its volume is readable, then reopen calibration. |
+| Automatic volume is unavailable | For per-device tracking, use `Binding Single` on a readable playback endpoint. For a Matrix-style shared control, use `Binding All` and make the intended volume source the Windows default Multimedia playback endpoint. Capture and unidentified flows require manual `Volume`. |
+| The wrong endpoint volume is followed | Use `Binding Single` to follow the APO's actual endpoint. Use `Binding All` only when every instance should deliberately share the Windows default Multimedia volume. |
+| Calibration is blocked | Make the selected endpoint the Windows default Console playback device and confirm its volume is readable. With `Binding All`, it must also be the default Multimedia device. Then reopen calibration. |
 | Calibration does not follow a hardware knob | Use manual volume and update it when the analog gain changes; Windows cannot observe that knob. |
 | A VST plug-in cannot load | Use an x64 audio-effect plug-in and ensure the audio service account can read the plug-in and its external files. |
 | Windows warns about the installer | The current releases are unsigned. Download only from this repository and compare the matching SHA-256 file. |

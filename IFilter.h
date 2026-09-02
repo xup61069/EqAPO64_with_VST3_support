@@ -26,6 +26,7 @@
 
 struct FilterRuntimeContext
 {
+	bool flowKnown = false;
 	bool isCapture = false;
 	std::wstring endpointId;
 };

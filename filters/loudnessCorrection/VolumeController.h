@@ -26,7 +26,7 @@ public:
 
 private:
 	bool initEndpoint();
-	void refreshEndpointIfChanged();
+	bool refreshEndpointIfChanged();
 	void cleanup();
 
 	IAudioEndpointVolume* _endpointVolume;

@@ -41,11 +41,13 @@ private slots:
 	void checkVolume();
 
 private:
-	std::wstring getSelectedRenderEndpointId() const;
+	bool getSelectedRenderEndpoint(std::wstring& endpointId) const;
 
 	FilterTable* filterTable;
 	QTimer* timer = NULL;
 	VolumeController* volumeController = NULL;
 	std::wstring volumeControllerEndpointId;
 	double lastVolume = -1;
+	VolumeController* defaultVolumeController = NULL;
+	double lastDefaultVolume = -1;
 };

@@ -32,21 +32,29 @@ try {
 	$legacyOutput = Join-Path $resolvedTestDirectory "legacy-unmarked.wav"
 
 	$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+	# The generated chirp is exactly full scale.  Give this integration fixture
+	# a tiny, shared input margin because the phase-only LR28 identity path can
+	# raise the instantaneous crest of a non-stationary chirp by a few ppm.
+	# Full-scale steady tones and runtime transitions remain covered separately.
+	$integrationInputHeadroom = "Preamp: -0.01 dB`r`n"
 	[System.IO.File]::WriteAllText(
 		$disabledConfig,
-		"LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 State 0 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0",
+		$integrationInputHeadroom +
+			"LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 0 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0",
 		$utf8NoBom
 	)
 	[System.IO.File]::WriteAllText(
 		$enabledConfig,
-		"LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0",
+		$integrationInputHeadroom +
+			"LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0",
 		$utf8NoBom
 	)
 	# This deliberately overlaps the historical, unmarked syntax. It must not
 	# be interpreted as the formula model without the explicit marker above.
 	[System.IO.File]::WriteAllText(
 		$legacyConfig,
-		"LoudnessCorrection: State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0",
+		$integrationInputHeadroom +
+			"LoudnessCorrection: State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0",
 		$utf8NoBom
 	)
 
@@ -58,7 +66,9 @@ try {
 		"--batchsize", "256",
 		"--from", "20",
 		"--to", "12500",
-		"--length", "1"
+		# The fixed-crossover history gate keeps at least the first second raw;
+		# the bounded handoff and correction warm-up can extend activation safely.
+		"--length", "2"
 	)
 
 	$disabledLog = & $benchmark @commonArguments --config $disabledConfig --output $disabledOutput 2>&1
@@ -89,7 +99,7 @@ try {
 		throw "Unmarked legacy loudness settings did not fail closed to bypass."
 	}
 	if (($enabledLog -join "`n") -match "samples clipped") {
-		throw "The enabled loudness-correction benchmark clipped samples."
+		throw "The enabled loudness-correction benchmark clipped samples:`n$($enabledLog -join [Environment]::NewLine)"
 	}
 
 	$transitionLog = & $benchmark --nopause --loudness-transition-test 2>&1
@@ -105,13 +115,13 @@ try {
 			Name = "48k-low-frequency"
 			Rate = 48000
 			Frequency = 20.216
-			Config = "LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 State 1 ReferenceLevel 100 ReferenceOffset 0 Attenuation 1.0 Volume -40"
+			Config = "LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 1 ReferenceLevel 100 ReferenceOffset 0 Attenuation 1.0 Volume -40"
 		},
 		@{
 			Name = "8k-high-frequency"
 			Rate = 8000
 			Frequency = 3151
-			Config = "LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 State 1 ReferenceLevel 1 ReferenceOffset -100 Attenuation 1.0 Volume 0"
+			Config = "LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 1 ReferenceLevel 1 ReferenceOffset -100 Attenuation 1.0 Volume 0"
 		}
 	)
 

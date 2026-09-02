@@ -67,6 +67,7 @@ static_assert(std::atomic<FilterConfiguration*>::is_always_lock_free,
 FilterEngine::FilterEngine()
 	: allocatedFrameCount(0),
 	  preMix(false),
+	  deviceInfoKnown(false),
 	  capture(false),
 	  postMixInstalled(true),
 	  sampleRate(0.0f),
@@ -167,8 +168,20 @@ void FilterEngine::setPreMix(bool preMix)
 	this->preMix = preMix;
 }
 
+void FilterEngine::clearDeviceInfo()
+{
+	deviceInfoKnown = false;
+	capture = false;
+	postMixInstalled = true;
+	deviceName.clear();
+	connectionName.clear();
+	deviceGuid.clear();
+	deviceString.clear();
+}
+
 void FilterEngine::setDeviceInfo(bool capture, bool postMixInstalled, const wstring& deviceName, const wstring& connectionName, const wstring& deviceGuid, const wstring& deviceString)
 {
+	this->deviceInfoKnown = true;
 	this->capture = capture;
 	this->postMixInstalled = postMixInstalled;
 	this->deviceName = deviceName;
@@ -742,6 +755,7 @@ void FilterEngine::addFilters(vector<IFilter*> filters)
 	{
 		IFilter* filter = *it;
 		FilterRuntimeContext runtimeContext;
+		runtimeContext.flowKnown = deviceInfoKnown;
 		runtimeContext.isCapture = capture;
 		if (!deviceGuid.empty())
 			runtimeContext.endpointId = deviceGuid;

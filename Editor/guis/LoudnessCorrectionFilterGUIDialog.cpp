@@ -30,7 +30,9 @@
 
 namespace
 {
-	bool isDefaultConsoleRenderEndpoint(const std::wstring& endpointId)
+	bool isDefaultRenderEndpoint(
+		const std::wstring& endpointId,
+		ERole role)
 	{
 		if (endpointId.empty())
 			return false;
@@ -45,8 +47,7 @@ namespace
 			__uuidof(MMDeviceEnumerator), NULL, CLSCTX_INPROC_SERVER,
 			__uuidof(IMMDeviceEnumerator), reinterpret_cast<void**>(&enumerator));
 		if (SUCCEEDED(result) && enumerator != NULL)
-			// PlaySound/Wave routing follows the console role.
-			result = enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device);
+			result = enumerator->GetDefaultAudioEndpoint(eRender, role, &device);
 		if (SUCCEEDED(result) && device != NULL)
 			result = device->GetId(&defaultEndpointId);
 		if (SUCCEEDED(result) && defaultEndpointId != NULL)
@@ -67,12 +68,17 @@ namespace
 LoudnessCorrectionFilterGUIDialog::LoudnessCorrectionFilterGUIDialog(
 	const std::wstring& endpointId,
 	bool automaticVolumeAvailable,
+	bool followsDefaultMultimedia,
 	QWidget* parent)
 	: QDialog(parent),
 	ui(new Ui::LoudnessCorrectionFilterGUIDialog),
 	endpointId(endpointId),
+	followsDefaultMultimedia(followsDefaultMultimedia),
 	playbackUsesSelectedEndpoint(
-		automaticVolumeAvailable && isDefaultConsoleRenderEndpoint(endpointId))
+		automaticVolumeAvailable &&
+		isDefaultRenderEndpoint(endpointId, eConsole) &&
+		(!followsDefaultMultimedia ||
+			isDefaultRenderEndpoint(endpointId, eMultimedia)))
 {
 	ui->setupUi(this);
 	ui->levelSpinBox->setRange(1, 100);
@@ -89,7 +95,7 @@ LoudnessCorrectionFilterGUIDialog::LoudnessCorrectionFilterGUIDialog(
 			"Test-noise playback is blocked to prevent calibration on the wrong speaker."));
 	}
 	connect(&endpointGuardTimer, &QTimer::timeout, this, [this]() {
-		if (buffer.size() > 0 && !isDefaultConsoleRenderEndpoint(this->endpointId))
+		if (buffer.size() > 0 && !isPlaybackEndpointStillValid())
 		{
 			on_stopButton_clicked();
 			QMessageBox::warning(
@@ -99,6 +105,17 @@ LoudnessCorrectionFilterGUIDialog::LoudnessCorrectionFilterGUIDialog(
 		}
 	});
 	endpointGuardTimer.start(250);
+}
+
+bool LoudnessCorrectionFilterGUIDialog::isPlaybackEndpointStillValid() const
+{
+	// PlaySound/Wave routing follows eConsole. Global binding reads the
+	// eMultimedia endpoint, so both roles must still resolve to the controller's
+	// actual endpoint before calibration noise is allowed to play.
+	return playbackUsesSelectedEndpoint &&
+		isDefaultRenderEndpoint(endpointId, eConsole) &&
+		(!followsDefaultMultimedia ||
+			isDefaultRenderEndpoint(endpointId, eMultimedia));
 }
 
 LoudnessCorrectionFilterGUIDialog::~LoudnessCorrectionFilterGUIDialog()
@@ -116,8 +133,7 @@ void LoudnessCorrectionFilterGUIDialog::on_playButton_clicked()
 {
 	// Recheck immediately before playback: the Windows default can change while
 	// the dialog is open, and PlaySound would then route to a different speaker.
-	if (!playbackUsesSelectedEndpoint ||
-		!isDefaultConsoleRenderEndpoint(endpointId))
+	if (!isPlaybackEndpointStillValid())
 	{
 		QMessageBox::warning(
 			this,
@@ -165,7 +181,27 @@ void LoudnessCorrectionFilterGUIDialog::on_playButton_clicked()
 	}
 	buffer.close();
 
-	if (!writeSucceeded || buffer.size() == 0 || !PlaySoundA(buffer.data().data(), NULL, SND_MEMORY | SND_ASYNC | SND_LOOP))
+	if (!writeSucceeded || buffer.size() == 0)
+	{
+		buffer.buffer().clear();
+		return;
+	}
+
+	// Decoding above is synchronous, so the Qt timer cannot observe a default
+	// endpoint switch while it runs. Recheck after the buffer is complete and
+	// immediately before PlaySound chooses its destination.
+	if (!isPlaybackEndpointStillValid())
+	{
+		buffer.buffer().clear();
+		QMessageBox::warning(
+			this,
+			tr("Playback device mismatch"),
+			tr("Make the selected playback device the Windows default playback device, "
+				"then reopen calibration. No test noise was played."));
+		return;
+	}
+
+	if (!PlaySoundA(buffer.data().data(), NULL, SND_MEMORY | SND_ASYNC | SND_LOOP))
 		buffer.buffer().clear();
 }
 

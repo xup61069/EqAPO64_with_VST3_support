@@ -36,6 +36,7 @@ public:
 	explicit LoudnessCorrectionFilterGUIDialog(
 		const std::wstring& endpointId,
 		bool automaticVolumeAvailable,
+		bool followsDefaultMultimedia,
 		QWidget* parent = 0);
 	~LoudnessCorrectionFilterGUIDialog();
 
@@ -50,9 +51,11 @@ private slots:
 	void on_bothRadioButton_toggled(bool checked);
 
 private:
+	bool isPlaybackEndpointStillValid() const;
 	Ui::LoudnessCorrectionFilterGUIDialog* ui;
 	QBuffer buffer;
 	std::wstring endpointId;
+	bool followsDefaultMultimedia;
 	bool playbackUsesSelectedEndpoint;
 	QTimer endpointGuardTimer;
 };

@@ -43,6 +43,7 @@ public:
 	~FilterEngine();
 
 	void setPreMix(bool preMix);
+	void clearDeviceInfo();
 	void setDeviceInfo(bool capture, bool postMixInstalled, const std::wstring& deviceName, const std::wstring& connectionName, const std::wstring& deviceGuid, const std::wstring& deviceString);
 	void initialize(float sampleRate, unsigned inputChannelCount, unsigned realChannelCount, unsigned outputChannelCount, unsigned channelMask, unsigned maxFrameCount, const std::wstring& customPath = L"");
 	void loadConfig(const std::wstring& customPath = L"");
@@ -54,6 +55,7 @@ public:
 	void process(double** output, double** input, unsigned frameCount);
 
 	bool isPreMix() const {return preMix;}
+	bool isDeviceInfoKnown() const {return deviceInfoKnown;}
 	bool isCapture() const {return capture;}
 	bool isPostMixInstalled() const {return postMixInstalled;}
 	std::wstring getDeviceName() const {return deviceName;}
@@ -86,6 +88,7 @@ private:
 	unsigned allocatedFrameCount;
 
 	bool preMix;
+	bool deviceInfoKnown;
 	bool capture;
 	bool postMixInstalled;
 	std::wstring deviceName;

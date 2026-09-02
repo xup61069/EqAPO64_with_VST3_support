@@ -236,6 +236,12 @@ LoudnessCorrectionFilterGUIFactory::~LoudnessCorrectionFilterGUIFactory()
 		delete volumeController;
 		volumeController = NULL;
 	}
+
+	if (defaultVolumeController != NULL)
+	{
+		delete defaultVolumeController;
+		defaultVolumeController = NULL;
+	}
 }
 
 void LoudnessCorrectionFilterGUIFactory::initialize(FilterTable* filterTable)
@@ -246,7 +252,7 @@ void LoudnessCorrectionFilterGUIFactory::initialize(FilterTable* filterTable)
 QList<FilterTemplate> LoudnessCorrectionFilterGUIFactory::createFilterTemplates()
 {
 	QList<FilterTemplate> list;
-	list.append(FilterTemplate(tr("Loudness correction"), "LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0", QStringList(tr("Advanced filters"))));
+	list.append(FilterTemplate(tr("Loudness correction"), "LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0", QStringList(tr("Advanced filters"))));
 	return list;
 }
 
@@ -278,16 +284,19 @@ IFilterGUI* LoudnessCorrectionFilterGUIFactory::createFilterGUI(QString& command
 			LoudnessCorrectionFilter::FilterParameters params;
 			if (!params.deSerialize(parameters.toStdWString()))
 			{
-				std::wstring endpointId = getSelectedRenderEndpointId();
+				std::wstring endpointId;
+				bool selectedEndpointIsRender =
+					getSelectedRenderEndpoint(endpointId);
 				result = new LoudnessCorrectionFilterGUI(
 					params.state,
 					params.referenceLevel,
 					params.referenceOffset,
 					params.attenuation,
+					params.binding,
 					params.useManualVolume,
 					params.manualVolume,
 					endpointId,
-					!endpointId.empty());
+					selectedEndpointIsRender);
 
 				if (timer == NULL)
 				{
@@ -327,7 +336,8 @@ void LoudnessCorrectionFilterGUIFactory::checkVolume()
 	if (filterTable == NULL)
 		return;
 
-	std::wstring endpointId = getSelectedRenderEndpointId();
+	std::wstring endpointId;
+	bool selectedEndpointIsRender = getSelectedRenderEndpoint(endpointId);
 	if (endpointId != volumeControllerEndpointId)
 	{
 		delete volumeController;
@@ -336,38 +346,62 @@ void LoudnessCorrectionFilterGUIFactory::checkVolume()
 		lastVolume = std::numeric_limits<double>::quiet_NaN();
 	}
 
-	if (endpointId.empty())
-		return;
-
-	if (volumeController == NULL)
+	if (selectedEndpointIsRender && !endpointId.empty() &&
+		volumeController == NULL)
 	{
 		volumeController = new VolumeController(endpointId);
-		volumeController->getVolume(lastVolume);
+		if (FAILED(volumeController->getVolume(lastVolume)))
+			lastVolume = std::numeric_limits<double>::quiet_NaN();
 	}
-	else
+	else if (volumeController != NULL)
 	{
 		double volume;
 		HRESULT res = volumeController->getVolume(volume);
 
-		if (SUCCEEDED(res) && std::abs(volume - lastVolume) > 0.05)
+		if (SUCCEEDED(res) &&
+			(!std::isfinite(lastVolume) || std::abs(volume - lastVolume) > 0.05))
 		{
 			filterTable->updateAnalysis();
 			lastVolume = volume;
 		}
 	}
+
+	// A Global-bound row follows the shared Windows eMultimedia render
+	// endpoint, independently of which endpoint is selected in the editor.
+	if (defaultVolumeController == NULL)
+	{
+		defaultVolumeController = new VolumeController();
+		if (FAILED(defaultVolumeController->getVolume(lastDefaultVolume)))
+			lastDefaultVolume = std::numeric_limits<double>::quiet_NaN();
+	}
+	else
+	{
+		double volume;
+		HRESULT res = defaultVolumeController->getVolume(volume);
+		if (SUCCEEDED(res) &&
+			(!std::isfinite(lastDefaultVolume) ||
+				std::abs(volume - lastDefaultVolume) > 0.05))
+		{
+			filterTable->updateAnalysis();
+			lastDefaultVolume = volume;
+		}
+	}
 }
 
-std::wstring LoudnessCorrectionFilterGUIFactory::getSelectedRenderEndpointId() const
+bool LoudnessCorrectionFilterGUIFactory::getSelectedRenderEndpoint(
+	std::wstring& endpointId) const
 {
+	endpointId.clear();
 	if (filterTable == NULL)
-		return L"";
+		return false;
 
 	std::shared_ptr<AbstractAPOInfo> selectedDevice = filterTable->getSelectedDevice();
 	if (selectedDevice == NULL || selectedDevice->isInput())
-		return L"";
+		return false;
 
-	std::wstring deviceGuid = selectedDevice->getDeviceGuid();
-	if (deviceGuid.empty())
-		return L"";
-	return deviceGuid;
+	// Some valid render endpoints (notably Voicemeeter/Matrix virtual devices)
+	// have no endpoint GUID. The flow is still known: Global binding can use
+	// the Windows default render endpoint, while Single remains unavailable.
+	endpointId = selectedDevice->getDeviceGuid();
+	return true;
 }

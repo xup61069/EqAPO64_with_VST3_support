@@ -107,6 +107,10 @@ HRESULT EqualizerAPO::Initialize(UINT32 cbDataSize, BYTE* pbyData)
 		return E_INVALIDARG;
 
 	resetChild();
+	// The host may reuse an APO object for another endpoint. Never retain the
+	// previous endpoint identity if the next property or registry lookup fails.
+	engine.clearDeviceInfo();
+	allowSilentBufferModification = false;
 
 	APOInitSystemEffects* initStruct = (APOInitSystemEffects*)pbyData;
 	GUID apoGuid = initStruct->APOInit.clsid;
