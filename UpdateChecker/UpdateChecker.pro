@@ -10,6 +10,7 @@ QT += core gui widgets network
 
 TARGET = UpdateChecker
 TEMPLATE = app
+CONFIG += c++17
 
 DEFINES += WIN32
 DEFINES += _UNICODE
@@ -44,7 +45,8 @@ RESOURCES += \
 TRANSLATIONS += \
 	translations/UpdateChecker_de.ts \
 	translations/UpdateChecker_fr.ts \
-	translations/UpdateChecker_zh_CN.ts
+	translations/UpdateChecker_zh_CN.ts \
+	translations/UpdateChecker_zh_TW.ts
 
 # Include parent directory for shared headers
 INCLUDEPATH += $$PWD/..

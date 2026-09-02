@@ -21,6 +21,7 @@
 #include <QDrag>
 #include <QElapsedTimer>
 #include <QLabel>
+#include <QLocale>
 #include <QMimeData>
 #include <QPushButton>
 #include <QStandardItemModel>
@@ -47,6 +48,37 @@
 #include "ui_MainWindow.h"
 
 using namespace std;
+
+static QString supportedLocaleName(const QLocale& locale)
+{
+	QString name = locale.name();
+	if (name.startsWith("zh_"))
+	{
+		if (name.endsWith("_TW") || name.endsWith("_HK") || name.endsWith("_MO"))
+			return "zh_TW";
+		return "zh_CN";
+	}
+	if (locale.language() == QLocale::German)
+		return "de";
+	if (locale.language() == QLocale::French)
+		return "fr";
+	return "en";
+}
+
+static QString localeDisplayName(const QString& localeName)
+{
+	if (localeName == "zh_CN")
+		return QString::fromUtf8("简体中文");
+	if (localeName == "zh_TW")
+		return QString::fromUtf8("繁體中文");
+	if (localeName == "en")
+		return "English";
+
+	QString name = QLocale(localeName).nativeLanguageName();
+	if (!name.isEmpty() && name[0].isLower())
+		name[0] = name[0].toUpper();
+	return name;
+}
 
 MainWindow::MainWindow(QDir configDir, QWidget* parent)
 	: QMainWindow(parent), ui(new Ui::MainWindow), configDir(configDir)
@@ -137,29 +169,16 @@ MainWindow::MainWindow(QDir configDir, QWidget* parent)
 	analysisThread->start();
 	connect(analysisThread, SIGNAL(analysisFinished()), this, SLOT(updateAnalysisPanel()));
 
-	QLocale autoLocale = QLocale::system();
-	if (autoLocale.language() != QLocale::German && autoLocale.language() != QLocale::Chinese && autoLocale.language() != QLocale::French)
-		autoLocale = QLocale("en");
-	QLocale::Language languages[] = {QLocale::AnyLanguage, QLocale::English, QLocale::German, QLocale::Chinese, QLocale::French};
-	for (size_t i = 0; i < sizeof(languages) / sizeof(QLocale::Language); i++)
+	QString automaticLocale = supportedLocaleName(QLocale::system());
+	const char* localeNames[] = {"", "en", "de", "fr", "zh_CN", "zh_TW"};
+	for (size_t i = 0; i < sizeof(localeNames) / sizeof(localeNames[0]); ++i)
 	{
-		QLocale::Language language = languages[i];
-		QString languageName;
-		if (language == QLocale::AnyLanguage)
-			languageName = autoLocale.nativeLanguageName();
-		else
-			languageName = QLocale(language).nativeLanguageName();
-		if (languageName == "American English")
-			languageName = "English";
-		QString text;
-		if (language == QLocale::AnyLanguage)
-			text = tr("Automatic (%0)").arg(languageName);
-		else
-			text = languageName;
-		if(text[0].isLower())
-			text[0] = text[0].toUpper();
+		QString localeName = QString::fromLatin1(localeNames[i]);
+		QString text = localeName.isEmpty()
+			? tr("Automatic (%0)").arg(localeDisplayName(automaticLocale))
+			: localeDisplayName(localeName);
 		QAction* action = ui->menuLanguage->addAction(text);
-		action->setData(language);
+		action->setData(localeName);
 		action->setCheckable(true);
 		connect(action, SIGNAL(triggered(bool)), this, SLOT(languageSelected(bool)));
 	}
@@ -787,22 +806,18 @@ void MainWindow::languageSelected(bool selected)
 		return;
 	}
 
-	QLocale::Language language = (QLocale::Language)action->data().toInt();
+	QString localeName = action->data().toString();
 
 	if (QMessageBox::question(this, tr("Restart required"), tr("Configuration Editor will be restarted to apply the changed settings. Proceed?")) == QMessageBox::Yes)
 	{
 		QSettings settings(QString::fromWCharArray(EDITOR_REGPATH), QSettings::NativeFormat);
-		if (language == QLocale::AnyLanguage)
+		if (localeName.isEmpty())
 		{
 			settings.remove("language");
 		}
 		else
 		{
-			QString name = QLocale(language).name();
-			int index = name.indexOf('_');
-			if (index != -1)
-				name = name.left(index);
-			settings.setValue("language", name);
+			settings.setValue("language", localeName);
 		}
 
 		restart = true;
@@ -1035,14 +1050,18 @@ void MainWindow::loadPreferences()
 	updateRecentFiles();
 
 	QVariant languageValue = settings.value("language");
-	QLocale::Language language;
+	QString localeName;
 	if (languageValue.isValid())
-		language = QLocale(languageValue.toString()).language();
-	else
-		language = QLocale::AnyLanguage;
+	{
+		localeName = languageValue.toString();
+		if (localeName == "zh")
+			localeName = supportedLocaleName(QLocale::system()).startsWith("zh_")
+				? supportedLocaleName(QLocale::system())
+				: "zh_CN";
+	}
 
 	for (QAction* action : ui->menuLanguage->actions())
-		action->setChecked(action->data().toInt() == language);
+		action->setChecked(action->data().toString() == localeName);
 
 	// load window state after initializing channels as it may trigger on_analysisDockWidget_visibilityChanged when analysis panel is detached
 	QVariant stateValue = settings.value("windowState");

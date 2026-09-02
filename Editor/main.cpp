@@ -53,7 +53,17 @@ int main(int argc, char* argv[])
 
 		QVariant languageValue = settings.value("language");
 		if (languageValue.isValid())
-			QLocale::setDefault(QLocale(languageValue.toString()));
+		{
+			QString localeName = languageValue.toString();
+			if (localeName == "zh")
+			{
+				QString systemName = QLocale::system().name();
+				localeName = systemName.endsWith("_TW") ||
+					systemName.endsWith("_HK") || systemName.endsWith("_MO")
+					? "zh_TW" : "zh_CN";
+			}
+			QLocale::setDefault(QLocale(localeName));
+		}
 		else
 			QLocale::setDefault(QLocale::system());
 

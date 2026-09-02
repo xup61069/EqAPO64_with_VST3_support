@@ -7,5 +7,7 @@
         <file>translations/qtbase_zh_CN.qm</file>
         <file>translations/UpdateChecker_fr.qm</file>
         <file>translations/qtbase_fr.qm</file>
+		<file>translations/UpdateChecker_zh_TW.qm</file>
+		<file>translations/qtbase_zh_TW.qm</file>
     </qresource>
 </RCC>

@@ -367,7 +367,8 @@ RESOURCES += \
 	Editor.qrc
 TRANSLATIONS += translations/Editor_de.ts \
 	translations/Editor_fr.ts \
-	translations/Editor_zh_CN.ts
+	translations/Editor_zh_CN.ts \
+	translations/Editor_zh_TW.ts
 
 RC_FILE = Editor.rc
 

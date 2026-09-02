@@ -10,11 +10,13 @@ QT += core gui widgets
 
 TARGET = DeviceSelector
 TEMPLATE = app
+CONFIG += c++17
 
 DEFINES += WIN32
 DEFINES += _UNICODE
 DEFINES += MUP_USE_WIDE_STRING
 QMAKE_CXXFLAGS_RELEASE += /O2
+QMAKE_LFLAGS_RELEASE += /LTCG
 
 PRECOMPILED_HEADER = stdafx.h
 
@@ -49,7 +51,8 @@ TRANSLATIONS += \
 	translations/DeviceSelector_de.ts \
 	translations/DeviceSelector_en.ts \
 	translations/DeviceSelector_fr.ts \
-	translations/DeviceSelector_zh_CN.ts
+	translations/DeviceSelector_zh_CN.ts \
+	translations/DeviceSelector_zh_TW.ts
 
 # Include parent directory for shared headers
 INCLUDEPATH += $$PWD/..
