@@ -1093,24 +1093,31 @@ Function ValidateInstallRecoveryTarget
     ${EndIf}
   ${EndIf}
   StrCpy $INSTDIR "$0"
+  ; GetFullPathName fails when the final directory does not exist, which is the
+  ; normal state before the first recovery snapshot is created. Canonicalize the
+  ; existing trusted Common AppData root, then append only fixed product-owned
+  ; components. None of these descendants are loaded from installer input or the
+  ; recovery journal.
   ClearErrors
-  GetFullPathName $2 "$InstallRollbackDirectory"
+  GetFullPathName $2 "$InstallRecoveryCommonAppData"
   ${If} ${Errors}
   ${OrIf} $2 == ""
     StrCpy $InstallRecoveryFailed "1"
     Return
   ${EndIf}
-  normalizeRecoveryPathTail:
+  normalizeCommonAppDataTail:
   StrCpy $6 "$2" 1 -1
   ${If} $6 == "\"
     ${GetRoot} "$2" $7
     ${If} $2 != $7
     ${AndIf} $2 != "$7\"
       StrCpy $2 "$2" -1
-      Goto normalizeRecoveryPathTail
+      Goto normalizeCommonAppDataTail
     ${EndIf}
   ${EndIf}
-  StrCpy $InstallRollbackDirectory "$2"
+  StrCpy $InstallRecoveryCommonAppData "$2"
+  StrCpy $InstallRecoveryProductRoot "$InstallRecoveryCommonAppData\EqualizerAPO"
+  StrCpy $InstallRollbackDirectory "$InstallRecoveryProductRoot\InstallerRecovery"
   StrCpy $InstallRollbackFiles "$InstallRollbackDirectory\files"
   StrCpy $RenameManifestPath "$InstallRollbackDirectory\renamed-files.txt"
   StrCpy $InstallRecoveryMarkerPath "$InstallRollbackDirectory\app-tree.marker"

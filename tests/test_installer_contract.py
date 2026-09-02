@@ -572,7 +572,28 @@ class InstallerContractTests(unittest.TestCase):
         target_body = SETUP_SOURCE[target_start:target_end]
         self.assertGreaterEqual(target_body.count("GetFullPathName"), 2)
         self.assertIn("normalizeInstallPathTail:", target_body)
-        self.assertIn("normalizeRecoveryPathTail:", target_body)
+        self.assertIn("normalizeCommonAppDataTail:", target_body)
+        self.assertIn(
+            'GetFullPathName $2 "$InstallRecoveryCommonAppData"', target_body
+        )
+        self.assertNotIn(
+            'GetFullPathName $2 "$InstallRollbackDirectory"', target_body
+        )
+        common_data = target_body.index(
+            'GetFullPathName $2 "$InstallRecoveryCommonAppData"'
+        )
+        product_root = target_body.index(
+            'StrCpy $InstallRecoveryProductRoot '
+            '"$InstallRecoveryCommonAppData\\EqualizerAPO"',
+            common_data,
+        )
+        recovery_directory = target_body.index(
+            'StrCpy $InstallRollbackDirectory '
+            '"$InstallRecoveryProductRoot\\InstallerRecovery"',
+            product_root,
+        )
+        self.assertLess(common_data, product_root)
+        self.assertLess(product_root, recovery_directory)
         self.assertIn('StrCpy $2 "$INSTDIR\\"', target_body)
         self.assertIn('StrCpy $3 "$InstallRollbackDirectory\\"', target_body)
         self.assertIn('StrCpy $5 "$3" $4', target_body)
