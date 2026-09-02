@@ -48,6 +48,22 @@ RELEASE_CONTRACT_PATHS = tuple(
         "CHANGELOG.md",
     )
 )
+PUBLIC_RELEASE_TEXT_PATHS = tuple(
+    ROOT / name
+    for name in (
+        "README.md",
+        "README_zh-TW.md",
+        "NOTICE.md",
+        "CHANGELOG.md",
+        "CONTRIBUTING.md",
+        "SECURITY.md",
+        "Release checklist.txt",
+        ".github/PULL_REQUEST_TEMPLATE.md",
+        ".github/ISSUE_TEMPLATE/bug_report.md",
+        ".github/workflows/build.yml",
+        ".github/workflows/release.yml",
+    )
+)
 
 
 class LoudnessSafetyContractTests(unittest.TestCase):
@@ -228,11 +244,30 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         self.assertEqual(manifest["version-string"], version)
         self.assertIn(f'default: "v{version}"', release_workflow)
 
+        changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        first_changelog_version = re.search(r"^##\s+(\d+\.\d+\.\d+)\s*$", changelog, re.MULTILINE)
+        self.assertIsNotNone(first_changelog_version)
+        self.assertEqual(first_changelog_version.group(1), version)
+
         public_text = "\n".join(
-            (ROOT / name).read_text(encoding="utf-8")
-            for name in ("README.md", "README_zh-TW.md", "NOTICE.md", "CHANGELOG.md")
+            path.read_text(encoding="utf-8") for path in PUBLIC_RELEASE_TEXT_PATHS
         )
-        self.assertNotRegex(public_text, re.compile(r"ISO\s*-?\s*226", re.IGNORECASE))
+        forbidden_claims = (
+            r"\bISO\s*-?\s*226\b",
+            r"\bstandards?[- ]?(?:compliant|conformant)\b",
+            r"\bcertified\s+(?:to|under)\b",
+        )
+        for pattern in forbidden_claims:
+            self.assertNotRegex(public_text, re.compile(pattern, re.IGNORECASE))
+
+        marker = "Schema 1 Model FormulaLoudnessV1"
+        english_readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        chinese_readme = (ROOT / "README_zh-TW.md").read_text(encoding="utf-8")
+        self.assertGreaterEqual(english_readme.count(marker), 3)
+        self.assertGreaterEqual(chinese_readme.count(marker), 3)
+        fork_url = "https://github.com/Mixomo/EqAPO64_with_VST3_support"
+        self.assertIn(fork_url, english_readme)
+        self.assertIn(fork_url, chinese_readme)
 
 
 if __name__ == "__main__":
