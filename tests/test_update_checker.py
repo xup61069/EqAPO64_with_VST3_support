@@ -15,6 +15,9 @@ DIALOG_SOURCE = (ROOT / "UpdateChecker" / "UpdateChecker.cpp").read_text(
 DIALOG_UI = (ROOT / "UpdateChecker" / "UpdateChecker.ui").read_text(
     encoding="utf-8"
 )
+VERSION_RESOURCE = (ROOT / "UpdateChecker" / "UpdateChecker.rc").read_text(
+    encoding="utf-16"
+)
 SHIPPED_DOCUMENT_LINKS = tuple(
     path.read_text(encoding="utf-8")
     for path in (
@@ -54,6 +57,11 @@ class UpdateCheckerTests(unittest.TestCase):
         product_name = "Loudness Correction for Equalizer APO"
         self.assertIn(product_name, MAIN_SOURCE)
         self.assertIn(product_name, DIALOG_UI)
+        self.assertIn(f'VALUE "ProductName", "{product_name}"', VERSION_RESOURCE)
+        self.assertIn(
+            f'VALUE "FileDescription", "{product_name} Update Checker"',
+            VERSION_RESOURCE,
+        )
         self.assertNotIn(
             "A newer version of Equalizer APO is available", DIALOG_UI
         )
