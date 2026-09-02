@@ -1,43 +1,212 @@
-# Equalizer APO 64 — VST3 + Loudness Correction
+# Loudness Correction for Equalizer APO
 
 [繁體中文](README_zh-TW.md)
 
 [![Build](https://github.com/xup61069/loudness-correction-apo/actions/workflows/build.yml/badge.svg)](https://github.com/xup61069/loudness-correction-apo/actions/workflows/build.yml)
 [![Latest release](https://img.shields.io/github/v/release/xup61069/loudness-correction-apo)](https://github.com/xup61069/loudness-correction-apo/releases/latest)
 
-An independent Windows x64 fork based on [Equalizer APO](https://sourceforge.net/projects/equalizerapo/) and prior VST3 integration work. It adds VST3 hosting, formula-based loudness correction, calibration tools, and Traditional Chinese UI support.
+An independent Windows x64 fork of [Equalizer APO](https://sourceforge.net/projects/equalizerapo/). It combines system-wide audio processing with formula-based loudness correction, calibration tools, x64 VST2/VST3 audio-effect hosting, and a Traditional Chinese interface.
 
-## Download
+This repository is not the upstream Equalizer APO project or an official upstream build. The feature is presented only as loudness correction; no standards-conformance, certification, endorsement, affiliation, or approval claim is made.
 
-Download the installer and matching `.sha256` file from the [latest GitHub release](https://github.com/xup61069/loudness-correction-apo/releases/latest). Verify the checksum before installing.
+> This installer replaces an existing Equalizer APO installation in place. It uses the same default installation directory and registry locations and cannot be installed side by side with the upstream release. Back up `config` and any locally installed plug-ins before installing, upgrading, or downgrading.
 
-## Loudness correction
+## Requirements
 
-The filter evaluates a 29-point formula parameter table and fits the resulting target response to a 29-band peaking-filter bank. Automatic mode follows the actual playback endpoint selected by Equalizer APO; if that endpoint cannot be identified or read, correction is bypassed instead of following a different device. Filter updates crossfade over 100 ms. A dense, refined peak search reserves an additional 1 dB of headroom, and native runtime regression tests cover difficult low- and high-frequency cases.
+- Windows 10 version 1809 or later, or Windows 11, on x64 hardware. The release does not include x86 or ARM64 installers. This minimum follows the bundled [Qt 6.10 Windows requirements](https://doc.qt.io/qt-6.10/supported-platforms.html).
+- Administrator rights to install the Audio Processing Object (APO) on a Windows audio device.
+- A playback or capture endpoint on which Equalizer APO can be enabled.
+- The Microsoft Visual C++ 2015–2022 x64 runtime. Setup offers the Microsoft download if it is missing.
+- Optional: an SPL meter for acoustic calibration and x64 VST plug-ins for audio-effect hosting.
 
-The profile evidence is strongest from 20–90 phon through 4 kHz and from 20–80 phon above 4 kHz. Values outside those ranges are provided as an approximate control range, not as a validation or conformance claim.
+## Download and verification
 
-The editor exposes:
+> **Do not use v3.0.0.** It has been superseded by v3.0.1 and later releases. Always install the [latest GitHub release](https://github.com/xup61069/loudness-correction-apo/releases/latest).
 
-- reference level from 1 to 100 phon;
-- reference-level offset and correction strength;
-- automatic volume tracking for the selected Windows playback endpoint, or an explicit manual volume; and
-- pink-noise calibration for a measured listening position.
+Download the x64 installer and its matching `.sha256` file from the same release. In PowerShell:
 
-An enabled configuration uses this format:
+```powershell
+Get-FileHash .\EqualizerAPO-x64-*.exe -Algorithm SHA256
+Get-Content .\EqualizerAPO-x64-*.exe.sha256
+```
+
+The two 64-character SHA-256 values must match exactly. The installer, bundled executables and DLLs, release tag, and checksum file are currently unsigned. A matching checksum detects corruption or a mismatch relative to that GitHub Release; it does not independently prove publisher identity.
+
+## Install or upgrade
+
+1. Back up `C:\Program Files\EqualizerAPO\config` and `C:\Program Files\EqualizerAPO\VSTPlugins` if they contain files you need.
+2. Close audio tools and run the installer as administrator. Setup may close this project's running utilities and will attempt to create a Windows restore point; installation can continue if Windows declines the restore point.
+3. In the Device Selector, enable Equalizer APO only for the playback or capture endpoints that should be processed.
+4. Allow setup to restart the Windows audio service. Audio may be interrupted briefly; restart Windows if setup or the Device Selector requests it.
+5. Do not force-close setup or power off the computer while files and APO registrations are being updated.
+
+Normal upgrades preserve `config` and a non-empty `VSTPlugins` directory, but a separate backup is still recommended. Automatic update checks are disabled by default.
+
+## Quick start
+
+1. Open **Equalizer APO Configuration Editor** and select the playback endpoint you intend to use.
+2. Add **Advanced filters → Loudness correction**.
+3. Leave **Manual volume** off to track the selected playback endpoint, or enable it when Windows cannot represent the actual listening volume.
+4. Set the reference level and correction strength. Use calibration only if a suitable SPL meter is available.
+5. Confirm the stored command is enabled and contains `State 1`.
+
+The filter compensates for changes in perceived tonal balance as listening level changes. It is not track loudness normalization, a room-correction system, a hearing test, an automatic microphone measurement, or a limiter.
+
+## Loudness-correction behavior
+
+The engine evaluates a 29-point formula parameter table from 20 Hz through 12.5 kHz and fits the representable points to up to 29 Q=3 peaking filters. At lower sample rates, center frequencies above 90% of Nyquist are omitted. Volume-driven coefficient changes use a preallocated second filter bank, an inaudible background warm-up of that bank, and a 100 ms crossfade without interrupting the output.
+
+The current estimated level is:
+
+```text
+clamp(ReferenceLevel + Volume - ReferenceOffset, 0, 100)
+```
+
+`Volume` is either the selected Windows playback endpoint's current level in dB or the explicit manual value. The fitted response is relative to `ReferenceLevel`, so correction is neutral at the reference contour when `Volume` and `ReferenceOffset` are both zero.
+
+### Parameters
+
+| Parameter | Range | Meaning |
+|---|---:|---|
+| `State` | `0` or `1` | Internal bypass or enabled state. New filters use `1`. |
+| `ReferenceLevel` | 1–100 phon | Selects the neutral reference contour. The default is 80 phon. |
+| `ReferenceOffset` | −100 to +100 dB | Subtracted from the estimated current level. A positive value therefore requests stronger low-level compensation. |
+| `Attenuation` | 0–1 | Correction strength: `0` is flat and `1` applies the full fitted correction. |
+| `Volume` | −100 to 0 dB | Optional manual volume. Its presence selects manual mode; omitting it selects automatic endpoint tracking. |
+
+### Frequency and level scope
+
+The parameter table ends at 12.5 kHz. Its best-supported range is:
+
+- 20–90 phon from 20 Hz through 4 kHz;
+- 20–80 phon from 5 kHz through 12.5 kHz.
+
+The UI permits a 1–100 phon reference and the runtime clamps the calculated current level to 0–100 phon. Values below 20 phon or above the frequency-dependent upper limits are approximate controls, not validated results or a conformance claim. Frequencies above 12.5 kHz are not represented by the profile table.
+
+### Automatic and manual volume
+
+Automatic mode is bound to the actual playback endpoint selected by Equalizer APO. It never falls back to a different Windows device. If that endpoint disappears or its volume cannot be read, the filter temporarily outputs uncorrected audio and resumes through a warm-up and crossfade after the endpoint recovers.
+
+Automatic tracking sees the Windows endpoint volume only. It cannot detect an application's own volume slider, an analog amplifier or speaker knob, or gain changes made after the Windows endpoint. Use manual mode for those systems and update the manual value whenever the real attenuation changes.
+
+Capture/input processing requires an explicit manual `Volume`. Automatic tracking and built-in calibration-noise playback are playback-only.
+
+### Calibration
+
+Calibration estimates the 1 kHz listening level at 0 dB tracked volume. It does not measure through a microphone automatically.
+
+1. Start with a safe system or hardware volume. Pink noise can be loud; stop immediately if it is uncomfortable.
+2. Use an SPL meter at the listening position, set to **slow response** and **Z weighting (flat)**.
+3. Measure only one speaker. Loudness correction is bypassed automatically while the calibration dialog is open.
+4. Set the application playing the test to full application volume, play the built-in pink noise, and enter the measured dB SPL value manually.
+5. Keep using the same Windows-volume or manual-volume method after saving the calibration. If an external hardware knob controls volume, keep its calibrated position or update the manual value.
+
+The built-in player is available only when the selected endpoint is readable and is also the Windows default **Console** playback endpoint. Otherwise playback is blocked to avoid calibrating the wrong speaker. If the default endpoint changes during playback, the noise stops.
+
+### Headroom
+
+The filter estimates the steady-state peak of the fitted cascade over a dense frequency grid, refines local maxima, and attenuates by that peak plus a 1 dB margin. This reduces clipping risk but is not a sample-peak or true-peak limiter. Transients, multitone signals, later plug-ins, and other gain stages can still clip, so retain additional output headroom where necessary.
+
+## Configuration and migration
+
+An automatic-volume configuration uses:
 
 ```text
 LoudnessCorrection: State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0
 ```
 
-Add `Volume -38.0` to use an explicit manual volume. Otherwise the filter follows the selected playback endpoint. Inputs and unavailable endpoints require manual volume.
+Adding `Volume -38.0` selects manual mode:
 
-Version 3 uses this configuration format. A 2.0.0 loudness-correction entry uses a different model: the editor preserves its original text and keeps it bypassed until you press the explicit conversion button. Conversion maps the prior neutral volume and strength, then enables the formula profile; review and calibrate it for your system.
+```text
+LoudnessCorrection: State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0
+```
 
-The built-in pink-noise player can address only the Windows default playback device used by the Wave API. If that is not the endpoint selected in the editor, playback is blocked so calibration cannot silently use the wrong speaker. Playback is also stopped if the default changes while noise is playing. Automatic update checks are opt-in during installation.
+### Entries from v2.0.0
 
-## Notices and license
+A valid v2.0.0 entry remains textually unchanged and bypassed until **Convert and enable formula profile** is pressed. Conversion:
 
-The repository owner has confirmed permission to redistribute the included loudness-profile data and implementation in source and binary form. The project is presented as loudness correction only: it makes no claim of standards conformance, certification, endorsement, affiliation, or approval. See [NOTICE.md](NOTICE.md).
+- maps `NeutralVolumeDb` to `ReferenceOffset`;
+- maps `Strength` to `Attenuation`;
+- preserves `ManualVolumeDb` when present;
+- clamps volume values below −100 dB; and
+- replaces the retired headroom mode with automatic headroom.
 
-The program code is available under GPL-3.0; see [LICENSE](LICENSE). The installed copy includes `NOTICE.md` alongside the program files. Release installers are currently not code-signed, so Windows may show an unknown-publisher or SmartScreen warning; verify the accompanying SHA-256 file before installation.
+The converted entry is enabled as `State 1`. Configuration Editor normally saves immediately when Instant mode is enabled, so back up or review the configuration before converting, then recalibrate it for the current system.
+
+### Entries previously opened by v3.0.0
+
+v3.0.0 may already have rewritten an older entry as a formula-format `State 0 ReferenceLevel ...` draft. The current panel preserves that internal disabled state but does not expose a `State` control. After backing up the configuration, either change only `State 0` to `State 1` in `config\config.txt` while the editor is closed, or remove the draft and add a new Loudness correction filter. Review the volume mode and recalibrate before use.
+
+## VST plug-in hosting
+
+The editor can load x64 VST2 (`.dll`) and VST3 (`.vst3`) audio effects through **Plugins → VST plugin**. No commercial or third-party plug-ins are included.
+
+- VST3 support is limited to x64 audio-effect modules. Instruments and MIDI/event-only plug-ins are not supported. If a bundle exposes several audio-effect classes, the current host selects the first recognized class.
+- The Windows audio service must be able to read the plug-in and every resource it uses. Copying a plug-in to `C:\Program Files\EqualizerAPO\VSTPlugins` can simplify permissions.
+- Some plug-ins depend on a desktop session, copy protection, unsupported bus layouts, or APIs that are unsuitable for a system audio service. Compatibility is not guaranteed.
+- Plug-ins run inside the Windows audio-processing path and are not sandboxed. Use only trusted, stable plug-ins, test at a safe volume, and keep a recoverable configuration backup.
+
+## Updates
+
+Selecting automatic update checks during setup creates a scheduled task that runs at sign-in and contacts this repository's GitHub Releases API at most once every 24 hours. It never downloads or installs an update automatically; it only displays a notification and can open the HTTPS release page.
+
+Running the installer again with the option left unchecked removes that scheduled task. You can also use the Start menu **Check for updates** shortcut for a manual check. Release changes are recorded in [CHANGELOG.md](CHANGELOG.md).
+
+## Uninstall
+
+Use Windows **Installed apps** or the Start menu **Uninstall** shortcut. The uninstaller attempts to remove the update task, endpoint APO registrations, application files, and shortcuts; a restart may be required.
+
+Configuration files and registry backups are preserved unless **Remove configurations and registry backups** is selected. A non-empty `VSTPlugins` directory is left in place. Back up both directories before uninstalling if they contain anything important.
+
+## Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| No audible processing | Confirm the endpoint is enabled in Device Selector, the command is not commented out, and it contains `State 1`. Restart the Windows audio service or reboot after device-registration changes. |
+| Loudness correction remains flat | Check that `Attenuation` is above zero and that the current level differs from the reference contour. |
+| Automatic volume is unavailable | Use a playback endpoint whose Windows volume can be read, or enable manual `Volume`. Capture endpoints always require manual mode. |
+| Calibration is blocked | Make the selected endpoint the Windows default Console playback device, confirm its volume is readable, then reopen calibration. |
+| Calibration does not follow a hardware knob | Use manual volume and update it when the analog gain changes; Windows cannot observe that knob. |
+| A VST plug-in cannot load | Use an x64 audio-effect plug-in and ensure the audio service account can read the plug-in and its external files. |
+| Windows warns about the installer | The current releases are unsigned. Download only from this repository and compare the matching SHA-256 file. |
+
+## Build and test from source
+
+Prerequisites:
+
+- Windows x64 with PowerShell;
+- Visual Studio 2022 with **Desktop development with C++** and a Windows SDK;
+- Git, Python 3, CMake, and internet access for generated dependencies.
+
+The build scripts bootstrap the pinned vcpkg baseline, Qt 6.10.1, and NSIS 3.11 into ignored directories under `third_party`.
+
+```powershell
+git clone https://github.com/xup61069/loudness-correction-apo.git
+Set-Location .\loudness-correction-apo
+python -m unittest discover -s .\tests -p "test_*.py" -v
+.\scripts\build-installer-x64.ps1 -Configuration Release
+.\scripts\test-runtime-loudness.ps1 -Configuration Release
+git diff --check
+```
+
+The installer and checksum are written to `Setup\EqualizerAPO-x64-<version>.exe` and `Setup\EqualizerAPO-x64-<version>.exe.sha256`.
+
+Important source areas:
+
+- `filters/loudnessCorrection/` — formula table, response fitting, endpoint tracking, and runtime DSP;
+- `Editor/guis/` — filter controls, conversion, and calibration UI;
+- `Setup/` and `scripts/` — installer, dependency bootstrap, staging, and runtime checks;
+- `tests/` — formula, safety-contract, translation, installer, update, and release-workflow tests;
+- `third_party/` — tracked third-party source and generated dependency locations.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution rules.
+
+## Security, notices, and license
+
+Only the latest release receives security fixes. Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+
+The installer grants the local Windows Users group Full Control over the shared `config` directory so Configuration Editor can save changes. On a multi-user computer, any local standard user can therefore alter the system-wide audio configuration; account for that in the machine's trust model.
+
+The repository owner has confirmed permission to redistribute the included loudness-profile data and implementation in source and binary form. See [NOTICE.md](NOTICE.md). Public proof of that authorization is not bundled with the repository.
+
+The program code is distributed under GPL-3.0; see [LICENSE](LICENSE). Tracked and generated dependencies retain their own licenses; see [third_party/README.md](third_party/README.md) and the license files in those source trees before redistributing a custom binary build.
