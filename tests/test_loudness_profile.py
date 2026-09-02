@@ -283,10 +283,12 @@ class LoudnessProfileTests(unittest.TestCase):
 		legacy_gui = LEGACY_GUI_PATH.read_text(encoding="utf-8")
 		self.assertNotIn("NeutralVolumeDb", filter_header)
 		self.assertIn("parseGenericV2Parameters", factory)
-		self.assertIn("parseMixomoLegacyParameters", factory)
-		self.assertIn("referenceLevel - referenceOffset", factory)
-		self.assertIn("if (!migrated)", legacy_gui)
+		self.assertIn("parseUnmarkedParameters", factory)
+		self.assertIn("output.referenceLevel - output.referenceOffset", factory)
+		self.assertIn("migration == Migration::None", legacy_gui)
 		self.assertIn("parameters = originalParameters", legacy_gui)
+		self.assertIn("Migration::KeepFormula", legacy_gui)
+		self.assertIn("Migration::ConvertShelf", legacy_gui)
 		self.assertIn(
 			"Schema 1 Model FormulaLoudnessV1 State 1 ReferenceLevel 80 ReferenceOffset",
 			legacy_gui,

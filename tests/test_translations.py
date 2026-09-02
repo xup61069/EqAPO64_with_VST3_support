@@ -48,6 +48,19 @@ def active_messages(path: pathlib.Path):
 
 
 class TraditionalChineseTranslationTests(unittest.TestCase):
+    def test_loudness_migration_choices_are_present(self) -> None:
+        editor_root = ET.parse(TRANSLATION_FILES[0]).getroot()
+        translated_sources = {
+            message.findtext("source", default="")
+            for message in editor_root.findall("./context/message")
+        }
+        expected = {
+            "This unmarked entry could be an original shelf profile or a previously released formula profile. It remains unchanged and bypassed until you choose an interpretation.",
+            "Keep existing formula values",
+            "Convert original shelf profile",
+        }
+        self.assertTrue(expected.issubset(translated_sources))
+
     def test_qt_base_traditional_chinese_is_not_simplified_alias(self) -> None:
         for app in ("Editor", "DeviceSelector", "UpdateChecker"):
             translations = ROOT / app / "translations"

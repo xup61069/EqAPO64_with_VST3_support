@@ -37,22 +37,38 @@ namespace
 		double manualVolumeDb = 0.0;
 	};
 
-	struct MixomoLegacyParameters
+	struct UnmarkedParameters
 	{
 		bool state = false;
+		double referenceLevel = 0.0;
+		double referenceOffset = 0.0;
 		double neutralVolumeDb = 0.0;
 		double strength = 1.0;
 		bool useManualVolume = false;
 		double manualVolumeDb = 0.0;
+		bool canConvertShelf = false;
+		bool canKeepFormula = false;
 	};
 
-	bool containsKey(const QString& parameters, const QString& key)
+	int keyCount(const QString& parameters, const QString& key)
 	{
 		QRegularExpression expression(
 			QString("(?:^|\\s)%1(?=\\s|$)")
 				.arg(QRegularExpression::escape(key)),
 			QRegularExpression::CaseInsensitiveOption);
-		return expression.match(parameters).hasMatch();
+		int result = 0;
+		QRegularExpressionMatchIterator matches = expression.globalMatch(parameters);
+		while (matches.hasNext())
+		{
+			matches.next();
+			++result;
+		}
+		return result;
+	}
+
+	bool containsKey(const QString& parameters, const QString& key)
+	{
+		return keyCount(parameters, key) > 0;
 	}
 
 	bool captureNumber(
@@ -83,6 +99,17 @@ namespace
 		const QString& parameters,
 		GenericV2Parameters& output)
 	{
+		if (keyCount(parameters, "Version") != 1 ||
+			keyCount(parameters, "Model") != 1 ||
+			keyCount(parameters, "State") != 1 ||
+			keyCount(parameters, "NeutralVolumeDb") != 1 ||
+			keyCount(parameters, "Strength") != 1 ||
+			keyCount(parameters, "VolumeMode") != 1 ||
+			keyCount(parameters, "ManualVolumeDb") > 1)
+		{
+			return false;
+		}
+
 		QRegularExpression versionExpression(
 			"(?:^|\\s)Version\\s+3(?=\\s|$)",
 			QRegularExpression::CaseInsensitiveOption);
@@ -116,6 +143,11 @@ namespace
 			return false;
 		output.useManualVolume = volumeModeMatch.captured(1).compare(
 			"Manual", Qt::CaseInsensitive) == 0;
+		if (keyCount(parameters, "ManualVolumeDb") !=
+			(output.useManualVolume ? 1 : 0))
+		{
+			return false;
+		}
 		if (output.useManualVolume &&
 			!captureNumber(parameters, "ManualVolumeDb", -160.0, 0.0,
 				output.manualVolumeDb))
@@ -125,15 +157,23 @@ namespace
 		return true;
 	}
 
-	bool parseMixomoLegacyParameters(
+	bool parseUnmarkedParameters(
 		const QString& parameters,
-		MixomoLegacyParameters& output)
+		UnmarkedParameters& output)
 	{
 		// Marked data belongs to a versioned model and must never fall through
 		// to the original shelf-profile adapter.
 		if (containsKey(parameters, "Schema") ||
 			containsKey(parameters, "Model") ||
 			containsKey(parameters, "Version"))
+		{
+			return false;
+		}
+		if (keyCount(parameters, "State") != 1 ||
+			keyCount(parameters, "ReferenceLevel") != 1 ||
+			keyCount(parameters, "ReferenceOffset") != 1 ||
+			keyCount(parameters, "Attenuation") > 1 ||
+			keyCount(parameters, "Volume") > 1)
 		{
 			return false;
 		}
@@ -146,22 +186,15 @@ namespace
 			return false;
 		output.state = stateMatch.captured(1) == "1";
 
-		double referenceLevel = 0.0;
-		double referenceOffset = 0.0;
-		if (!captureNumber(parameters, "ReferenceLevel", -160.0, 0.0,
-			referenceLevel) ||
-			!captureNumber(parameters, "ReferenceOffset", -160.0, 160.0,
-				referenceOffset))
+		if (!captureNumber(parameters, "ReferenceLevel", -999.0, 999.0,
+			output.referenceLevel) ||
+			!captureNumber(parameters, "ReferenceOffset", -999.0, 999.0,
+				output.referenceOffset))
 		{
 			return false;
 		}
 
-		output.neutralVolumeDb = referenceLevel - referenceOffset;
-		if (!std::isfinite(output.neutralVolumeDb) ||
-			output.neutralVolumeDb > 0.0)
-		{
-			return false;
-		}
+		output.neutralVolumeDb = output.referenceLevel - output.referenceOffset;
 
 		if (containsKey(parameters, "Attenuation") &&
 			!captureNumber(parameters, "Attenuation", 0.0, 1.0,
@@ -177,7 +210,15 @@ namespace
 		{
 			return false;
 		}
-		return true;
+
+		output.canConvertShelf = std::isfinite(output.neutralVolumeDb) &&
+			output.neutralVolumeDb <= 0.0;
+		output.canKeepFormula = output.referenceLevel >= 1.0 &&
+			output.referenceLevel <= 100.0 &&
+			output.referenceOffset >= -100.0 &&
+			output.referenceOffset <= 100.0 &&
+			(!output.useManualVolume || output.manualVolumeDb >= -100.0);
+		return output.canConvertShelf || output.canKeepFormula;
 	}
 }
 
@@ -222,10 +263,14 @@ IFilterGUI* LoudnessCorrectionFilterGUIFactory::createFilterGUI(QString& command
 				command,
 				parameters,
 				genericV2.state,
+				80.0,
+				genericV2.neutralVolumeDb,
 				genericV2.neutralVolumeDb,
 				genericV2.strength,
 				genericV2.useManualVolume,
 				genericV2.manualVolumeDb,
+				false,
+				true,
 				false);
 		}
 		else
@@ -253,18 +298,22 @@ IFilterGUI* LoudnessCorrectionFilterGUIFactory::createFilterGUI(QString& command
 			}
 			else
 			{
-				MixomoLegacyParameters mixomoLegacy;
-				if (parseMixomoLegacyParameters(parameters, mixomoLegacy))
+				UnmarkedParameters unmarked;
+				if (parseUnmarkedParameters(parameters, unmarked))
 				{
 					result = new LegacyLoudnessCorrectionFilterGUI(
 						command,
 						parameters,
-						mixomoLegacy.state,
-						mixomoLegacy.neutralVolumeDb,
-						mixomoLegacy.strength,
-						mixomoLegacy.useManualVolume,
-						mixomoLegacy.manualVolumeDb,
-						true);
+						unmarked.state,
+						unmarked.referenceLevel,
+						unmarked.referenceOffset,
+						unmarked.neutralVolumeDb,
+						unmarked.strength,
+						unmarked.useManualVolume,
+						unmarked.manualVolumeDb,
+						true,
+						unmarked.canConvertShelf,
+						unmarked.canKeepFormula);
 				}
 			}
 		}

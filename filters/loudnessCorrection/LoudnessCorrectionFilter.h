@@ -54,20 +54,34 @@ public:
 		template<typename T> bool deSerialize(const T& parameters)
 		{
 			ParameterArchive archive(parameters);
-			const bool hasSchemaToken = archive.find(std::wregex(
-				L"(?:^|\\s)Schema\\s+", std::regex_constants::icase));
-			const bool hasModelToken = archive.find(std::wregex(
-				L"(?:^|\\s)Model\\s+", std::regex_constants::icase));
 			const bool isFormulaSchema = archive.find(std::wregex(
 				L"(?:^|\\s)Schema\\s+1(?=\\s|$)", std::regex_constants::icase));
 			const bool isFormulaModel = archive.find(std::wregex(
 				L"(?:^|\\s)Model\\s+FormulaLoudnessV1(?=\\s|$)",
 				std::regex_constants::icase));
 
-			// A marker must be complete and recognized. This prevents a future or
-			// unrelated model from being silently interpreted as this formula.
-			if ((hasSchemaToken || hasModelToken) && !(isFormulaSchema && isFormulaModel))
+			// Only an explicit, complete marker can select this model. Older
+			// unmarked formula settings overlap the original Mixomo shelf syntax,
+			// so the editor must ask the user which interpretation to preserve.
+			if (!(isFormulaSchema && isFormulaModel))
 				return true;
+			if (archive.count(std::wregex(L"(?:^|\\s)Schema(?=\\s|$)",
+					std::regex_constants::icase)) != 1 ||
+				archive.count(std::wregex(L"(?:^|\\s)Model(?=\\s|$)",
+					std::regex_constants::icase)) != 1 ||
+				archive.count(std::wregex(L"(?:^|\\s)State(?=\\s|$)",
+					std::regex_constants::icase)) != 1 ||
+				archive.count(std::wregex(L"(?:^|\\s)ReferenceLevel(?=\\s|$)",
+					std::regex_constants::icase)) != 1 ||
+				archive.count(std::wregex(L"(?:^|\\s)ReferenceOffset(?=\\s|$)",
+					std::regex_constants::icase)) != 1 ||
+				archive.count(std::wregex(L"(?:^|\\s)Attenuation(?=\\s|$)",
+					std::regex_constants::icase)) > 1 ||
+				archive.count(std::wregex(L"(?:^|\\s)Volume(?=\\s|$)",
+					std::regex_constants::icase)) > 1)
+			{
+				return true;
+			}
 
 			int error = 0;
 			error += archive.get(state, std::wregex(
@@ -96,11 +110,8 @@ public:
 			if (error != 0)
 				return true;
 
-			// The original Mixomo filter used non-positive ReferenceLevel values
-			// with a different meaning. Unmarked positive values are accepted for
-			// compatibility with the previously released formula build, but legacy
-			// values are rejected so the runtime stays bit-transparent until the
-			// editor performs an explicit conversion.
+			// Invalid levels fail closed instead of being normalized into a
+			// different audible setting.
 			if (referenceLevel <= 0.0f)
 				return true;
 

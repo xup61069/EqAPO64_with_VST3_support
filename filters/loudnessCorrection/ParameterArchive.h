@@ -174,6 +174,20 @@ public:
 		return regex_search(_serializedParamters, match, searchArgument);
 	}
 
+	size_t count(const std::wregex& searchArgument) const
+	{
+		size_t result = 0;
+		for (std::wsregex_iterator it(
+			_serializedParamters.begin(), _serializedParamters.end(), searchArgument),
+			end;
+			it != end;
+			++it)
+		{
+			++result;
+		}
+		return result;
+	}
+
 private:
 	std::wstring _serializedParamters;
 };

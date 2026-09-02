@@ -857,6 +857,16 @@ Change the file permissions or copy the file to the config directory.</source>
 <context>
     <name>LegacyLoudnessCorrectionFilterGUI</name>
     <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="41"/>
+        <source>This unmarked entry could be an original shelf profile or a previously released formula profile. It remains unchanged and bypassed until you choose an interpretation.</source>
+        <translation>此未標記項目可能是原始棚架輪廓，也可能是先前發布的公式輪廓。在您選擇解讀方式前，內容會保持不變並略過處理。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="49"/>
+        <source>This unmarked entry matches a previously released formula profile. It remains unchanged and bypassed until you explicitly preserve that interpretation.</source>
+        <translation>此未標記項目符合先前發布的公式輪廓。在您明確保留該解讀前，內容會保持不變並略過處理。</translation>
+    </message>
+    <message>
         <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="36"/>
         <source>This entry uses the original shelf-based profile. It remains unchanged and bypassed until you explicitly convert it.</source>
         <translation>此項目使用原始的棚架式校正輪廓。在您明確轉換前，內容會保持不變並略過處理。</translation>
@@ -880,6 +890,26 @@ Change the file permissions or copy the file to the config directory.</source>
         <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="47"/>
         <source>Convert and enable formula profile</source>
         <translation>轉換並啟用公式輪廓</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="75"/>
+        <source>Keep existing formula values</source>
+        <translation>保留既有公式數值</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="77"/>
+        <source>Adds the formula marker while preserving the current values and enabled state.</source>
+        <translation>加入公式格式標記，同時保留目前數值與啟用狀態。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="89"/>
+        <source>Convert original shelf profile</source>
+        <translation>轉換原始棚架輪廓</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="94"/>
+        <source>Maps the original neutral volume and correction strength to the formula profile, then enables it.</source>
+        <translation>將原始中性音量與校正強度對應至公式輪廓，然後啟用。</translation>
     </message>
     <message>
         <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="50"/>

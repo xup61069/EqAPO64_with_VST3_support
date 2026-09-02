@@ -131,7 +131,7 @@ namespace
 
 		LoudnessCorrectionFilter::FilterParameters releasedFormula(std::wstring(
 			L"State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1"));
-		passed = releasedFormula.isInitialized() && passed;
+		passed = !releasedFormula.isInitialized() && passed;
 
 		LoudnessCorrectionFilter::FilterParameters mixomoLegacy(std::wstring(
 			L"State 1 ReferenceLevel 0 ReferenceOffset 0 Attenuation 1"));
@@ -140,9 +140,13 @@ namespace
 			L"ReferenceOffset 0 Attenuation 1"));
 		LoudnessCorrectionFilter::FilterParameters truncated(std::wstring(
 			L"Schema 1 Model FormulaLoudnessV1 State 1 ReferenceLevel 80"));
+		LoudnessCorrectionFilter::FilterParameters duplicate(std::wstring(
+			L"Schema 1 Model FormulaLoudnessV1 State 1 State 0 "
+			L"ReferenceLevel 80 ReferenceOffset 0 Attenuation 1"));
 		passed = !mixomoLegacy.isInitialized()
 			&& !unknownModel.isInitialized()
 			&& !truncated.isInitialized()
+			&& !duplicate.isInitialized()
 			&& passed;
 
 		printf("Loudness parameter codec: %s\n", passed ? "passed" : "failed");
