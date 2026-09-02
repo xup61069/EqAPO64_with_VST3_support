@@ -43,7 +43,14 @@ BiQuad::BiQuad(Type type, double dbGain, double freq, double srate, double bandw
 
 	double beta = 2 * sqrt(A) * alpha;
 
-	double b0, b1, b2, a0, a1, a2;
+	// Keep a safe identity response if an invalid enum value ever reaches this
+	// constructor. Every supported type below overwrites all six coefficients.
+	double b0 = 1.0;
+	double b1 = 0.0;
+	double b2 = 0.0;
+	double a0 = 1.0;
+	double a1 = 0.0;
+	double a2 = 0.0;
 
 	switch (type)
 	{

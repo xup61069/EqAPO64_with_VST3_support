@@ -35,8 +35,300 @@
 #include "../helpers/StringHelper.h"
 #include "../helpers/PrecisionTimer.h"
 #include "../helpers/MemoryHelper.h"
+#include "../filters/loudnessCorrection/LoudnessCorrectionFilter.h"
 
 using namespace std;
+
+class LoudnessCorrectionFilterTestAccess
+{
+public:
+	static void publishVolumeUpdate(
+		LoudnessCorrectionFilter& filter,
+		double volume)
+	{
+		vector<double> scratchGains;
+		filter.publishVolumeUpdate(volume, scratchGains);
+	}
+
+	static void beginRuntimeBypass(LoudnessCorrectionFilter& filter)
+	{
+		filter._recoveryPending.store(false, std::memory_order_release);
+		filter._runtimeBypass.store(true, std::memory_order_release);
+	}
+
+	static void publishRuntimeRecovery(
+		LoudnessCorrectionFilter& filter,
+		double volume)
+	{
+		publishVolumeUpdate(filter, volume);
+		filter._recoveryPending.store(true, std::memory_order_release);
+	}
+};
+
+namespace
+{
+	bool checkLoudnessFormulaValue(
+		const char* name,
+		size_t frequencyIndex,
+		double phon,
+		double expected)
+	{
+		double actual = LoudnessProfile::computeSPL(phon, frequencyIndex);
+		double error = std::abs(actual - expected);
+		printf("Loudness formula %s: %.12f dB\n", name, actual);
+		if (!std::isfinite(actual) || error > 1.0e-9)
+		{
+			fprintf(stderr,
+				"%s formula mismatch: expected %.12f dB, got %.12f dB.\n",
+				name, expected, actual);
+			return false;
+		}
+		return true;
+	}
+
+	bool runLoudnessFormulaTests()
+	{
+		bool passed = true;
+		passed = checkLoudnessFormulaValue(
+			"20Hz-20phon", 0, 20.0, 89.544478418546) && passed;
+		passed = checkLoudnessFormulaValue(
+			"100Hz-80phon", 7, 80.0, 92.460642396735) && passed;
+		passed = checkLoudnessFormulaValue(
+			"12500Hz-80phon", 28, 80.0, 85.605878244606) && passed;
+		return passed;
+	}
+
+	bool runLoudnessParameterCodecTests()
+	{
+		LoudnessCorrectionFilter::FilterParameters source;
+		source.state = false;
+		source.referenceLevel = 75.5f;
+		source.referenceOffset = -2.25f;
+		source.attenuation = 0.75f;
+		source.useManualVolume = true;
+		source.manualVolume = -24.5f;
+
+		LoudnessCorrectionFilter::FilterParameters roundTrip(source.serialize());
+		bool passed = roundTrip.isInitialized()
+			&& !roundTrip.state
+			&& std::abs(roundTrip.referenceLevel - 75.5f) < 1.0e-6f
+			&& std::abs(roundTrip.referenceOffset + 2.25f) < 1.0e-6f
+			&& std::abs(roundTrip.attenuation - 0.75f) < 1.0e-6f
+			&& roundTrip.useManualVolume
+			&& std::abs(roundTrip.manualVolume + 24.5f) < 1.0e-6f;
+
+		LoudnessCorrectionFilter::FilterParameters commaDecimal(std::wstring(
+			L"Schema 1 Model FormulaLoudnessV1 State 0 ReferenceLevel 75,5 "
+			L"ReferenceOffset -2,25 Attenuation 0,75 Volume -24,5"));
+		passed = commaDecimal.isInitialized()
+			&& !commaDecimal.state
+			&& std::abs(commaDecimal.referenceLevel - 75.5f) < 1.0e-6f
+			&& std::abs(commaDecimal.referenceOffset + 2.25f) < 1.0e-6f
+			&& std::abs(commaDecimal.attenuation - 0.75f) < 1.0e-6f
+			&& commaDecimal.useManualVolume
+			&& std::abs(commaDecimal.manualVolume + 24.5f) < 1.0e-6f
+			&& passed;
+
+		LoudnessCorrectionFilter::FilterParameters releasedFormula(std::wstring(
+			L"State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1"));
+		passed = releasedFormula.isInitialized() && passed;
+
+		LoudnessCorrectionFilter::FilterParameters mixomoLegacy(std::wstring(
+			L"State 1 ReferenceLevel 0 ReferenceOffset 0 Attenuation 1"));
+		LoudnessCorrectionFilter::FilterParameters unknownModel(std::wstring(
+			L"Schema 2 Model FutureLoudness State 1 ReferenceLevel 80 "
+			L"ReferenceOffset 0 Attenuation 1"));
+		LoudnessCorrectionFilter::FilterParameters truncated(std::wstring(
+			L"Schema 1 Model FormulaLoudnessV1 State 1 ReferenceLevel 80"));
+		passed = !mixomoLegacy.isInitialized()
+			&& !unknownModel.isInitialized()
+			&& !truncated.isInitialized()
+			&& passed;
+
+		printf("Loudness parameter codec: %s\n", passed ? "passed" : "failed");
+		return passed;
+	}
+
+	bool runLoudnessTransitionCase(
+		const char* name,
+		unsigned sampleRate,
+		double frequency,
+		double initialVolume,
+		double targetVolume)
+	{
+		const unsigned batchSize = 256;
+		const unsigned switchFrame = sampleRate * 2;
+		const unsigned totalFrames = sampleRate * 4;
+		LoudnessCorrectionFilter::FilterParameters parameters;
+		parameters.state = true;
+		parameters.referenceLevel = 80.0f;
+		parameters.referenceOffset = 0.0f;
+		parameters.attenuation = 1.0f;
+		parameters.useManualVolume = true;
+		parameters.manualVolume = static_cast<float>(initialVolume);
+
+		LoudnessCorrectionFilter filter(parameters);
+		vector<wstring> channels(1, L"C");
+		filter.initialize(static_cast<float>(sampleRate), batchSize, channels);
+
+		double inputStorage[batchSize];
+		double outputStorage[batchSize];
+		double* inputChannels[] = { inputStorage };
+		double* outputChannels[] = { outputStorage };
+		double maximumOutput = 0.0;
+		unsigned frame = 0;
+		while (frame < totalFrames)
+		{
+			if (frame == switchFrame)
+			{
+				LoudnessCorrectionFilterTestAccess::publishVolumeUpdate(
+					filter, targetVolume);
+			}
+
+			unsigned frameCount = (std::min)(batchSize, totalFrames - frame);
+			if (frame < switchFrame && frame + frameCount > switchFrame)
+				frameCount = switchFrame - frame;
+
+			for (unsigned index = 0; index < frameCount; ++index)
+			{
+				double time = static_cast<double>(frame + index) /
+					static_cast<double>(sampleRate);
+				inputStorage[index] = std::sin(2.0 * M_PI * frequency * time);
+				outputStorage[index] = 0.0;
+			}
+			filter.process(outputChannels, inputChannels, frameCount);
+			for (unsigned index = 0; index < frameCount; ++index)
+			{
+				double magnitude = std::abs(outputStorage[index]);
+				if (!std::isfinite(magnitude))
+				{
+					fprintf(stderr, "%s produced a non-finite sample.\n", name);
+					return false;
+				}
+				maximumOutput = (std::max)(maximumOutput, magnitude);
+			}
+			frame += frameCount;
+		}
+
+		printf("Loudness transition %s: maximum output %.9f\n", name, maximumOutput);
+		if (maximumOutput > 1.000001)
+		{
+			fprintf(stderr, "%s exceeded full scale.\n", name);
+			return false;
+		}
+		return true;
+	}
+
+	bool runLoudnessRecoveryCase()
+	{
+		const unsigned sampleRate = 8000;
+		const unsigned batchSize = 256;
+		const unsigned warmupFrames = sampleRate / 10;
+		LoudnessCorrectionFilter::FilterParameters parameters;
+		parameters.state = true;
+		parameters.referenceLevel = 80.0f;
+		parameters.referenceOffset = 0.0f;
+		parameters.attenuation = 1.0f;
+		parameters.useManualVolume = true;
+		parameters.manualVolume = -100.0f;
+
+		LoudnessCorrectionFilter filter(parameters);
+		vector<wstring> channels(1, L"C");
+		filter.initialize(static_cast<float>(sampleRate), batchSize, channels);
+
+		double inputStorage[batchSize];
+		double outputStorage[batchSize];
+		double* inputChannels[] = { inputStorage };
+		double* outputChannels[] = { outputStorage };
+		unsigned absoluteFrame = 0;
+		auto processFrames = [&](unsigned frameCount, bool requirePassthrough,
+			double& maximumOutput, double& deviation)
+		{
+			for (unsigned index = 0; index < frameCount; ++index)
+			{
+				double time = static_cast<double>(absoluteFrame + index) /
+					static_cast<double>(sampleRate);
+				inputStorage[index] = std::sin(2.0 * M_PI * 20.0 * time);
+				outputStorage[index] = 0.0;
+			}
+			filter.process(outputChannels, inputChannels, frameCount);
+			for (unsigned index = 0; index < frameCount; ++index)
+			{
+				double magnitude = std::abs(outputStorage[index]);
+				maximumOutput = (std::max)(maximumOutput, magnitude);
+				double difference = std::abs(outputStorage[index] - inputStorage[index]);
+				deviation += difference;
+				if (requirePassthrough && difference > 1.0e-12)
+					return false;
+			}
+			absoluteFrame += frameCount;
+			return true;
+		};
+
+		double maximumOutput = 0.0;
+		double ignoredDeviation = 0.0;
+		for (unsigned remaining = sampleRate; remaining > 0;)
+		{
+			unsigned count = (std::min)(batchSize, remaining);
+			if (!processFrames(count, false, maximumOutput, ignoredDeviation))
+				return false;
+			remaining -= count;
+		}
+
+		LoudnessCorrectionFilterTestAccess::beginRuntimeBypass(filter);
+		for (unsigned remaining = sampleRate / 5; remaining > 0;)
+		{
+			unsigned count = (std::min)(batchSize, remaining);
+			if (!processFrames(count, true, maximumOutput, ignoredDeviation))
+			{
+				fprintf(stderr, "Runtime bypass was not bit-transparent.\n");
+				return false;
+			}
+			remaining -= count;
+		}
+
+		LoudnessCorrectionFilterTestAccess::publishRuntimeRecovery(filter, -100.0);
+		double settledDeviation = 0.0;
+		unsigned recoveryFrame = 0;
+		const unsigned recoveryFrames = sampleRate * 2 / 5;
+		while (recoveryFrame < recoveryFrames)
+		{
+			unsigned count = (std::min)(batchSize, recoveryFrames - recoveryFrame);
+			bool requirePassthrough = recoveryFrame + count <= warmupFrames;
+			double& deviation = recoveryFrame >= sampleRate / 4 ?
+				settledDeviation : ignoredDeviation;
+			if (!processFrames(count, requirePassthrough, maximumOutput, deviation))
+			{
+				fprintf(stderr, "Runtime recovery warm-up was not passthrough.\n");
+				return false;
+			}
+			recoveryFrame += count;
+		}
+
+		printf("Loudness runtime recovery: maximum output %.9f\n", maximumOutput);
+		if (maximumOutput > 1.000001 || settledDeviation <= 1.0e-3)
+		{
+			fprintf(stderr,
+				"Runtime recovery clipped or did not return to corrected output.\n");
+			return false;
+		}
+		return true;
+	}
+
+	int runLoudnessTransitionTests()
+	{
+		bool passed = runLoudnessFormulaTests();
+		passed = runLoudnessParameterCodecTests() && passed;
+		passed = runLoudnessTransitionCase(
+			"8k-minus100-to-0", 8000, 20.0, -100.0, 0.0) && passed;
+		passed = runLoudnessTransitionCase(
+			"8k-0-to-minus100", 8000, 20.0, 0.0, -100.0) && passed;
+		passed = runLoudnessTransitionCase(
+			"48k-inter-bin", 48000, 20.216, -40.0, 0.0) && passed;
+		passed = runLoudnessRecoveryCase() && passed;
+		return passed ? 0 : 1;
+	}
+}
 
 int main(int argc, char** argv)
 {
@@ -52,6 +344,10 @@ int main(int argc, char** argv)
 
 		TCLAP::SwitchArg noPauseArg("", "nopause", "Do not wait for key press at the end", cmd);
 		TCLAP::SwitchArg verboseArg("v", "verbose", "Print trace and error messages to console instead of logfile", cmd);
+		TCLAP::SwitchArg loudnessTransitionTestArg(
+			"", "loudness-transition-test",
+			"Run native loudness coefficient-transition safety regressions", cmd);
+		TCLAP::ValueArg<string> configArg("", "config", "Configuration file to load instead of the installed config.txt", false, "", "path", cmd);
 		TCLAP::ValueArg<string> guidArg("", "guid", "Endpoint GUID to use when parsing configuration (Default: <empty>)", false, "", "string", cmd);
 		TCLAP::ValueArg<string> connectionnameArg("", "connectionname", "Connection name to use when parsing configuration (Default: File output)", false, "File output", "string", cmd);
 		TCLAP::ValueArg<string> devicenameArg("", "devicename", "Device name to use when parsing configuration (Default: Benchmark)", false, "Benchmark", "string", cmd);
@@ -68,6 +364,8 @@ int main(int argc, char** argv)
 
 		bool verbose = verboseArg.getValue();
 		LogHelper::set(stderr, verbose, true, true);
+		if (loudnessTransitionTestArg.getValue())
+			return runLoudnessTransitionTests();
 #ifdef _DEBUG
 		_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 		// _CrtSetBreakAlloc(3318);
@@ -165,8 +463,9 @@ int main(int argc, char** argv)
 			wstring deviceName = StringHelper::toWString(devicenameArg.getValue(), CP_ACP);
 			wstring connectionName = StringHelper::toWString(connectionnameArg.getValue(), CP_ACP);
 			wstring deviceGuid = StringHelper::toWString(guidArg.getValue(), CP_ACP);
+			wstring customConfigPath = StringHelper::toWString(configArg.getValue(), CP_ACP);
 			engine.setDeviceInfo(false, true, deviceName, connectionName, deviceGuid, deviceName + L" " + connectionName + L" " + deviceGuid);
-			engine.initialize((float)sampleRate, channelCount, channelCount, channelCount, channelMask, batchsize);
+			engine.initialize((float)sampleRate, channelCount, channelCount, channelCount, channelMask, batchsize, customConfigPath);
 
 			double initTime = timer.stop();
 			if (!verbose)

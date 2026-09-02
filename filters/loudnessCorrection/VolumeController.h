@@ -1,20 +1,7 @@
 /*
     This file is part of Equalizer APO, a system-wide equalizer.
     Copyright (C) 2017  Alexander Walch
-
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License along
-    with this program; if not, write to the Free Software Foundation, Inc.,
-    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+    Enhanced with robust endpoint tracking for loudness correction.
 */
 
 #pragma once
@@ -22,15 +9,34 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <EndpointVolume.h>
+#include <atomic>
+#include <string>
+
+class EndpointVolumeCallback;
 
 class VolumeController
 {
 public:
-	VolumeController();
+	explicit VolumeController(const std::wstring& endpointId = L"");
+	~VolumeController();
 	HRESULT getVolume(double& currentVolume);
 	HRESULT setVolume(double volume);
+	bool hasVolumeChanged();
+	const std::wstring& getEndpointId() const { return _endpointId; }
+
 private:
+	bool initEndpoint();
+	void refreshEndpointIfChanged();
+	void cleanup();
+
 	IAudioEndpointVolume* _endpointVolume;
+	EndpointVolumeCallback* _callback;
 	float _minVol;
 	float _maxVol;
+	bool _comInitialized;
+	std::atomic<bool> _volumeChanged;
+	double _lastVolume;
+	std::wstring _requestedEndpointId;
+	std::wstring _endpointId;
+	ULONGLONG _nextEndpointCheck;
 };

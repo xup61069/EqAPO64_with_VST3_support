@@ -19,10 +19,11 @@
 
 #pragma once
 
+#include <algorithm>
 #include <regex>
 #include <string>
 #include <vector>
-#include <helpers/StringHelper.h>
+#include "../../helpers/StringHelper.h"
 
 template<typename type> struct to_WString_type_traits
 {
@@ -66,12 +67,20 @@ template<typename type> struct from_WString_type_traits
 
 template<> struct from_WString_type_traits<float>
 {
-	static inline float cast_fromWString(const std::wstring& input) {return (float)wcstod(input.c_str(), NULL);}
+	static inline float cast_fromWString(std::wstring input)
+	{
+		std::replace(input.begin(), input.end(), L',', L'.');
+		return (float)wcstod(input.c_str(), NULL);
+	}
 };
 
 template<> struct from_WString_type_traits<double>
 {
-	static inline double cast_fromWString(const std::wstring& input) {return wcstod(input.c_str(), NULL);}
+	static inline double cast_fromWString(std::wstring input)
+	{
+		std::replace(input.begin(), input.end(), L',', L'.');
+		return wcstod(input.c_str(), NULL);
+	}
 };
 
 template<> struct from_WString_type_traits<int>
@@ -103,8 +112,11 @@ template<> struct constructor_traits<std::vector<char>>
 {
 	static inline std::wstring initFrom(std::vector<char> input)
 	{
-		input.push_back(0);
-		std::string tempParams(&input[0]);
+		if (input.empty())
+			return std::wstring();
+
+		auto terminator = std::find(input.begin(), input.end(), '\0');
+		std::string tempParams(input.begin(), terminator);
 		return to_WString_type_traits<std::string>::cast_ToWString(tempParams);
 	}
 };
@@ -123,10 +135,8 @@ public:
 
 	std::vector<char> getSerializedParameters()
 	{
-		size_t noBytes = _serializedParamters.length() * sizeof(std::wstring);
-		std::vector<char> outputParameter(noBytes);
-		CopyMemory(&outputParameter[0], reinterpret_cast<char*>(&_serializedParamters[0]), noBytes);
-		return outputParameter;
+		std::string serialized = StringHelper::toString(_serializedParamters, CP_ACP);
+		return std::vector<char>(serialized.begin(), serialized.end());
 	}
 
 	template<typename T, typename U> void add(const T& parameter, const U& name)

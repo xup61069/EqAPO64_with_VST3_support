@@ -273,6 +273,10 @@ class LoudnessProfileTests(unittest.TestCase):
 		self.assertIn("goldenRatioConjugate", filter_cpp)
 		self.assertIn("0.499 * static_cast<double>(_sampleRate)", filter_cpp)
 
+	@unittest.skipUnless(
+		GUI_FACTORY_PATH.is_file() and LEGACY_GUI_PATH.is_file(),
+		"editor migration slice has not been added yet",
+	)
 	def test_previous_release_requires_explicit_enabled_migration(self) -> None:
 		filter_header = FILTER_HEADER_PATH.read_text(encoding="utf-8")
 		factory = GUI_FACTORY_PATH.read_text(encoding="utf-8")

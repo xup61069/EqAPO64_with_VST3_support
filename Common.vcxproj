@@ -328,6 +328,7 @@
     <ClInclude Include="filters\IIRFilterFactory.h" />
     <ClInclude Include="filters\IncludeFilterFactory.h" />
     <ClInclude Include="filters\loudnessCorrection\LoudnessCorrectionFilterFactory.h" />
+    <ClInclude Include="filters\loudnessCorrection\LoudnessProfile.h" />
     <ClInclude Include="filters\loudnessCorrection\LoudnessCorrectionFilter.h" />
     <ClInclude Include="filters\loudnessCorrection\ParameterArchive.h" />
     <ClInclude Include="filters\loudnessCorrection\VolumeController.h" />

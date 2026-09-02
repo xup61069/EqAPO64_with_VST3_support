@@ -138,6 +138,9 @@
     <ClInclude Include="filters\loudnessCorrection\LoudnessCorrectionFilterFactory.h">
       <Filter>filters\loudnessCorrection</Filter>
     </ClInclude>
+    <ClInclude Include="filters\loudnessCorrection\LoudnessProfile.h">
+      <Filter>filters\loudnessCorrection</Filter>
+    </ClInclude>
     <ClInclude Include="filters\loudnessCorrection\LoudnessCorrectionFilter.h">
       <Filter>filters\loudnessCorrection</Filter>
     </ClInclude>

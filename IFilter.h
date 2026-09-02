@@ -24,6 +24,12 @@
 
 #include "helpers/MemoryHelper.h"
 
+struct FilterRuntimeContext
+{
+	bool isCapture = false;
+	std::wstring endpointId;
+};
+
 #pragma AVRT_VTABLES_BEGIN
 class IFilter
 {
@@ -36,6 +42,9 @@ public:
 	virtual bool getInPlace() {return true;}
 	// request that the channelNames returned by initialize become the new selection
 	virtual bool getSelectChannels() {return false;}
+	// Called before initialize(). Filters that do not depend on device identity
+	// can keep the default no-op implementation.
+	virtual void setRuntimeContext(const FilterRuntimeContext& context) {(void)context;}
 	// return value is the channelNames vector, which may contain additional or fewer channel names
 	virtual std::vector<std::wstring> initialize(float sampleRate, unsigned maxFrameCount, std::vector<std::wstring> channelNames) = 0;
 	virtual void process(double** output, double** input, unsigned frameCount) = 0;

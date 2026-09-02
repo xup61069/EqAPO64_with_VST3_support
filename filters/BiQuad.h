@@ -34,7 +34,15 @@ public:
 		LOW_PASS, HIGH_PASS, BAND_PASS, NOTCH, ALL_PASS, PEAKING, LOW_SHELF, HIGH_SHELF
 	};
 
-	BiQuad() {}
+	BiQuad()
+		: a{ 0.0, 0.0, 0.0, 0.0 },
+		  a0(1.0),
+		  x1(0.0),
+		  x2(0.0),
+		  y1(0.0),
+		  y2(0.0)
+	{
+	}
 	BiQuad(Type type, double dbGain, double freq, double srate, double bandwidthOrQOrS, bool isBandwidthOrS);
 
 	__forceinline
@@ -48,6 +56,15 @@ public:
 			y1 = 0.0;
 		if (IS_DENORMAL(y2))
 			y2 = 0.0;
+	}
+
+	__forceinline
+	void resetState()
+	{
+		x1 = 0.0;
+		x2 = 0.0;
+		y1 = 0.0;
+		y2 = 0.0;
 	}
 
 	__forceinline

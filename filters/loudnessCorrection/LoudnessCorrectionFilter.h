@@ -1,110 +1,237 @@
 /*
     This file is part of Equalizer APO, a system-wide equalizer.
     Copyright (C) 2017  Alexander Walch
+    Copyright (C) 2026  Equalizer APO contributors
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License along
-    with this program; if not, write to the Free Software Foundation, Inc.,
-    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
 #pragma once
 
+#include "LoudnessProfile.h"
 #include "ParameterArchive.h"
 #include <IFilter.h>
 #include <filters/BiQuad.h>
 
+#include <algorithm>
+#include <atomic>
+#include <cmath>
 #include <regex>
-#include <sstream>
+#include <vector>
 
 #pragma AVRT_VTABLES_BEGIN
 class LoudnessCorrectionFilter : public IFilter
 {
 public:
+	static const size_t NUM_BANDS = LoudnessProfile::FREQUENCY_COUNT;
+
 	struct FilterParameters
 	{
 		bool state;
 		float referenceLevel;
 		float referenceOffset;
 		float attenuation;
+		float manualVolume;
+		bool useManualVolume;
+
 		std::vector<char> serialize()
 		{
-			ParameterArchive archive; // possibility to get string from name of variable: std::string name=NAME(on);
+			ParameterArchive archive;
+			archive.add(1, L"Schema");
+			archive.add(std::wstring(L"FormulaLoudnessV1"), L"Model");
 			archive.add(state, L"State");
 			archive.add(referenceLevel, L"ReferenceLevel");
 			archive.add(referenceOffset, L"ReferenceOffset");
 			archive.add(attenuation, L"Attenuation");
+			if (useManualVolume)
+				archive.add(manualVolume, L"Volume");
 			return archive.getSerializedParameters();
 		}
+
 		template<typename T> bool deSerialize(const T& parameters)
 		{
 			ParameterArchive archive(parameters);
-			int error(0);
-			error += archive.get(state, std::wregex(L"\\s*State\\s+(0|1)"));
-			error += archive.get(referenceLevel, std::wregex(L"\\s*ReferenceLevel\\s+([-+0-9]+)"));
-			error += archive.get(referenceOffset, std::wregex(L"\\s*ReferenceOffset\\s+([-+0-9]+)"));
-			// attenuation is only an optional parameter
-			int errorAtt = archive.get(attenuation, std::wregex(L"\\s*Attenuation\\s+((1((\\.|,)0+)?)|(0((\\.|,)[0-9]+)?))"));
-			if (errorAtt > 0)
-			{
-				attenuation = 1.0;
-			}
-			return error == 0 ? false : true;
+			const bool hasSchemaToken = archive.find(std::wregex(
+				L"(?:^|\\s)Schema\\s+", std::regex_constants::icase));
+			const bool hasModelToken = archive.find(std::wregex(
+				L"(?:^|\\s)Model\\s+", std::regex_constants::icase));
+			const bool isFormulaSchema = archive.find(std::wregex(
+				L"(?:^|\\s)Schema\\s+1(?=\\s|$)", std::regex_constants::icase));
+			const bool isFormulaModel = archive.find(std::wregex(
+				L"(?:^|\\s)Model\\s+FormulaLoudnessV1(?=\\s|$)",
+				std::regex_constants::icase));
+
+			// A marker must be complete and recognized. This prevents a future or
+			// unrelated model from being silently interpreted as this formula.
+			if ((hasSchemaToken || hasModelToken) && !(isFormulaSchema && isFormulaModel))
+				return true;
+
+			int error = 0;
+			error += archive.get(state, std::wregex(
+				L"(?:^|\\s)State\\s+(0|1)(?=\\s|$)", std::regex_constants::icase));
+			error += archive.get(referenceLevel,
+				std::wregex(L"(?:^|\\s)ReferenceLevel\\s+([-+]?(?:[0-9]+(?:[\\.,][0-9]*)?|[\\.,][0-9]+))(?=\\s|$)",
+					std::regex_constants::icase));
+			error += archive.get(referenceOffset,
+				std::wregex(L"(?:^|\\s)ReferenceOffset\\s+([-+]?(?:[0-9]+(?:[\\.,][0-9]*)?|[\\.,][0-9]+))(?=\\s|$)",
+					std::regex_constants::icase));
+
+			// Attenuation and Volume are optional for backward compatibility.
+			int attenuationError = archive.get(attenuation,
+				std::wregex(L"(?:^|\\s)Attenuation\\s+([-+]?(?:[0-9]+(?:[\\.,][0-9]*)?|[\\.,][0-9]+))(?=\\s|$)",
+					std::regex_constants::icase));
+			if (attenuationError != 0)
+				attenuation = 1.0f;
+
+			int volumeError = archive.get(manualVolume,
+				std::wregex(L"(?:^|\\s)Volume\\s+([-+]?(?:[0-9]+(?:[\\.,][0-9]*)?|[\\.,][0-9]+))(?=\\s|$)",
+					std::regex_constants::icase));
+			useManualVolume = volumeError == 0;
+			if (!useManualVolume)
+				manualVolume = 0.0f;
+
+			if (error != 0)
+				return true;
+
+			// The original Mixomo filter used non-positive ReferenceLevel values
+			// with a different meaning. Unmarked positive values are accepted for
+			// compatibility with the previously released formula build, but legacy
+			// values are rejected so the runtime stays bit-transparent until the
+			// editor performs an explicit conversion.
+			if (referenceLevel <= 0.0f)
+				return true;
+
+			normalize();
+			return false;
 		}
+
 		FilterParameters()
-			: _isInitialized(false) {};
+			: state(true),
+			  referenceLevel(80.0f),
+			  referenceOffset(0.0f),
+			  attenuation(1.0f),
+			  manualVolume(0.0f),
+			  useManualVolume(false),
+			  _isInitialized(false)
+		{
+		}
+
 		template<typename T> FilterParameters(T input)
+			: state(true),
+			  referenceLevel(80.0f),
+			  referenceOffset(0.0f),
+			  attenuation(1.0f),
+			  manualVolume(0.0f),
+			  useManualVolume(false),
+			  _isInitialized(false)
 		{
 			_isInitialized = !deSerialize<T>(input);
 		}
-		bool isInitialized()
+
+		bool isInitialized() const
 		{
 			return _isInitialized;
 		}
-private:
+
+	private:
+		void normalize()
+		{
+			if (!std::isfinite(referenceLevel) || referenceLevel <= 0.0f)
+				referenceLevel = 1.0f;
+			referenceLevel = (std::max)(1.0f, (std::min)(100.0f, referenceLevel));
+
+			if (!std::isfinite(referenceOffset))
+				referenceOffset = 0.0f;
+			referenceOffset = (std::max)(-100.0f, (std::min)(100.0f, referenceOffset));
+
+			if (!std::isfinite(attenuation))
+				attenuation = 1.0f;
+			attenuation = (std::max)(0.0f, (std::min)(1.0f, attenuation));
+
+			if (!std::isfinite(manualVolume))
+				manualVolume = 0.0f;
+			manualVolume = (std::max)(-100.0f, (std::min)(0.0f, manualVolume));
+		}
+
 		bool _isInitialized;
 	};
 
-	LoudnessCorrectionFilter(const FilterParameters& fParameters);
+	struct BiquadCoeffs
+	{
+		double b0;
+		double b1;
+		double b2;
+		double a1;
+		double a2;
+	};
+
+	explicit LoudnessCorrectionFilter(const FilterParameters& fParameters);
 	virtual ~LoudnessCorrectionFilter();
-	virtual bool getInPlace() {return true;}
-	virtual std::vector<std::wstring> initialize(float sampleRate, unsigned maxFrameCount, std::vector<std::wstring> channelNames);
+	virtual bool getInPlace() { return true; }
+	virtual void setRuntimeContext(const FilterRuntimeContext& context) { _runtimeContext = context; }
+	virtual std::vector<std::wstring> initialize(
+		float sampleRate,
+		unsigned maxFrameCount,
+		std::vector<std::wstring> channelNames);
 	virtual void process(double** output, double** input, unsigned frameCount);
 
 private:
-	void getLShelfParamter(const double& volume, double& frequence, double& q, double& gain, double& preAmp);
-	void getHShelfParamter(const double& volume, double& frequence, double& q, double& gain);
-	void upDateBiquadCoefficients(const double& freq, const double& bandwidthOrQOrS, const double& dbGain, bool highshelf);
-	bool upDateNeutral();
+	friend class LoudnessCorrectionFilterTestAccess;
+
+	static const unsigned UPDATE_POLL_INTERVAL_MS = 50;
+	static const unsigned FALLBACK_POLL_INTERVAL_MS = 1000;
+	static constexpr double FILTER_Q = 3.0;
+	static constexpr double PI = 3.1415926535897932384626433832795;
+	static constexpr double MAX_FILTER_GAIN_DB = 48.0;
+	static constexpr double HEADROOM_MARGIN_DB = 1.0;
+	static constexpr double COEFFICIENT_CROSSFADE_SECONDS = 0.1;
+	static const unsigned FIT_ITERATIONS = 4;
+	static const unsigned RESPONSE_SCAN_POINTS = 4097;
+	static const unsigned RESPONSE_REFINEMENT_ITERATIONS = 32;
+
+	void computeResponseInverse();
+	void calculateBandGains(
+		double currentVolumeDb,
+		std::vector<double>& outGains,
+		double& outputGainLinear) const;
+	double calculateHeadroomGain(const std::vector<double>& gains) const;
+	void publishVolumeUpdate(double currentVolumeDb, std::vector<double>& scratchGains);
+	void computeBiquadCoeffs(size_t bandIndex, double gainDb, BiquadCoeffs& coeffs) const;
+	double biquadResponseDb(size_t bandIndex, double gainDb, double frequency) const;
+
+	static unsigned long __stdcall parameterUpdateThread(void* parameter);
 
 	void* _parameterUpdateThreadHandle;
-	static unsigned long __stdcall parameterUpdateThread(void* parameter);
 	void* _stopParameterUpdateThreadEvent;
-	void* _parameterchangedEvent;
 	CRITICAL_SECTION _parameterUpdateSection;
 
 	FilterParameters _parameters;
+	FilterRuntimeContext _runtimeContext;
+	std::atomic<bool> _runtimeBypass;
+	std::atomic<bool> _recoveryPending;
 	size_t _channelCount;
+	size_t _activeBandCount;
 	float _sampleRate;
-	double _attFactor;
-	std::vector<BiQuad> _lowShelfBiquads;
-	std::vector<BiQuad> _highShelfBiquads;
 
-	bool _neutral;
-	bool _neutralUpDate;
-	double _tempResult;
-	double _aLS[4];
-	double _a0LS;
-	double _aHS[4];
-	double _a0HS;
+	// Both banks are allocated during initialize(). A new bank starts with
+	// cleared state, warms silently, and then crossfades without allocating.
+	std::vector<std::vector<BiQuad>> _biquadBanks[2]; // [bank][channel][band]
+	size_t _activeBankIndex;
+	size_t _transitionBankIndex;
+	unsigned _warmupPosition;
+	unsigned _crossfadePosition;
+	unsigned _crossfadeLength;
+	bool _warmupActive;
+	bool _crossfadeActive;
+	bool _transitionFromBypass;
+	double _inverseResponseMatrix[NUM_BANDS][NUM_BANDS];
+	BiquadCoeffs _pendingCoeffs[NUM_BANDS];
+	double _outputGainLinear;
+	double _targetOutputGainLinear;
+	double _pendingOutputGainLinear;
+	std::atomic<bool> _coeffsUpdated;
 };
 #pragma AVRT_VTABLES_END

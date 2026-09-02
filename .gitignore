@@ -263,3 +263,7 @@ paket-files/
 # JetBrains Rider
 .idea/
 *.sln.iml
+
+# Python test caches
+__pycache__/
+*.py[cod]

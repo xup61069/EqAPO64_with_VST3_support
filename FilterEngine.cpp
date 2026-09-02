@@ -62,20 +62,27 @@ using namespace std;
 using namespace mup;
 
 FilterEngine::FilterEngine()
-	: parser(nullptr),
-      allocatedFrameCount(0),
+	: allocatedFrameCount(0),
 	  preMix(false),
 	  capture(false),
 	  postMixInstalled(true),
+	  sampleRate(0.0f),
 	  inputChannelCount(0),
-      realChannelCount(0),
-      outputChannelCount(0),
-	  lastInputWasSilent(false),
-	  threadHandle(nullptr),
+	  realChannelCount(0),
+	  outputChannelCount(0),
+	  channelMask(0),
+	  maxFrameCount(0),
+	  lastInPlace(true),
+	  parser(nullptr),
 	  currentConfig(nullptr),
 	  nextConfig(nullptr),
 	  previousConfig(nullptr),
-	  transitionCounter(0)
+	  transitionCounter(0),
+	  transitionLength(0),
+	  loadSemaphore(NULL),
+	  threadHandle(NULL),
+	  shutdownEvent(NULL),
+	  lastInputWasSilent(false)
 {
 	InitializeCriticalSection(&loadSection);
 	loadSemaphore = CreateSemaphore(NULL, 1, 1, NULL);
@@ -120,7 +127,8 @@ FilterEngine::~FilterEngine()
 		delete factory;
 
 	delete parser;
-	CloseHandle(loadSemaphore);
+	if (loadSemaphore != NULL)
+		CloseHandle(loadSemaphore);
 	DeleteCriticalSection(&loadSection);
 }
 
@@ -196,15 +204,24 @@ void FilterEngine::initialize(float sampleRate, unsigned inputChannelCount, unsi
 	vector<wstring> channelNames = ChannelHelper::getChannelNames(deviceChannelCount, channelMask);
 	TraceF(L"%d channels for this device: %s", deviceChannelCount, StringHelper::join(channelNames, L" ").c_str());
 
-	try
+	if (customPath.empty())
 	{
-		configPath = RegistryHelper::readValue(APP_REGPATH, L"ConfigPath");
+		try
+		{
+			configPath = RegistryHelper::readValue(APP_REGPATH, L"ConfigPath");
+		}
+		catch (RegistryException e)
+		{
+			LogF(L"Can't read config path because of: %s", e.getMessage().c_str());
+			LeaveCriticalSection(&loadSection);
+			return;
+		}
 	}
-	catch (RegistryException e)
+	else
 	{
-		LogF(L"Can't read config path because of: %s", e.getMessage().c_str());
-		LeaveCriticalSection(&loadSection);
-		return;
+		// A custom file is used by Benchmark and tests. It must also work on a
+		// clean machine where Equalizer APO has not written ConfigPath yet.
+		configPath.clear();
 	}
 
 	parser->ClearConst();
@@ -223,18 +240,32 @@ void FilterEngine::initialize(float sampleRate, unsigned inputChannelCount, unsi
 		factory->initialize(this);
 	}
 
-	if (configPath != L"")
+	if (!customPath.empty() || !configPath.empty())
 	{
 		loadConfig(customPath);
 
 		if (threadHandle == NULL && customPath.empty())
 		{
 			shutdownEvent = CreateEventW(NULL, true, false, NULL);
-			threadHandle = CreateThread(NULL, 0, notificationThread, this, 0, NULL);
-			if (threadHandle == INVALID_HANDLE_VALUE)
-				threadHandle = NULL;
+			if (shutdownEvent == NULL)
+			{
+				LogF(L"Could not create the configuration notification shutdown event: %s",
+					StringHelper::getSystemErrorString(GetLastError()).c_str());
+			}
 			else
+			{
+				threadHandle = CreateThread(NULL, 0, notificationThread, this, 0, NULL);
+			}
+			if (threadHandle != NULL)
 				TraceF(L"Successfully created directory change notification thread %d for %s and its subtree", GetThreadId(threadHandle), configPath.c_str());
+			else if (shutdownEvent != NULL)
+			{
+				DWORD error = GetLastError();
+				LogF(L"Could not create the configuration notification thread: %s",
+					StringHelper::getSystemErrorString(error).c_str());
+				CloseHandle(shutdownEvent);
+				shutdownEvent = NULL;
+			}
 		}
 	}
 	LeaveCriticalSection(&loadSection);
@@ -256,6 +287,7 @@ void FilterEngine::loadConfig(const wstring& customPath)
 	currentChannelNames = allChannelNames;
 	lastChannelNames.clear();
 	lastNewChannelNames.clear();
+	lastInPlace = true;
 	watchRegistryKeys.clear();
 	parser->ClearVar();
 
@@ -656,6 +688,11 @@ void FilterEngine::addFilters(vector<IFilter*> filters)
 	for (vector<IFilter*>::iterator it = filters.begin(); it != filters.end(); it++)
 	{
 		IFilter* filter = *it;
+		FilterRuntimeContext runtimeContext;
+		runtimeContext.isCapture = capture;
+		if (!deviceGuid.empty())
+			runtimeContext.endpointId = deviceGuid;
+		filter->setRuntimeContext(runtimeContext);
 		FilterInfo* filterInfo = (FilterInfo*)MemoryHelper::alloc(sizeof(FilterInfo));
 		filterInfo->filter = filter;
 		filterInfo->inPlace = filter->getInPlace();
@@ -753,12 +790,27 @@ void FilterEngine::cleanupConfigurations()
 unsigned long __stdcall FilterEngine::notificationThread(void* parameter)
 {
 	FilterEngine* engine = (FilterEngine*)parameter;
+	if (engine == NULL || engine->shutdownEvent == NULL || engine->loadSemaphore == NULL)
+		return ERROR_INVALID_HANDLE;
 
 	HANDLE notificationHandle = FindFirstChangeNotificationW(engine->configPath.c_str(), true, FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE);
 	if (notificationHandle == INVALID_HANDLE_VALUE)
-		notificationHandle = NULL;
+	{
+		DWORD error = GetLastError();
+		LogFStatic(L"Could not watch the configuration directory %s: %s",
+			engine->configPath.c_str(), StringHelper::getSystemErrorString(error).c_str());
+		return error;
+	}
 
 	HANDLE registryEvent = CreateEventW(NULL, true, false, NULL);
+	if (registryEvent == NULL)
+	{
+		DWORD error = GetLastError();
+		LogFStatic(L"Could not create the registry notification event: %s",
+			StringHelper::getSystemErrorString(error).c_str());
+		FindCloseChangeNotification(notificationHandle);
+		return error;
+	}
 
 	HANDLE handles[3] = {engine->shutdownEvent, notificationHandle, registryEvent};
 	while (true)
@@ -785,31 +837,58 @@ unsigned long __stdcall FilterEngine::notificationThread(void* parameter)
 			RegCloseKey(*it);
 		}
 
+		if (which == WAIT_FAILED)
+		{
+			LogFStatic(L"Configuration notification wait failed: %s",
+				StringHelper::getSystemErrorString(GetLastError()).c_str());
+			break;
+		}
 		if (which == WAIT_OBJECT_0)
 		{
 			// Shutdown
 			break;
 		}
-		else
+		else if (which == WAIT_OBJECT_0 + 1 || which == WAIT_OBJECT_0 + 2)
 		{
 			if (which == WAIT_OBJECT_0 + 1)
 			{
-				FindNextChangeNotification(notificationHandle);
+				if (!FindNextChangeNotification(notificationHandle))
+				{
+					LogFStatic(L"Could not rearm the configuration directory notification: %s",
+						StringHelper::getSystemErrorString(GetLastError()).c_str());
+					break;
+				}
 				// Wait for second event within 10 milliseconds to avoid loading twice
-				WaitForMultipleObjects(1, &notificationHandle, false, 10);
+				if (WaitForSingleObject(notificationHandle, 10) == WAIT_OBJECT_0
+					&& !FindNextChangeNotification(notificationHandle))
+				{
+					LogFStatic(L"Could not rearm the configuration directory notification: %s",
+						StringHelper::getSystemErrorString(GetLastError()).c_str());
+					break;
+				}
 			}
 
-			HANDLE handles[2] = {engine->shutdownEvent, engine->loadSemaphore};
-			DWORD which = WaitForMultipleObjects(2, handles, false, INFINITE);
-			if (which == WAIT_OBJECT_0)
+			HANDLE loadHandles[2] = {engine->shutdownEvent, engine->loadSemaphore};
+			DWORD loadWait = WaitForMultipleObjects(2, loadHandles, false, INFINITE);
+			if (loadWait == WAIT_OBJECT_0)
 			{
 				// Shutdown
 				break;
 			}
+			if (loadWait != WAIT_OBJECT_0 + 1)
+			{
+				LogFStatic(L"Configuration reload wait failed: %s",
+					StringHelper::getSystemErrorString(GetLastError()).c_str());
+				break;
+			}
 
 			engine->loadConfig();
-			FindNextChangeNotification(notificationHandle);
 			ResetEvent(registryEvent);
+		}
+		else
+		{
+			LogFStatic(L"Configuration notification wait returned an unexpected result: %lu", which);
+			break;
 		}
 	}
 
