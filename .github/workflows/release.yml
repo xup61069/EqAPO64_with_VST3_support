@@ -1,0 +1,176 @@
+name: Release Loudness Correction for Equalizer APO
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release Tag (e.g. v3.0.2)"
+        required: true
+        default: "v3.0.2"
+
+# Building third-party code must never run with a repository write token.
+permissions:
+  contents: read
+
+# Serialize attempts for the same release identity. A queued manual run will
+# see the tag created by the first run and must pass the commit-match check.
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build x64 release artifact
+    runs-on: windows-2025
+    permissions:
+      contents: read
+    outputs:
+      artifact_name: ${{ steps.release.outputs.artifact_name }}
+      commit_sha: ${{ steps.release.outputs.commit_sha }}
+      installer_name: ${{ steps.release.outputs.installer_name }}
+      checksum_name: ${{ steps.release.outputs.checksum_name }}
+      tag: ${{ steps.release.outputs.tag }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run regression tests
+        shell: pwsh
+        run: python -m unittest discover -s .\tests -p "test_*.py" -v
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3.0.0
+        with:
+          msbuild-architecture: x64
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          .\scripts\build-installer-x64.ps1 `
+            -Configuration "Release"
+
+      - name: Test runtime loudness processing
+        shell: pwsh
+        run: .\scripts\test-runtime-loudness.ps1 -Configuration "Release"
+
+      - name: Verify and stage release artifact
+        id: release
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
+        run: |
+          $version = .\scripts\get-project-version.ps1
+          if ($env:RELEASE_TAG -ne "v$version") {
+            throw "Tag $env:RELEASE_TAG does not match version.h ($version)."
+          }
+
+          $sourceCommit = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $sourceCommit -notmatch '^[0-9a-fA-F]{40}$') {
+            throw "Could not resolve the checked-out release commit."
+          }
+
+          # A manual rerun may name an existing tag. Refuse to attach a build
+          # from a different commit to that immutable release identity.
+          $tagRef = "refs/tags/$env:RELEASE_TAG"
+          $peeledTagRef = "$tagRef^{}"
+          $remoteTagRows = @(
+            git ls-remote --tags origin $tagRef $peeledTagRef
+          )
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not verify whether release tag $env:RELEASE_TAG already exists."
+          }
+          $existingTagCommit = $null
+          foreach ($row in $remoteTagRows) {
+            if ($row -match '^([0-9a-fA-F]{40})\s+(.+)$') {
+              if ($Matches[2] -eq $peeledTagRef) {
+                $existingTagCommit = $Matches[1]
+                break
+              }
+              if ($Matches[2] -eq $tagRef) {
+                $existingTagCommit = $Matches[1]
+              }
+            }
+          }
+          if ($existingTagCommit -and
+              ![StringComparer]::OrdinalIgnoreCase.Equals($existingTagCommit, $sourceCommit)) {
+            throw "Release tag $env:RELEASE_TAG points to $existingTagCommit, not checked-out commit $sourceCommit."
+          }
+
+          $installer = "Setup/EqualizerAPO-x64-$version.exe"
+          $checksum = "$installer.sha256"
+          if (!(Test-Path -LiteralPath $installer)) { throw "Installer not found: $installer" }
+          if (!(Test-Path -LiteralPath $checksum)) { throw "Checksum not found: $checksum" }
+          if (!(Test-Path -LiteralPath "NOTICE.md")) { throw "NOTICE.md not found" }
+
+          $artifactDirectory = "release-artifact"
+          New-Item -ItemType Directory -Force -Path $artifactDirectory | Out-Null
+          Copy-Item -LiteralPath $installer, $checksum, "NOTICE.md" -Destination $artifactDirectory
+
+          $installerName = Split-Path -Leaf $installer
+          $checksumName = Split-Path -Leaf $checksum
+          "artifact_name=release-$version" >> $env:GITHUB_OUTPUT
+          "commit_sha=$sourceCommit" >> $env:GITHUB_OUTPUT
+          "installer_name=$installerName" >> $env:GITHUB_OUTPUT
+          "checksum_name=$checksumName" >> $env:GITHUB_OUTPUT
+          "tag=$env:RELEASE_TAG" >> $env:GITHUB_OUTPUT
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.release.outputs.artifact_name }}
+          path: release-artifact/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish GitHub release
+    needs: build
+    runs-on: windows-2025
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download verified build artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+          path: release-artifact
+
+      - name: Verify downloaded artifact
+        shell: pwsh
+        env:
+          INSTALLER_NAME: ${{ needs.build.outputs.installer_name }}
+          CHECKSUM_NAME: ${{ needs.build.outputs.checksum_name }}
+        run: |
+          $installer = Join-Path "release-artifact" $env:INSTALLER_NAME
+          $checksum = Join-Path "release-artifact" $env:CHECKSUM_NAME
+          $notice = Join-Path "release-artifact" "NOTICE.md"
+          if (!(Test-Path -LiteralPath $installer)) { throw "Installer missing from artifact: $installer" }
+          if (!(Test-Path -LiteralPath $checksum)) { throw "Checksum missing from artifact: $checksum" }
+          if (!(Test-Path -LiteralPath $notice)) { throw "NOTICE missing from artifact: $notice" }
+
+          $checksumLine = (Get-Content -LiteralPath $checksum -Raw).Trim()
+          if ($checksumLine -notmatch '^([0-9a-fA-F]{64})  (.+)$') {
+            throw "Invalid checksum file format: $checksum"
+          }
+          if ($Matches[2] -ne $env:INSTALLER_NAME) {
+            throw "Checksum names $($Matches[2]); expected $env:INSTALLER_NAME"
+          }
+          $actualHash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash
+          if (![StringComparer]::OrdinalIgnoreCase.Equals($actualHash, $Matches[1])) {
+            throw "Installer checksum mismatch"
+          }
+
+      - name: Create Release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ needs.build.outputs.tag }}
+          target_commitish: ${{ needs.build.outputs.commit_sha }}
+          name: Loudness Correction for Equalizer APO ${{ needs.build.outputs.tag }}
+          files: release-artifact/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
