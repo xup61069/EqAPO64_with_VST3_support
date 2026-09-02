@@ -58,6 +58,37 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         self.assertIn("if (referenceLevel <= 0.0f)", FILTER_HEADER)
         self.assertNotIn("referenceLevel = 80.0f;", FILTER_HEADER)
 
+    def test_workflow_runtime_configs_are_marked_and_legacy_stays_bypassed(self) -> None:
+        marker = "Schema 1 Model FormulaLoudnessV1"
+        runtime_configs = re.findall(
+            r'"(LoudnessCorrection:[^"\r\n]+)"', RUNTIME_TEST_SOURCE
+        )
+        marked_configs = [config for config in runtime_configs if marker in config]
+        unmarked_configs = [config for config in runtime_configs if marker not in config]
+
+        self.assertGreaterEqual(len(marked_configs), 4)
+        self.assertTrue(all("State " in config for config in marked_configs))
+        self.assertEqual(
+            unmarked_configs,
+            [
+                "LoudnessCorrection: State 1 ReferenceLevel 80 "
+                "ReferenceOffset 0 Attenuation 1.0 Volume -38.0"
+            ],
+        )
+        self.assertIn('$legacyConfig = Join-Path', RUNTIME_TEST_SOURCE)
+        self.assertIn("Legacy fail-closed benchmark failed", RUNTIME_TEST_SOURCE)
+        self.assertIn("if ($legacyHash -ne $disabledHash)", RUNTIME_TEST_SOURCE)
+        self.assertIn(
+            "Unmarked legacy loudness settings did not fail closed to bypass",
+            RUNTIME_TEST_SOURCE,
+        )
+
+        for workflow_name in ("build.yml", "release.yml"):
+            workflow = (
+                ROOT / ".github" / "workflows" / workflow_name
+            ).read_text(encoding="utf-8")
+            self.assertIn(r"scripts\test-runtime-loudness.ps1", workflow)
+
     def test_runtime_context_is_applied_before_filter_initialization(self) -> None:
         context_index = FILTER_ENGINE.index("filter->setRuntimeContext(runtimeContext)")
         initialize_index = FILTER_ENGINE.index("filter->initialize(")

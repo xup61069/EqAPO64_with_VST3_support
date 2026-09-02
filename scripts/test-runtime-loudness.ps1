@@ -26,17 +26,26 @@ $previousPath = $env:Path
 try {
 	$disabledConfig = Join-Path $resolvedTestDirectory "disabled.txt"
 	$enabledConfig = Join-Path $resolvedTestDirectory "enabled.txt"
+	$legacyConfig = Join-Path $resolvedTestDirectory "legacy-unmarked.txt"
 	$disabledOutput = Join-Path $resolvedTestDirectory "disabled.wav"
 	$enabledOutput = Join-Path $resolvedTestDirectory "enabled.wav"
+	$legacyOutput = Join-Path $resolvedTestDirectory "legacy-unmarked.wav"
 
 	$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 	[System.IO.File]::WriteAllText(
 		$disabledConfig,
-		"LoudnessCorrection: State 0 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0",
+		"LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 State 0 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0",
 		$utf8NoBom
 	)
 	[System.IO.File]::WriteAllText(
 		$enabledConfig,
+		"LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0",
+		$utf8NoBom
+	)
+	# This deliberately overlaps the historical, unmarked syntax. It must not
+	# be interpreted as the formula model without the explicit marker above.
+	[System.IO.File]::WriteAllText(
+		$legacyConfig,
 		"LoudnessCorrection: State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0",
 		$utf8NoBom
 	)
@@ -60,14 +69,24 @@ try {
 	if ($LASTEXITCODE -ne 0) {
 		throw "Enabled runtime benchmark failed:`n$($enabledLog -join [Environment]::NewLine)"
 	}
+	$legacyLog = & $benchmark @commonArguments --config $legacyConfig --output $legacyOutput 2>&1
+	if ($LASTEXITCODE -ne 0) {
+		throw "Legacy fail-closed benchmark failed:`n$($legacyLog -join [Environment]::NewLine)"
+	}
 
-	if (!(Test-Path -LiteralPath $disabledOutput) -or !(Test-Path -LiteralPath $enabledOutput)) {
-		throw "Benchmark did not produce both expected WAV files."
+	if (!(Test-Path -LiteralPath $disabledOutput) -or
+		!(Test-Path -LiteralPath $enabledOutput) -or
+		!(Test-Path -LiteralPath $legacyOutput)) {
+		throw "Benchmark did not produce all expected WAV files."
 	}
 	$disabledHash = (Get-FileHash -LiteralPath $disabledOutput -Algorithm SHA256).Hash
 	$enabledHash = (Get-FileHash -LiteralPath $enabledOutput -Algorithm SHA256).Hash
+	$legacyHash = (Get-FileHash -LiteralPath $legacyOutput -Algorithm SHA256).Hash
 	if ($disabledHash -eq $enabledHash) {
 		throw "Loudness correction produced the same output as the disabled filter."
+	}
+	if ($legacyHash -ne $disabledHash) {
+		throw "Unmarked legacy loudness settings did not fail closed to bypass."
 	}
 	if (($enabledLog -join "`n") -match "samples clipped") {
 		throw "The enabled loudness-correction benchmark clipped samples."
@@ -86,13 +105,13 @@ try {
 			Name = "48k-low-frequency"
 			Rate = 48000
 			Frequency = 20.216
-			Config = "LoudnessCorrection: State 1 ReferenceLevel 100 ReferenceOffset 0 Attenuation 1.0 Volume -40"
+			Config = "LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 State 1 ReferenceLevel 100 ReferenceOffset 0 Attenuation 1.0 Volume -40"
 		},
 		@{
 			Name = "8k-high-frequency"
 			Rate = 8000
 			Frequency = 3151
-			Config = "LoudnessCorrection: State 1 ReferenceLevel 1 ReferenceOffset -100 Attenuation 1.0 Volume 0"
+			Config = "LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 State 1 ReferenceLevel 1 ReferenceOffset -100 Attenuation 1.0 Volume 0"
 		}
 	)
 
@@ -140,7 +159,7 @@ try {
 		Write-Host "$($safetyCase.Name): maximum output $maximumOutput"
 	}
 
-	Write-Host "Runtime loudness test passed: enabled output differs and all safety cases avoid clipping."
+	Write-Host "Runtime loudness test passed: marked output differs, legacy settings fail closed, and all safety cases avoid clipping."
 }
 finally {
 	$env:Path = $previousPath
