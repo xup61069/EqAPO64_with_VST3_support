@@ -43,6 +43,10 @@ public:
 	void loadPreferences(const QVariantMap& prefs) override;
 	void storePreferences(QVariantMap& prefs) override;
 
+	QSize sizeHint() const override;
+	QSize minimumSizeHint() const override;
+	int preferredHeight() const;
+
 private:
 	Ui::CopyFilterGUI* ui;
 	CopyFilterGUIScene* scene;

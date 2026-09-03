@@ -91,6 +91,7 @@ CopyFilterGUI::CopyFilterGUI(CopyFilter* filter, FilterTable* filterTable)
 		const int scaledHeight = boundedScaledHeight(size.height());
 		ui->scrollArea->setFixedHeight(scaledHeight);
 		ui->graphicsView->setFixedHeight(scaledHeight);
+		updateGeometry();
 	}, this);
 	cornerWidget->setCursor(Qt::SizeVerCursor);
 	cornerWidget->setAutoFillBackground(true);
@@ -222,6 +223,7 @@ void CopyFilterGUI::loadPreferences(const QVariantMap& prefs)
 	const int scaledHeight = GUIHelper::scale(boundedLogicalHeight(storedHeight));
 	ui->scrollArea->setFixedHeight(scaledHeight);
 	ui->graphicsView->setFixedHeight(scaledHeight);
+	updateGeometry();
 	ui->tabWidget->setCurrentIndex(prefs.value("tabIndex", 0).toInt());
 }
 
@@ -233,4 +235,27 @@ void CopyFilterGUI::storePreferences(QVariantMap& prefs)
 		prefs.insert("height", storedHeight);
 	if (ui->tabWidget->currentIndex() != 0)
 		prefs.insert("tabIndex", ui->tabWidget->currentIndex());
+}
+
+
+int CopyFilterGUI::preferredHeight() const
+{
+	const int contentHeight = ui->scrollArea ? ui->scrollArea->height() : boundedScaledHeight(DEFAULT_HEIGHT);
+	const int labelHeight = ui->copyLabel ? ui->copyLabel->sizeHint().height() : GUIHelper::scale(20);
+	const int spacing = ui->gridLayout ? ui->gridLayout->verticalSpacing() : GUIHelper::scale(4);
+	return contentHeight + labelHeight + spacing + GUIHelper::scale(8);
+}
+
+QSize CopyFilterGUI::sizeHint() const
+{
+	QSize size = QWidget::sizeHint();
+	size.setHeight(preferredHeight());
+	return size;
+}
+
+QSize CopyFilterGUI::minimumSizeHint() const
+{
+	QSize size = QWidget::minimumSizeHint();
+	size.setHeight(preferredHeight());
+	return size;
 }
