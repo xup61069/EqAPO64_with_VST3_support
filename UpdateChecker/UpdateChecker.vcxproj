@@ -404,6 +404,7 @@
     <QtTranslation Include="translations\UpdateChecker_de.ts" />
     <QtTranslation Include="translations\UpdateChecker_fr.ts" />
     <QtTranslation Include="translations\UpdateChecker_zh_CN.ts" />
+    <QtTranslation Include="translations\UpdateChecker_zh_TW.ts" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="icons\software-update-available.ico" />

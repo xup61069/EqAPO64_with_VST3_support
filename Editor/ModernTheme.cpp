@@ -18,6 +18,7 @@
 #include <QCoreApplication>
 #include <QEvent>
 #include <QFontDatabase>
+#include <QFontMetrics>
 #include <QLibrary>
 #include <QObject>
 #include <QPalette>
@@ -39,6 +40,11 @@
 
 namespace
 {
+	QString requestedThemeOverride()
+	{
+		return qEnvironmentVariable("EQAPO_UI_THEME").trimmed().toLower();
+	}
+
 	struct ThemeColors
 	{
 		QString canvas;
@@ -134,6 +140,13 @@ namespace
 
 	bool highContrastEnabled(const QApplication& application)
 	{
+		const QString override = requestedThemeOverride();
+		if (override == QStringLiteral("high-contrast")
+			|| override == QStringLiteral("highcontrast"))
+			return true;
+		if (override == QStringLiteral("light") || override == QStringLiteral("dark"))
+			return false;
+
 		Q_UNUSED(application);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
 		if (const QAccessibilityHints* accessibility = QGuiApplication::styleHints()->accessibility())
@@ -153,6 +166,12 @@ namespace
 
 	bool darkModeForApplication(QApplication& application)
 	{
+		const QString override = requestedThemeOverride();
+		if (override == QStringLiteral("dark"))
+			return true;
+		if (override == QStringLiteral("light"))
+			return false;
+
 		const Qt::ColorScheme scheme = application.styleHints()->colorScheme();
 		if (scheme == Qt::ColorScheme::Dark)
 			return true;
@@ -181,7 +200,7 @@ namespace
 		{
 			return {
 				canvas.name(), surface.name(), "#323232", "#3D3D3D",
-				"#626262", "#F5F5F5", "#B5B5B5", "#777777",
+				"#626262", "#F5F5F5", "#B5B5B5", "#9A9A9A",
 				accent.name(), accentHover.name(), accentSoft.name(), accentText.name(),
 				"#F2C879", "#FF8A86", "#111111"
 			};
@@ -189,7 +208,7 @@ namespace
 
 		return {
 			canvas.name(), surface.name(), "#ECECEC", "#D8D8D8",
-			"#A8A8A8", "#1A1A1A", "#666666", "#929292",
+			"#A8A8A8", "#1A1A1A", "#666666", "#6F6F6F",
 			accent.name(), accentHover.name(), accentSoft.name(), accentText.name(),
 			"#8A5A00", "#B3261E", "#B8B8B8"
 		};
@@ -230,6 +249,45 @@ namespace
 
 	QPalette createHighContrastPalette(const QApplication& application)
 	{
+		const QString override = requestedThemeOverride();
+		if (override == QStringLiteral("high-contrast")
+			|| override == QStringLiteral("highcontrast"))
+		{
+			const QColor background(Qt::black);
+			const QColor foreground(Qt::white);
+			const QColor highlight(Qt::yellow);
+			const QColor highlightedText(Qt::black);
+			const QColor disabled(QStringLiteral("#A0A0A0"));
+			QPalette palette;
+			palette.setColor(QPalette::Window, background);
+			palette.setColor(QPalette::WindowText, foreground);
+			palette.setColor(QPalette::Base, background);
+			palette.setColor(QPalette::AlternateBase, background);
+			palette.setColor(QPalette::ToolTipBase, background);
+			palette.setColor(QPalette::ToolTipText, foreground);
+			palette.setColor(QPalette::Text, foreground);
+			palette.setColor(QPalette::Button, background);
+			palette.setColor(QPalette::ButtonText, foreground);
+			palette.setColor(QPalette::BrightText, foreground);
+			palette.setColor(QPalette::Light, foreground);
+			palette.setColor(QPalette::Midlight, foreground);
+			palette.setColor(QPalette::Mid, foreground);
+			palette.setColor(QPalette::Dark, foreground);
+			palette.setColor(QPalette::Shadow, foreground);
+			palette.setColor(QPalette::Highlight, highlight);
+			palette.setColor(QPalette::HighlightedText, highlightedText);
+			palette.setColor(QPalette::Link, QColor(Qt::cyan));
+			palette.setColor(QPalette::LinkVisited, QColor(Qt::cyan));
+			palette.setColor(QPalette::PlaceholderText, disabled);
+			palette.setColor(QPalette::Accent, highlight);
+			palette.setColor(QPalette::Disabled, QPalette::WindowText, disabled);
+			palette.setColor(QPalette::Disabled, QPalette::Text, disabled);
+			palette.setColor(QPalette::Disabled, QPalette::ButtonText, disabled);
+			palette.setColor(QPalette::Disabled, QPalette::Highlight, background);
+			palette.setColor(QPalette::Disabled, QPalette::HighlightedText, disabled);
+			return palette;
+		}
+
 #ifdef Q_OS_WIN
 		Q_UNUSED(application);
 		auto systemColor = [](int index)
@@ -282,85 +340,27 @@ namespace
 
 	void replaceGeometryTokens(QString& style)
 	{
-		// The Editor opts out of Qt's automatic high-DPI scaling and therefore
-		// needs the existing manual scale helper. The companion applications do
-		// not opt out, so scaling these QSS values again would enlarge controls
-		// twice on displays above 100%.
+		// Qt 6 uses device-independent coordinates. Retain compatibility with
+		// explicitly opted-out legacy launches without double-scaling normal
+		// per-monitor-DPI-aware sessions.
 		const bool usesManualScaling = qEnvironmentVariable("QT_ENABLE_HIGHDPI_SCALING") == QStringLiteral("0");
 		const auto themePixel = [usesManualScaling](int value) {
 			return usesManualScaling ? GUIHelper::scale(value) : value;
 		};
 
-		style.replace("@controlHeight", QString::number(themePixel(26)));
-		style.replace("@controlOuterHeight", QString::number(themePixel(26) + 2));
+		const int fontHeight = QFontMetrics(QApplication::font()).height();
+		const int controlHeight = (std::max)(26, fontHeight + 10);
+		const int compactButtonSize = (std::max)(20, fontHeight + 4);
+		style.replace("@controlHeight", QString::number(themePixel(controlHeight)));
+		style.replace("@controlOuterHeight", QString::number(themePixel(controlHeight) + 2));
 		style.replace("@dialogButtonWidth", QString::number(themePixel(88)));
-		style.replace("@compactButtonSize", QString::number(themePixel(20)));
+		style.replace("@compactButtonSize", QString::number(themePixel(compactButtonSize)));
 		style.replace("@indicatorSize", QString::number(themePixel(16)));
 		style.replace("@radioRadius", QString::number(themePixel(8)));
 		style.replace("@spinButtonWidth", QString::number(themePixel(16)));
 	}
 
-	QString createHighContrastStyleSheet()
-	{
-		QString style = QStringLiteral(R"QSS(
-QToolBar#mainToolBar {
-	spacing: 4px;
-	padding: 7px 10px;
-}
-
-QToolBar#mainToolBar QToolButton {
-	min-width: @controlOuterHeightpx;
-	min-height: @controlOuterHeightpx;
-	max-height: @controlOuterHeightpx;
-	padding: 0;
-}
-
-QToolBar#mainToolBar QLabel#workspaceBrand {
-	min-height: @controlOuterHeightpx;
-	max-height: @controlOuterHeightpx;
-	padding: 0 9px;
-	font-weight: 700;
-}
-
-QToolBar#mainToolBar QLabel[toolbarRole="context"],
-QToolBar#mainToolBar QCheckBox {
-	min-height: @controlOuterHeightpx;
-}
-
-QPushButton {
-	min-height: @controlOuterHeightpx;
-	max-height: @controlOuterHeightpx;
-	padding: 0 12px;
-}
-
-QDialogButtonBox QPushButton {
-	min-width: @dialogButtonWidthpx;
-}
-
-QLineEdit, QComboBox, QAbstractSpinBox {
-	min-height: @controlOuterHeightpx;
-	max-height: @controlOuterHeightpx;
-	padding: 0 7px;
-}
-
-QPlainTextEdit, QTextEdit {
-	padding: 5px 7px;
-}
-
-FilterTableRow QToolButton {
-	min-width: @compactButtonSizepx;
-	min-height: @compactButtonSizepx;
-	padding: 1px;
-}
-
-QToolBar#filterAddBar QToolButton {
-	min-height: @compactButtonSizepx;
-	padding: 1px 8px;
-}
-)QSS");
-		replaceGeometryTokens(style);
-		return style;
-	}
+	QString createHighContrastStyleSheet();
 
 	QString createStyleSheet(const ThemeColors& colors)
 	{
@@ -440,7 +440,6 @@ QToolBar#mainToolBar QToolButton {
 	border: 1px solid transparent;
 	min-width: @controlHeightpx;
 	min-height: @controlHeightpx;
-	max-height: @controlHeightpx;
 	padding: 0;
 }
 
@@ -465,7 +464,6 @@ QToolBar#mainToolBar QLabel#workspaceBrand {
 	border: 1px solid transparent;
 	font-weight: 700;
 	min-height: @controlHeightpx;
-	max-height: @controlHeightpx;
 	padding: 0 9px;
 }
 
@@ -484,6 +482,59 @@ QToolBar#mainToolBar QCheckBox {
 QToolBar#mainToolBar QComboBox {
 	background-color: @raised;
 	border-color: @borderStrong;
+}
+
+QToolBar#workspaceToolBar {
+	background-color: @surface;
+	border: none;
+	border-bottom: 1px solid @border;
+	spacing: 5px;
+	padding: 5px 10px;
+}
+
+QToolBar#workspaceToolBar::separator {
+	background-color: @border;
+	width: 1px;
+	margin: 5px 7px;
+}
+
+QToolBar#workspaceToolBar QToolButton {
+	background-color: transparent;
+	color: @text;
+	border: 1px solid transparent;
+	min-width: @controlHeightpx;
+	min-height: @controlHeightpx;
+	padding: 0 7px;
+}
+
+QToolBar#workspaceToolBar QToolButton:hover,
+QToolBar#workspaceToolBar QToolButton:focus {
+	background-color: @raised;
+	border-color: @accent;
+}
+
+QToolBar#workspaceToolBar QToolButton:pressed,
+QToolBar#workspaceToolBar QToolButton:checked {
+	background-color: @accentSoft;
+	border-color: @accent;
+}
+
+QToolBar#workspaceToolBar QLabel[toolbarRole="context"] {
+	color: @muted;
+	font-weight: 600;
+}
+
+QToolBar#workspaceToolBar QLabel[workspaceStatus="true"] {
+	color: @muted;
+	padding: 0 6px;
+}
+
+QToolBar#workspaceToolBar QLabel[workspaceStatus="true"][statusLevel="warning"] {
+	color: @warning;
+}
+
+QToolBar#workspaceToolBar QLabel[workspaceStatus="true"][statusLevel="danger"] {
+	color: @danger;
 }
 
 QTabWidget#tabWidget::pane {
@@ -565,6 +616,34 @@ QDockWidget#analysisDockWidget QGraphicsView#graphicsView {
 	border: 1px solid @border;
 }
 
+QToolButton#resetAnalysisViewButton {
+	background-color: @raised;
+	color: @text;
+	border: 1px solid @borderStrong;
+	min-height: @controlHeightpx;
+	padding: 0 9px;
+}
+
+QToolButton#resetAnalysisViewButton:hover {
+	color: @accent;
+	border-color: @accent;
+}
+
+QToolButton#resetAnalysisViewButton:focus {
+	border-color: @accent;
+}
+
+QToolButton#resetAnalysisViewButton:pressed {
+	background-color: @accentSoft;
+	border-color: @accent;
+}
+
+QToolButton#resetAnalysisViewButton:disabled {
+	background-color: @canvas;
+	color: @disabled;
+	border-color: @border;
+}
+
 QScrollArea {
 	background-color: @canvas;
 	border: none;
@@ -578,6 +657,24 @@ FilterTable, FilterTableRow, FilterTableRow QStackedWidget {
 FilterTableRow QLabel#labelNumber {
 	color: @accent;
 	font-weight: 600;
+}
+
+DeviceFilterGUI QTreeWidget[deviceMatchState="missing"] {
+	color: @danger;
+	border-color: @danger;
+}
+
+DeviceFilterGUI QTreeWidget[deviceMatchState="missing"]:disabled {
+	color: @disabled;
+	border-color: @border;
+}
+
+LoudnessCorrectionFilterGUI QLabel#label {
+	font-weight: 600;
+}
+
+LoudnessCorrectionFilterGUI QLabel#label_2 {
+	color: @muted;
 }
 
 FilterTableRow QToolBar {
@@ -619,7 +716,6 @@ QPushButton {
 	color: @text;
 	border: 1px solid @borderStrong;
 	min-height: @controlHeightpx;
-	max-height: @controlHeightpx;
 	padding: 0 12px;
 }
 
@@ -658,7 +754,6 @@ QLineEdit, QComboBox, QAbstractSpinBox {
 	color: @text;
 	border: 1px solid @border;
 	min-height: @controlHeightpx;
-	max-height: @controlHeightpx;
 	padding: 0 7px;
 	selection-background-color: @accent;
 	selection-color: @accentText;
@@ -703,31 +798,35 @@ QCheckBox:disabled, QRadioButton:disabled {
 	color: @disabled;
 }
 
-QCheckBox::indicator, QRadioButton::indicator {
+QCheckBox::indicator, QRadioButton::indicator, QGroupBox::indicator {
 	width: @indicatorSizepx;
 	height: @indicatorSizepx;
 	background-color: @raised;
 	border: 1px solid @borderStrong;
+	border-radius: 0px;
 }
 
 QRadioButton::indicator {
 	border-radius: @radioRadiuspx;
 }
 
-QCheckBox::indicator:hover, QRadioButton::indicator:hover {
+QCheckBox::indicator:hover, QRadioButton::indicator:hover,
+QGroupBox::indicator:hover {
 	border-color: @accent;
 }
 
-QCheckBox::indicator:focus, QRadioButton::indicator:focus {
+QCheckBox::indicator:focus, QRadioButton::indicator:focus,
+QGroupBox::indicator:focus {
 	border-color: @accent;
 }
 
-QCheckBox::indicator:checked, QRadioButton::indicator:checked {
+QCheckBox::indicator:checked, QRadioButton::indicator:checked,
+QGroupBox::indicator:checked {
 	background-color: @accent;
 	border-color: @accent;
 }
 
-QCheckBox::indicator:checked {
+QCheckBox::indicator:checked, QGroupBox::indicator:checked {
 	image: url(@checkIcon);
 }
 
@@ -735,7 +834,8 @@ QRadioButton::indicator:checked {
 	image: url(@radioIcon);
 }
 
-QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {
+QCheckBox::indicator:disabled, QRadioButton::indicator:disabled,
+QGroupBox::indicator:disabled {
 	background-color: @canvas;
 	border-color: @border;
 }
@@ -761,6 +861,28 @@ QDialog QGroupBox::title {
 	left: 8px;
 	padding: 0 4px;
 	color: @muted;
+	font-weight: 600;
+}
+
+QDialog#LoudnessCorrectionFilterGUIDialog QLabel#titleLabel {
+	font-size: 18pt;
+	font-weight: 650;
+}
+
+QDialog#LoudnessCorrectionFilterGUIDialog QLabel#subtitleLabel,
+QDialog#LoudnessCorrectionFilterGUIDialog QLabel#footerHintLabel {
+	color: @muted;
+}
+
+QDialog#LoudnessCorrectionFilterGUIDialog QLabel#safetyStatusLabel {
+	background-color: @surface;
+	border: 1px solid @warning;
+	padding: 8px 10px;
+	font-weight: 600;
+}
+
+QDialog#LoudnessCorrectionFilterGUIDialog QLabel#playbackStatusLabel {
+	padding: 0 6px;
 	font-weight: 600;
 }
 
@@ -870,6 +992,65 @@ QToolTip {
 		return style;
 	}
 
+	QString createHighContrastStyleSheet()
+	{
+		const QPalette palette = QApplication::palette();
+		const auto activeColor = [&palette](QPalette::ColorRole role)
+		{
+			return palette.color(QPalette::Active, role).name(QColor::HexRgb);
+		};
+		const auto disabledColor = [&palette](QPalette::ColorRole role)
+		{
+			return palette.color(QPalette::Disabled, role).name(QColor::HexRgb);
+		};
+
+		// Applying even a geometry-only stylesheet makes Qt stop drawing parts of
+		// the native Windows controls. Build the complete square-cornered theme
+		// from the active system high-contrast palette so button frames, group
+		// boundaries and check indicators remain visible at every DPI.
+		const ThemeColors colors = {
+			activeColor(QPalette::Window),
+			activeColor(QPalette::Base),
+			activeColor(QPalette::Button),
+			activeColor(QPalette::WindowText),
+			activeColor(QPalette::ButtonText),
+			activeColor(QPalette::WindowText),
+			activeColor(QPalette::WindowText),
+			disabledColor(QPalette::Text),
+			activeColor(QPalette::Highlight),
+			activeColor(QPalette::Highlight),
+			activeColor(QPalette::Button),
+			activeColor(QPalette::HighlightedText),
+			activeColor(QPalette::WindowText),
+			activeColor(QPalette::WindowText),
+			activeColor(QPalette::WindowText)
+		};
+
+		QString style = createStyleSheet(colors);
+		style += QStringLiteral(R"QSS(
+QToolBar#mainToolBar QToolButton,
+QToolBar#workspaceToolBar QToolButton,
+FilterTableRow QToolButton,
+QToolBar#filterAddBar QToolButton,
+QToolButton#resetAnalysisViewButton {
+	background-color: palette(button);
+	border: 1px solid palette(window-text);
+	color: palette(button-text);
+}
+
+QMenu::item:selected,
+QToolBar#mainToolBar QToolButton:checked,
+QToolBar#workspaceToolBar QToolButton:checked,
+QTreeView::item:selected,
+QTableView::item:selected,
+QListView::item:selected {
+	background-color: palette(highlight);
+	color: palette(highlighted-text);
+}
+)QSS");
+		return style;
+	}
+
 	class ThemeMonitor final : public QObject, public QAbstractNativeEventFilter
 	{
 	public:
@@ -976,7 +1157,17 @@ void ModernTheme::install(QApplication& application)
 
 void ModernTheme::apply(QApplication& application)
 {
-	application.setFont(QFontDatabase::systemFont(QFontDatabase::GeneralFont));
+	QFont applicationFont = QFontDatabase::systemFont(QFontDatabase::GeneralFont);
+	bool scaleIsValid = false;
+	const qreal requestedFontScale = qEnvironmentVariable("EQAPO_UI_FONT_SCALE").toDouble(&scaleIsValid);
+	if (scaleIsValid && requestedFontScale >= 0.75 && requestedFontScale <= 3.0)
+	{
+		if (applicationFont.pointSizeF() > 0.0)
+			applicationFont.setPointSizeF(applicationFont.pointSizeF() * requestedFontScale);
+		else if (applicationFont.pixelSize() > 0)
+			applicationFont.setPixelSize(qRound(applicationFont.pixelSize() * requestedFontScale));
+	}
+	application.setFont(applicationFont);
 
 	const bool highContrast = highContrastEnabled(application);
 	application.setProperty("eqapoModernThemeHighContrast", highContrast);

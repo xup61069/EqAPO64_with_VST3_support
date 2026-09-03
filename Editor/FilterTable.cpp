@@ -30,7 +30,9 @@
 #include <QComboBox>
 #include <QAbstractSpinBox>
 #include <QDial>
+#include <QIcon>
 #include <QJsonDocument>
+#include <QPainter>
 #include <QSettings>
 
 #include <memory>
@@ -63,6 +65,28 @@ using namespace std;
 
 namespace
 {
+	class ThemeIconLabel final : public QLabel
+	{
+	public:
+		ThemeIconLabel(GUIHelper::ThemeIcon themeIcon, const QSize& iconSize, QWidget* parent)
+			: QLabel(parent), icon(GUIHelper::createThemeIcon(themeIcon))
+		{
+			setFixedSize(iconSize);
+		}
+
+	protected:
+		void paintEvent(QPaintEvent* event) override
+		{
+			QLabel::paintEvent(event);
+			QPainter painter(this);
+			icon.paint(&painter, rect(), Qt::AlignCenter,
+				isEnabled() ? QIcon::Normal : QIcon::Disabled);
+		}
+
+	private:
+		QIcon icon;
+	};
+
 	void configureFilterLayout(QGridLayout* layout)
 	{
 		const int margin = GUIHelper::scale(9);
@@ -72,9 +96,9 @@ namespace
 			margin,
 			GUIHelper::scale(13));
 		layout->setHorizontalSpacing(0);
-		layout->setVerticalSpacing(GUIHelper::scale(7));
-		layout->setColumnStretch(0, 0);
-		layout->setColumnStretch(1, 1);
+		layout->setVerticalSpacing(GUIHelper::scale(5));
+		layout->setColumnStretch(0, 1);
+		layout->setColumnStretch(1, 0);
 	}
 }
 
@@ -82,12 +106,15 @@ FilterTable::FilterTable(MainWindow* mainWindow, QWidget* parent)
 	: QWidget(parent), mainWindow(mainWindow)
 {
 	setObjectName(QStringLiteral("filterTable"));
+	setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+	setMinimumWidth(0);
 	gridLayout = new QGridLayout(this);
 	configureFilterLayout(gridLayout);
 
-	QIcon icon(QStringLiteral(":/icons/arrow_right.ico"));
-	insertArrow = new QLabel(this);
-	insertArrow->setPixmap(icon.pixmap(GUIHelper::scale(QSize(24, 15))));
+	insertArrow = new ThemeIconLabel(
+		GUIHelper::ThemeIcon::ArrowRight,
+		GUIHelper::scale(QSize(24, 15)),
+		this);
 	insertArrow->setVisible(false);
 
 	factories.append(new ExpressionFilterGUIFactory);
@@ -276,6 +303,13 @@ void FilterTable::setLines(const QString& configPath, const QList<QString>& line
 {
 	this->configPath = configPath;
 
+	selected.clear();
+	focused = NULL;
+	selectionStart = NULL;
+	internalDrag = false;
+	dragStartPos = QPoint();
+	if (insertArrow != NULL)
+		insertArrow->hide();
 	qDeleteAll(items);
 	items.clear();
 
@@ -284,46 +318,45 @@ void FilterTable::setLines(const QString& configPath, const QList<QString>& line
 		items.append(new Item(line));
 	}
 
-	QSettings settings(QString::fromWCharArray(EDITOR_PER_FILE_REGPATH), QSettings::NativeFormat);
-	settings.beginGroup(QString(configPath).replace('\\', '|'));
-	QVariant prefsValue = settings.value("rowPrefs");
-	QStringList prefLines;
-	if (prefsValue.isValid())
-		prefLines = prefsValue.toStringList();
-	for (QString prefLine : prefLines)
+	setScrollOffsets(0, 0);
+	if (!configPath.isEmpty())
 	{
-		int index = prefLine.indexOf(':');
-		int lineNumber;
-		if (index != -1)
-			lineNumber = prefLine.left(index).toInt();
-
-		QString prefCommand;
-		QString prefString;
-		if (lineNumber > 0)
+		QSettings settings(QString::fromWCharArray(EDITOR_PER_FILE_REGPATH), QSettings::NativeFormat);
+		settings.beginGroup(QString(configPath).replace('\\', '|'));
+		QVariant prefsValue = settings.value("rowPrefs");
+		QStringList prefLines;
+		if (prefsValue.isValid())
+			prefLines = prefsValue.toStringList();
+		for (const QString& prefLine : prefLines)
 		{
-			int index2 = prefLine.indexOf(':', index + 1);
+			const int index = prefLine.indexOf(':');
+			if (index == -1)
+				continue;
+
+			bool validLineNumber = false;
+			const int lineNumber = prefLine.left(index).toInt(&validLineNumber);
+			if (!validLineNumber || lineNumber <= 0 || lineNumber > items.size())
+				continue;
+
+			const int index2 = prefLine.indexOf(':', index + 1);
 			if (index2 != -1)
 			{
-				prefCommand = prefLine.mid(index + 1, index2 - index - 1);
-				prefString = prefLine.mid(index2 + 1);
+				const QString prefCommand = prefLine.mid(index + 1, index2 - index - 1);
+				const QString prefString = prefLine.mid(index2 + 1);
+				Item* item = items[lineNumber - 1];
 
-				if (lineNumber <= items.size())
-				{
-					Item* item = items[lineNumber - 1];
+				QString command;
+				const int commandSeparator = item->text.indexOf(':');
+				if (commandSeparator != -1)
+					command = item->text.left(commandSeparator).trimmed();
 
-					QString command;
-					int index = item->text.indexOf(':');
-					if (index != -1)
-						command = item->text.left(index).trimmed();
-
-					if (command == prefCommand)
-						item->prefs = QJsonDocument::fromJson(prefString.toUtf8()).toVariant().toMap();
-				}
+				if (command == prefCommand)
+					item->prefs = QJsonDocument::fromJson(prefString.toUtf8()).toVariant().toMap();
 			}
 		}
+		setScrollOffsets(settings.value("scrollX", 0).toInt(), settings.value("scrollY", 0).toInt());
+		settings.endGroup();
 	}
-	setScrollOffsets(settings.value("scrollX", 0).toInt(), settings.value("scrollY", 0).toInt());
-	settings.endGroup();
 
 	if (!items.isEmpty())
 	{
@@ -514,6 +547,41 @@ void FilterTable::selectAll()
 	update();
 }
 
+int FilterTable::findText(const QString& text, bool backwards)
+{
+	if (text.trimmed().isEmpty() || items.isEmpty())
+		return -1;
+
+	const int direction = backwards ? -1 : 1;
+	int row = items.indexOf(focused);
+	if (row < 0)
+		row = backwards ? 0 : -1;
+
+	for (int checked = 0; checked < items.size(); ++checked)
+	{
+		row = (row + direction + items.size()) % items.size();
+		if (!items[row]->text.contains(text, Qt::CaseInsensitive))
+			continue;
+
+		selected.clear();
+		selected.insert(items[row]);
+		focused = items[row];
+		selectionStart = items[row];
+		ensureRowVisible(row);
+		update();
+		return row;
+	}
+
+	return -1;
+}
+
+void FilterTable::clearFindSelection()
+{
+	selected.clear();
+	selectionStart = focused;
+	update();
+}
+
 void FilterTable::updateModel()
 {
 	emit linesChanged();
@@ -550,28 +618,13 @@ void FilterTable::openConfig(QString path)
 	mainWindow->load(path);
 }
 
-int FilterTable::getPreferredWidth()
-{
-	if (scrollArea == NULL)
-		return width();
-
-	const QMargins margins = gridLayout->contentsMargins();
-	return (std::max)(0,
-		scrollArea->viewport()->width() - margins.left() - margins.right());
-}
-
-void FilterTable::updateSizeHints()
-{
-	for (int i = 0; i < items.size(); i++)
-	{
-		FilterTableRow* tableRow = qobject_cast<FilterTableRow*>(gridLayout->itemAtPosition(i, 0)->widget());
-		tableRow->updateGeometry();
-	}
-}
-
 QSize FilterTable::minimumSizeHint() const
 {
 	QSize size = QWidget::minimumSizeHint();
+	// Filter GUIs may have wide preferred layouts, but the outer scroll area
+	// must stay viewport-sized; individual controls are responsible for their
+	// own compression or internal scrolling.
+	size.setWidth(0);
 	if (size.height() < minimumHeightHint)
 		size.setHeight(minimumHeightHint);
 
@@ -982,11 +1035,6 @@ bool FilterTable::eventFilter(QObject* obj, QEvent* event)
 			if ((mouseEvent->globalPosition().toPoint() - scrollStartPoint).manhattanLength() > GUIHelper::scale(30))
 				scrollingNow = false;
 		}
-	}
-
-	if (obj == scrollArea && type == QEvent::Resize)
-	{
-		updateSizeHints();
 	}
 
 	return false;

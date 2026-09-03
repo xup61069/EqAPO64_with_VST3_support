@@ -20,10 +20,15 @@
 #pragma once
 
 #include <vector>
+#include <QList>
 #include <QWidget>
 #include <QGridLayout>
 
 #include "filters/CopyFilter.h"
+
+class CopyFilterGUIRow;
+class QComboBox;
+class QToolButton;
 
 class CopyFilterGUIForm : public QWidget
 {
@@ -45,6 +50,15 @@ private slots:
 	void addAssignment();
 
 private:
+	struct FormRow
+	{
+		QComboBox* targetComboBox;
+		CopyFilterGUIRow* summandWidget;
+		QToolButton* addButton;
+		QToolButton* removeButton;
+	};
+
 	QGridLayout* gridLayout = NULL;
+	QList<FormRow> formRows;
 	std::vector<std::wstring> inputChannelNames;
 };

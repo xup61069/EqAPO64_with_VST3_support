@@ -71,6 +71,8 @@ public:
 	void paste();
 	void deleteSelectedLines();
 	void selectAll();
+	int findText(const QString& text, bool backwards = false);
+	void clearFindSelection();
 
 	const QList<std::shared_ptr<AbstractAPOInfo>>& getOutputDevices() const;
 	const QList<std::shared_ptr<AbstractAPOInfo>>& getInputDevices() const;
@@ -84,9 +86,6 @@ public:
 	void setConfigPath(const QString& value);
 
 	void openConfig(QString path);
-
-	int getPreferredWidth();
-	void updateSizeHints();
 
 	QSize minimumSizeHint() const override;
 	void setMinimumHeightHint(int height);
@@ -124,7 +123,7 @@ private:
 	void disableWheelForWidgets();
 
 	MainWindow* mainWindow;
-	QScrollArea* scrollArea;
+	QScrollArea* scrollArea = nullptr;
 	QGridLayout* gridLayout;
 	QLabel* insertArrow;
 	QPoint dragStartPos;

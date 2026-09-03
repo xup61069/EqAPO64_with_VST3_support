@@ -50,6 +50,11 @@ std::shared_ptr<VSTPluginLibrary> VSTPluginLibrary::getInstance(const wstring& l
 
 wstring VSTPluginLibrary::getDefaultPluginPath()
 {
+#ifdef EQAPO_ENABLE_UI_SNAPSHOTS
+	// Snapshot builds use in-memory configuration rows. Never consult the
+	// installed product's registry-backed VST directory for those rows.
+	return L"";
+#else
 	if (defaultPluginPath == L"")
 	{
 		wstring installPath = RegistryHelper::readValue(APP_REGPATH, L"InstallPath");
@@ -57,6 +62,7 @@ wstring VSTPluginLibrary::getDefaultPluginPath()
 	}
 
 	return defaultPluginPath;
+#endif
 }
 
 std::wstring VSTPluginLibrary::getLibPath()

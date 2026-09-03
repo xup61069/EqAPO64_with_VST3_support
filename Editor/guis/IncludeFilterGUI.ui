@@ -44,10 +44,6 @@
      <property name="text">
       <string>Open file in editor</string>
      </property>
-     <property name="icon">
-      <iconset resource="../Editor.qrc">
-       <normaloff>:/icons/go-up.ico</normaloff>:/icons/go-up.ico</iconset>
-     </property>
     </widget>
    </item>
    <item row="0" column="1">
@@ -64,10 +60,6 @@
     <widget class="QToolButton" name="selectFileToolButton">
      <property name="text">
       <string>Select file</string>
-     </property>
-     <property name="icon">
-      <iconset resource="../Editor.qrc">
-       <normaloff>:/icons/document-open.ico</normaloff>:/icons/document-open.ico</iconset>
      </property>
     </widget>
    </item>

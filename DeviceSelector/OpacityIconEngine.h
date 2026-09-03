@@ -21,16 +21,29 @@
 
 #include <QIconEngine>
 
+enum class PaletteIconGlyph
+{
+	device,
+	waiting,
+	success,
+	warning,
+	error,
+	unavailable
+};
+
 class OpacityIconEngine : public QIconEngine
 {
 public:
-	OpacityIconEngine(const QIcon& icon);
+	OpacityIconEngine(PaletteIconGlyph glyph);
 	__override void paint(QPainter* painter, const QRect& rect, QIcon::Mode mode, QIcon::State state);
+	__override QPixmap pixmap(const QSize& size, QIcon::Mode mode, QIcon::State state);
 	__override OpacityIconEngine* clone() const;
 
 	void setOpacity(qreal opacity);
 
 private:
-	QIcon icon;
-	qreal opacity = 0.5;
+	PaletteIconGlyph glyph;
+	qreal opacity = 1.0;
 };
+
+QIcon createPaletteIcon(PaletteIconGlyph glyph);

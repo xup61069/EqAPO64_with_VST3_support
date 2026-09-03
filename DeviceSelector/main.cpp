@@ -28,6 +28,7 @@
 #include "ReceiveThread.h"
 #include "DeviceSelector.h"
 #include "Editor/ModernTheme.h"
+#include "helpers/UiSnapshot.h"
 
 int main(int argc, char* argv[])
 {
@@ -39,7 +40,8 @@ int main(int argc, char* argv[])
 	app.setStyle("fusion");
 	ModernTheme::install(app);
 
-	QLocale::setDefault(QLocale::system());
+	QLocale::setDefault(UiSnapshot::requested()
+		? QLocale(QStringLiteral("en")) : QLocale::system());
 
 	QTranslator qtTranslator;
 	if (qtTranslator.load(QLocale(), ":/translations/qtbase", "_"))
@@ -97,7 +99,9 @@ int main(int argc, char* argv[])
 	else
 	{
 		DeviceSelector dialog;
+		UiSnapshot::prepareForCapture(dialog);
 		dialog.show();
+		UiSnapshot::schedule(dialog, app);
 		result = app.exec();
 	}
 

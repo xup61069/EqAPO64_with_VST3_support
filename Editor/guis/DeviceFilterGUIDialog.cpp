@@ -21,6 +21,7 @@
 #include "DeviceFilterGUIDialog.h"
 #include "ui_DeviceFilterGUIDialog.h"
 
+#include <QHeaderView>
 #include <filters/DeviceFilterFactory.h>
 #include <VoicemeeterAPOInfo.h>
 
@@ -31,7 +32,8 @@ DeviceFilterGUIDialog::DeviceFilterGUIDialog(DeviceFilterGUI* gui, DeviceFilterG
 	ui(new Ui::DeviceFilterGUIDialog)
 {
 	ui->setupUi(this);
-	resize(GUIHelper::scale(QSize(500, 350)));
+	resize(GUIHelper::scale(QSize(640, 420)));
+	setMinimumSize(GUIHelper::scale(QSize(420, 300)));
 
 	bool all = pattern.trimmed() == "all";
 	ui->allDevicesCheckBox->setChecked(all);
@@ -41,6 +43,15 @@ DeviceFilterGUIDialog::DeviceFilterGUIDialog(DeviceFilterGUI* gui, DeviceFilterG
 	labels.append(tr("Device"));
 	labels.append(tr("State"));
 	ui->treeWidget->setHeaderLabels(labels);
+	ui->treeWidget->setTextElideMode(Qt::ElideMiddle);
+	ui->treeWidget->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+	QHeaderView* header = ui->treeWidget->header();
+	header->setStretchLastSection(false);
+	header->setSectionResizeMode(0, QHeaderView::Interactive);
+	header->setSectionResizeMode(1, QHeaderView::Stretch);
+	header->setSectionResizeMode(2, QHeaderView::Interactive);
+	header->resizeSection(0, GUIHelper::scale(160));
+	header->resizeSection(2, GUIHelper::scale(170));
 	QTreeWidgetItem* outputNode = new QTreeWidgetItem(ui->treeWidget, QStringList(tr("Playback devices")));
 	outputNode->setExpanded(true);
 	QTreeWidgetItem* inputNode = new QTreeWidgetItem(ui->treeWidget, QStringList(tr("Capture devices")));
@@ -61,18 +72,22 @@ DeviceFilterGUIDialog::DeviceFilterGUIDialog(DeviceFilterGUI* gui, DeviceFilterG
 			state += ", " + tr("Voicemeeter was uninstalled");
 		values.append(state);
 		QTreeWidgetItem* item = new QTreeWidgetItem(apoInfo->isInput() ? inputNode : outputNode, values);
+		for (int i = 0; i < values.size(); i++)
+			item->setToolTip(i, values.at(i));
 
 		bool matches = !all && DeviceFilterFactory::matchDevice(apoInfo->getDeviceString(), pattern.toStdWString());
 		item->setCheckState(0, matches ? Qt::Checked : Qt::Unchecked);
 		item->setData(0, Qt::UserRole, QVariant::fromValue(apoInfo));
 		item->setHidden(!matches && !apoInfo->isInstalled() && ui->showOnlyInstalledCheckBox->isChecked());
 		if (!apoInfo->isInstalled())
+		{
+			const QBrush disabledBrush = ui->treeWidget->palette().brush(
+				QPalette::Disabled, QPalette::Text);
 			for (int i = 0; i < ui->treeWidget->columnCount(); i++)
-				item->setForeground(i, QBrush(Qt::gray));
+				item->setForeground(i, disabledBrush);
+		}
 	}
 
-	for (int i = 0; i < ui->treeWidget->columnCount(); i++)
-		ui->treeWidget->resizeColumnToContents(i);
 }
 
 DeviceFilterGUIDialog::~DeviceFilterGUIDialog()
@@ -127,6 +142,4 @@ void DeviceFilterGUIDialog::on_showOnlyInstalledCheckBox_toggled(bool checked)
 		}
 	}
 
-	for (int i = 0; i < ui->treeWidget->columnCount(); i++)
-		ui->treeWidget->resizeColumnToContents(i);
 }

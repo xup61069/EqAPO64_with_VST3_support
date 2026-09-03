@@ -49,9 +49,13 @@ LoudnessCorrectionFilterGUI::LoudnessCorrectionFilterGUI(
 {
 	ui->setupUi(this);
 
-	ui->refLevelDial->setFixedSize(GUIHelper::scale(QSize(100, 66)));
-	ui->refOffsetDial->setFixedSize(GUIHelper::scale(QSize(100, 66)));
-	ui->attDial->setFixedSize(GUIHelper::scale(QSize(100, 66)));
+	const QSize compactDialSize = GUIHelper::scale(QSize(60, 48));
+	ui->refLevelDial->setFixedSize(compactDialSize);
+	ui->refOffsetDial->setFixedSize(compactDialSize);
+	ui->attDial->setFixedSize(compactDialSize);
+	ui->refLevelDial->setAccessibleName(ui->refLevelLabel->text());
+	ui->refOffsetDial->setAccessibleName(ui->refOffsetLabel->text());
+	ui->attDial->setAccessibleName(ui->attLabel->text());
 
 	if (refLevel <= 0)
 		refLevel = 80;

@@ -4,35 +4,93 @@
 <context>
     <name>DeviceSelector</name>
     <message>
-        <location filename="../DeviceSelector.cpp" line="+43"/>
+        <location filename="../DeviceSelector.cpp" line="+152"/>
         <source>Playback devices</source>
         <translation>Wiedergabegeräte</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+10"/>
         <source>Capture devices</source>
         <translation>Aufnahmegeräte</translation>
     </message>
     <message>
-        <location line="+7"/>
-        <location line="+132"/>
-        <location filename="../main.cpp" line="+68"/>
+        <location line="+19"/>
+        <location line="+4"/>
+        <location line="+212"/>
+        <location filename="../main.cpp" line="+88"/>
         <source>Error while accessing the registry</source>
         <translation>Fehler beim Zugriff auf die Registry</translation>
     </message>
     <message>
-        <location line="-88"/>
-        <location line="+123"/>
+        <location line="-289"/>
+        <location line="+324"/>
         <source>Info</source>
         <translation>Info</translation>
     </message>
     <message>
-        <location line="-123"/>
+        <location line="-324"/>
         <source>A registry value that is required for the operation of Equalizer APO was not set correctly. This might have been caused by a driver installation or uninstallation. The value has been corrected. A reboot may be required so that the changes can take effect.</source>
         <translation>Ein Registrywert, der für den Betrieb von Equalizer APO erforderlich ist, war nicht korrekt gesetzt. Dies könnte durch eine Treiberinstallation oder -deinstallation ausgelöst worden sein. Der Wert ist nun korrigiert. Ein Neustart kann erforderlich sein, damit die Änderungen wirksam werden.</translation>
     </message>
     <message>
-        <location line="+384"/>
+        <location line="+15"/>
+        <source>Audio devices</source>
+        <translation>Audiogeräte</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Loading audio devices</source>
+        <translation>Audiogeräte werden geladen</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Device selection summary</source>
+        <translation>Zusammenfassung der Geräteauswahl</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Pending changes</source>
+        <translation>Ausstehende Änderungen</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>APO install mode</source>
+        <translation>APO-Installationsmodus</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <location line="+2"/>
+        <source>Pre-mix:</source>
+        <translation>Pre-mix:</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <location line="+2"/>
+        <source>Post-mix:</source>
+        <translation>Post-mix:</translation>
+    </message>
+    <message>
+        <location line="+427"/>
+        <source>%1 enabled · %2 pending</source>
+        <translation>%1 aktiviert · %2 ausstehend</translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>Review the pending changes, then choose OK to apply them.</source>
+        <translation>Prüfen Sie die ausstehenden Änderungen und wählen Sie dann „OK“, um sie anzuwenden.</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>No pending changes.</source>
+        <translation>Keine ausstehenden Änderungen.</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Select at least one device to enable Equalizer APO.</source>
+        <translation>Wählen Sie mindestens ein Gerät aus, um Equalizer APO zu aktivieren.</translation>
+    </message>
+    <message>
+        <location line="+161"/>
         <source>APO will be uninstalled</source>
         <translation>APO wird deinstalliert</translation>
     </message>
@@ -87,7 +145,7 @@
         <translation>Nicht angeschlossen</translation>
     </message>
     <message>
-        <location line="-305"/>
+        <location line="-355"/>
         <source>Upgrades available</source>
         <translation>Aktualisierungen verfügbar</translation>
     </message>
@@ -107,22 +165,23 @@
         <translation>Um die Änderungen anzuwenden, sollte Windows neugestartet werden. Jetzt neustarten?</translation>
     </message>
     <message>
-        <location line="+253"/>
+        <location line="+303"/>
         <source>APO will be installed</source>
         <translation>APO wird installiert</translation>
     </message>
     <message>
-        <location line="-138"/>
+        <location line="-139"/>
         <source>Cancel</source>
         <translation>Abbrechen</translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="-8"/>
+        <location line="+15"/>
         <source>Close</source>
         <translation>Schließen</translation>
     </message>
     <message>
-        <location line="-128"/>
+        <location line="-177"/>
         <source>This dialog can be reopened anytime by launching Device Selector from the start menu.</source>
         <translation>Dieser Dialog kann jederzeit erneut geöffnet werden, indem Device Selector aus dem Startmenü gestartet wird.</translation>
     </message>
@@ -130,74 +189,89 @@
 <context>
     <name>DeviceSelectorClass</name>
     <message>
-        <location filename="../DeviceSelector.ui" line="+209"/>
+        <location filename="../DeviceSelector.ui" line="+92"/>
         <source>Connector</source>
         <translation>Anschluss</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+1"/>
         <source>Device</source>
         <translation>Gerät</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+1"/>
         <source>Status</source>
         <translation>Status</translation>
     </message>
     <message>
-        <location line="-192"/>
+        <location line="+24"/>
         <source>Troubleshooting options (only use in case of problems)</source>
         <translation>Problemlösungsoptionen (nur im Fall von Problemen verwenden)</translation>
     </message>
     <message>
-        <location line="+52"/>
-        <location line="+81"/>
+        <location line="+19"/>
+        <location line="+11"/>
         <source>Use original APO</source>
         <translation>Original-APO verwenden</translation>
     </message>
     <message>
-        <location line="-88"/>
-        <location line="+30"/>
+        <location line="-12"/>
+        <location line="+11"/>
         <source>Install APO</source>
         <translation>APO installieren</translation>
     </message>
     <message>
-        <location line="+29"/>
+        <location line="-1"/>
         <source>Post-mix:</source>
         <translation>Post-mix:</translation>
     </message>
     <message>
-        <location line="+11"/>
+        <location line="-5"/>
         <source>Install as LFX/GFX</source>
         <translation>Als LFX/GFX installieren</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+1"/>
         <source>Install as SFX/MFX</source>
         <translation>Als SFX/MFX installieren</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+1"/>
         <source>Install as SFX/EFX</source>
         <translation>Als SFX/EFX installieren</translation>
     </message>
     <message>
-        <location line="+15"/>
+        <location line="-5"/>
         <source>Automatically adjust install mode if problems with current mode are detected</source>
         <translation>Installationsmodus automatisch anpassen, wenn Probleme mit dem aktuellen Modus erkannt werden</translation>
     </message>
     <message>
-        <location line="-75"/>
+        <location line="-65"/>
+        <source>Loading audio devices...</source>
+        <translation>Audiogeräte werden geladen...</translation>
+    </message>
+    <message>
+        <location line="+29"/>
+        <source>No compatible audio devices were found.</source>
+        <translation>Keine kompatiblen Audiogeräte gefunden.</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Error while accessing the registry</source>
+        <translation>Fehler beim Zugriff auf die Registry</translation>
+    </message>
+    <message>
+        <location line="+26"/>
         <source>Pre-mix:</source>
         <translation>Pre-mix:</translation>
     </message>
     <message>
-        <location line="+78"/>
+        <location line="+3"/>
         <source>Auto:</source>
         <translation>Auto:</translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="+11"/>
         <source>Allows to change silent input buffers to audible output buffers, so that delayed audio can be played.
 
 CAUTION: Some sound card drivers can produce unwanted sounds when this is enabled.</source>
@@ -206,22 +280,27 @@ CAUTION: Some sound card drivers can produce unwanted sounds when this is enable
 ACHTUNG: Einige Soundkartentreiber erzeugen unerwünschte Geräusche, wenn diese Einstellung aktiv ist.</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+2"/>
         <source>Allow silent buffer modification</source>
         <translation>Erlaube Modifikation stiller Puffer</translation>
     </message>
     <message>
-        <location line="+59"/>
+        <location line="+18"/>
         <source>Copy Device command to clipboard</source>
         <translation>Kopiere Device-Befehl in die Zwischenablage</translation>
     </message>
     <message>
-        <location line="-7"/>
+        <location line="+1"/>
+        <source>Ctrl+C</source>
+        <translation>Strg+C</translation>
+    </message>
+    <message>
+        <location line="-124"/>
         <source>Please select the devices for which Equalizer APO is to be installed:</source>
         <translation>Bitte die Geräte auswählen, für die Equalizer APO installiert werden soll:</translation>
     </message>
     <message>
-        <location line="-176"/>
+        <location line="+83"/>
         <source>Please select exactly one activated device by clicking on its name</source>
         <translation>Bitte genau ein aktiviertes Gerät durch Klick auf den Namen wählen</translation>
     </message>
@@ -229,22 +308,53 @@ ACHTUNG: Einige Soundkartentreiber erzeugen unerwünschte Geräusche, wenn diese
 <context>
     <name>DeviceTestDialog</name>
     <message>
-        <location filename="../DeviceTestDialog.cpp" line="+42"/>
+        <location filename="../DeviceTestDialog.cpp" line="+76"/>
         <source>Playback devices</source>
         <translation>Wiedergabegeräte</translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+14"/>
         <source>Capture devices</source>
         <translation>Aufnahmegeräte</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+15"/>
+        <location line="+2"/>
         <source>Error while accessing the registry</source>
         <translation>Fehler beim Zugriff auf die Registry</translation>
     </message>
     <message>
-        <location line="+65"/>
+        <location line="+34"/>
+        <source>No enabled audio devices are available to test.</source>
+        <translation>Keine aktivierten Audiogeräte zum Testen verfügbar.</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>APO device test results</source>
+        <translation>APO-Gerätetestergebnisse</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Device test log</source>
+        <translation>Gerätetestprotokoll</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Detailed progress and error messages from the APO device test</source>
+        <translation>Detaillierter Fortschritt und Fehlermeldungen des APO-Gerätetests</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Device test progress</source>
+        <translation>Fortschritt des Gerätetests</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Current test status</source>
+        <translation>Aktueller Teststatus</translation>
+    </message>
+    <message>
+        <location line="+102"/>
         <source>Cannot test APO installation as device is disabled</source>
         <translation>Kann APO-Installation nicht testen, da Gerät deaktiviert ist</translation>
     </message>
@@ -254,66 +364,122 @@ ACHTUNG: Einige Soundkartentreiber erzeugen unerwünschte Geräusche, wenn diese
         <translation>Kann APO-Installation nicht testen, da Gerät nicht angeschlossen ist</translation>
     </message>
     <message>
-        <location line="+38"/>
-        <location line="+46"/>
+        <location line="+18"/>
+        <source>Testing...</source>
+        <translation>Test läuft...</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Working</source>
+        <translation>Funktionsfähig</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Needs attention</source>
+        <translation>Überprüfung erforderlich</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Not working</source>
+        <translation>Nicht funktionsfähig</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Not tested</source>
+        <translation>Nicht getestet</translation>
+    </message>
+    <message>
+        <location line="+33"/>
+        <source>Stopping device test…</source>
+        <translation>Gerätetest wird beendet…</translation>
+    </message>
+    <message>
+        <location line="+39"/>
+        <location line="+66"/>
         <source>Error</source>
         <translation>Fehler</translation>
     </message>
     <message>
-        <location line="-26"/>
+        <location line="-50"/>
         <source>Equalizer APO works but original APO could not be initialized. Maybe unset &quot;Use original APO&quot; in troubleshooting options.</source>
         <translation>Equalizer APO funktioniert, aber das Original-APO konnte nicht initialisiert werden. Eventuell &quot;Original-APO verwenden&quot; in den Problemlösungsoptionen deaktivieren.</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Equalizer APO did not respond on this processing stage.</source>
+        <translation>Equalizer APO hat in dieser Verarbeitungsstufe nicht reagiert.</translation>
+    </message>
+    <message>
+        <location line="+35"/>
+        <source>Device checks completed with problems</source>
+        <translation>Geräteprüfungen mit Problemen abgeschlossen</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Device checks completed</source>
+        <translation>Geräteprüfungen abgeschlossen</translation>
     </message>
 </context>
 <context>
     <name>DeviceTestDialogClass</name>
     <message>
-        <location filename="../DeviceTestDialog.ui" line="+14"/>
+        <location filename="../DeviceTestDialog.ui" line="+7"/>
+        <location line="+13"/>
         <source>Testing APO installation on devices...</source>
         <translation>Teste APO-Installation auf Geräten...</translation>
     </message>
     <message>
-        <location line="+23"/>
+        <location line="+22"/>
         <source>Connector</source>
         <translation>Anschluss</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+1"/>
         <source>Device</source>
         <translation>Gerät</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+1"/>
         <source>Pre-mix</source>
         <translation>Pre-mix</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+1"/>
         <source>Post-mix</source>
         <translation>Post-mix</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>No enabled audio devices are available to test.</source>
+        <translation>Keine aktivierten Audiogeräte zum Testen verfügbar.</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Test details</source>
+        <translation>Testdetails</translation>
     </message>
 </context>
 <context>
     <name>DeviceTestThread</name>
     <message>
-        <location filename="../DeviceTestThread.cpp" line="+67"/>
-        <location line="+161"/>
+        <location filename="../DeviceTestThread.cpp" line="+65"/>
+        <location line="+164"/>
         <source>Restarting audio service...</source>
         <translation>Starte Audio-Dienst neu...</translation>
     </message>
     <message>
-        <location line="-156"/>
-        <location line="+161"/>
+        <location line="-159"/>
+        <location line="+164"/>
         <source>Restart failed.</source>
         <translation>Neustart fehlgeschlagen.</translation>
     </message>
     <message>
-        <location line="-147"/>
+        <location line="-150"/>
         <source>Checking APO installation...</source>
         <translation>Überprüfe APO-Installation...</translation>
     </message>
     <message>
-        <location line="+48"/>
+        <location line="+51"/>
         <source>Received unknown device GUID %1.</source>
         <translation>Unbekannte Geräte-GUID %1 empfangen.</translation>
     </message>
@@ -336,12 +502,12 @@ ACHTUNG: Einige Soundkartentreiber erzeugen unerwünschte Geräusche, wenn diese
         <translation>Versuche andere Konfigurationen...</translation>
     </message>
     <message>
-        <location line="+23"/>
+        <location line="+28"/>
         <source>Checks done. No problems were detected.</source>
         <translation>Überprüfungen abgeschlossen. Es wurden keine Probleme erkannt.</translation>
     </message>
     <message numerus="yes">
-        <location line="+2"/>
+        <location line="+5"/>
         <source>Checks done. Problems were detected for %n device(s).</source>
         <translation>
             <numerusform>Überprüfungen abgeschlossen. Für ein Gerät wurden Probleme erkannt.</numerusform>

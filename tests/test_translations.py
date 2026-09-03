@@ -16,6 +16,16 @@ TRANSLATION_FILES = (
     ROOT / "DeviceSelector" / "translations" / "DeviceSelector_zh_TW.ts",
     ROOT / "UpdateChecker" / "translations" / "UpdateChecker_zh_TW.ts",
 )
+EDITOR_TRANSLATION_FILES_BY_LANGUAGE = {
+    "de_DE": ROOT / "Editor" / "translations" / "Editor_de.ts",
+    "fr_FR": ROOT / "Editor" / "translations" / "Editor_fr.ts",
+    "zh_CN": ROOT / "Editor" / "translations" / "Editor_zh_CN.ts",
+    "zh_TW": ROOT / "Editor" / "translations" / "Editor_zh_TW.ts",
+}
+ANALYSIS_RESET_SOURCES = {
+    "Reset view",
+    "Reset analysis zoom and position",
+}
 PLACEHOLDER_PATTERN = re.compile(r"%(?:\d+|n)")
 NON_TAIWAN_UI_TERMS = (
     "配置",
@@ -48,6 +58,22 @@ def active_messages(path: pathlib.Path):
 
 
 class TraditionalChineseTranslationTests(unittest.TestCase):
+    def test_analysis_reset_view_is_finished_in_every_editor_locale(self) -> None:
+        for locale, path in EDITOR_TRANSLATION_FILES_BY_LANGUAGE.items():
+            root = ET.parse(path).getroot()
+            self.assertEqual(root.get("language"), locale)
+            messages = {
+                message.findtext("source", default=""): message.find("translation")
+                for message in root.findall("./context/message")
+                if message.findtext("source", default="") in ANALYSIS_RESET_SOURCES
+            }
+            with self.subTest(locale=locale):
+                self.assertEqual(set(messages), ANALYSIS_RESET_SOURCES)
+                for source, translation in messages.items():
+                    self.assertIsNotNone(translation, source)
+                    self.assertNotEqual(translation.get("type"), "unfinished", source)
+                    self.assertTrue("".join(translation.itertext()).strip(), source)
+
     def test_loudness_migration_choices_are_present(self) -> None:
         editor_root = ET.parse(TRANSLATION_FILES[0]).getroot()
         translated_sources = {

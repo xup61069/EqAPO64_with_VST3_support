@@ -22,6 +22,7 @@
 #include "LoudnessCorrectionFilterGUI.h"
 #include "LoudnessCorrectionFilterGUIFactory.h"
 #include "AbstractAPOInfo.h"
+#include "helpers/UiSnapshot.h"
 #include <cmath>
 #include <limits>
 #include <QRegularExpression>
@@ -298,7 +299,7 @@ IFilterGUI* LoudnessCorrectionFilterGUIFactory::createFilterGUI(QString& command
 					endpointId,
 					selectedEndpointIsRender);
 
-				if (timer == NULL)
+				if (timer == NULL && !UiSnapshot::requested())
 				{
 					timer = new QTimer(this);
 					connect(timer, SIGNAL(timeout()), this, SLOT(checkVolume()));

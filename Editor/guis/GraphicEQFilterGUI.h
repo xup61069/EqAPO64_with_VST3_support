@@ -27,6 +27,7 @@
 
 class FilterTable;
 class QEvent;
+class QObject;
 
 namespace Ui {
 class GraphicEQFilterGUI;
@@ -47,6 +48,7 @@ public:
 
 protected:
 	void changeEvent(QEvent* event) override;
+	bool eventFilter(QObject* watched, QEvent* event) override;
 
 private slots:
 	void insertRow(int index, double hz, double db);
@@ -69,11 +71,18 @@ private slots:
 	void on_actionResetResponse_triggered();
 
 private:
+	int minimumTableWidth() const;
+	int maximumTableWidth() const;
+	void setTableWidth(int width);
+	int minimumViewHeight() const;
+	int maximumViewHeight() const;
+	void setViewHeight(int height);
 	void setFreqEditable(bool editable);
 	void updateThemeIcons();
 
 	Ui::GraphicEQFilterGUI* ui;
 	GraphicEQFilterGUIScene* scene;
 	QString configPath;
+	FilterTable* filterTable;
 	static QRegularExpression numberRegEx;
 };

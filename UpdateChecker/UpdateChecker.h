@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <QJsonDocument>
 #include <QUrl>
 #include <QtWidgets/QDialog>
 #include <helpers/RegistryHelper.h>
@@ -31,15 +32,39 @@ class UpdateChecker : public QDialog
 	Q_OBJECT
 
 public:
-	UpdateChecker(QWidget* parent, const QJsonDocument& doc);
+	explicit UpdateChecker(QWidget* parent, const QString& installedVersion);
 	~UpdateChecker();
 
+	void showChecking();
+	void showUpToDate(const QString& availableVersion);
+	void showUpdateAvailable(const QJsonDocument& doc);
+	void showFailure(const QString& message);
+	bool snapshotLayoutIsValid() const;
+
+signals:
+	void retryRequested();
+
 private:
+	enum class State
+	{
+		Checking,
+		UpToDate,
+		UpdateAvailable,
+		Failure
+	};
+
+	void applyState(State state);
+	void populateReleaseNotes(const QJsonDocument& doc);
+	void refreshStatusIcon();
+	void refreshStatusProperty(const char* level);
 	void goToWebsite();
 	void remindMeLater();
 	void skipThisVersion();
+	void changeEvent(QEvent* event) override;
 
 	Ui::UpdateCheckerClass ui;
 	QUrl downloadUrl;
+	QString installedVersion;
 	QString newestVersion;
+	State state = State::Checking;
 };

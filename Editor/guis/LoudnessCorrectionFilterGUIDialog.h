@@ -52,6 +52,7 @@ private slots:
 
 private:
 	bool isPlaybackEndpointStillValid() const;
+	void setPlaybackStatus(const QString& text, const char* level);
 	Ui::LoudnessCorrectionFilterGUIDialog* ui;
 	QBuffer buffer;
 	std::wstring endpointId;

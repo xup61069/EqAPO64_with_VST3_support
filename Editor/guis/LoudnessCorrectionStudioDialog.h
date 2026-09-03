@@ -14,6 +14,7 @@
 
 class QEvent;
 class QPainter;
+class QResizeEvent;
 
 namespace Ui {
 class LoudnessCorrectionStudioDialog;
@@ -46,6 +47,7 @@ public:
 protected:
 	void changeEvent(QEvent* event) override;
 	bool eventFilter(QObject* watched, QEvent* event) override;
+	void resizeEvent(QResizeEvent* event) override;
 
 private slots:
 	void on_referenceSlider_valueChanged(int value);
@@ -63,6 +65,7 @@ private slots:
 private:
 	void applyModernStyle();
 	void updateModernUi();
+	void updateResponsiveLayout();
 	void paintCurvePreview(QPainter& painter) const;
 	void refreshStatusStyle(const char* status);
 
@@ -71,4 +74,6 @@ private:
 	bool automaticVolumeAvailable;
 	bool calibrateAfterApply;
 	bool applyingModernStyle;
+	bool responsiveLayoutInitialized = false;
+	bool compactLayout = false;
 };
