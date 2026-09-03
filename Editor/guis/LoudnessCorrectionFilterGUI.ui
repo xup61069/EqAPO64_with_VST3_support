@@ -123,7 +123,7 @@ Alexander Walch</string>
         </widget>
        </item>
        <item alignment="Qt::AlignHCenter">
-        <widget class="QDial" name="refLevelDial">
+        <widget class="VerticalDragDial" name="refLevelDial">
          <property name="minimum">
           <number>1</number>
          </property>
@@ -178,7 +178,7 @@ Alexander Walch</string>
         </widget>
        </item>
        <item alignment="Qt::AlignHCenter">
-        <widget class="QDial" name="refOffsetDial">
+        <widget class="VerticalDragDial" name="refOffsetDial">
          <property name="minimum">
           <number>-100</number>
          </property>
@@ -233,7 +233,7 @@ Alexander Walch</string>
         </widget>
        </item>
        <item alignment="Qt::AlignHCenter">
-        <widget class="QDial" name="attDial">
+        <widget class="VerticalDragDial" name="attDial">
          <property name="minimum">
           <number>0</number>
          </property>
@@ -409,6 +409,13 @@ Alexander Walch</string>
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>VerticalDragDial</class>
+   <extends>QDial</extends>
+   <header>widgets/VerticalDragDial.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections>
   <connection>

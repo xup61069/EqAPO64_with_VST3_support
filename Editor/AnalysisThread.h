@@ -19,12 +19,29 @@
 
 #pragma once
 
+#include <QByteArray>
+#include <QList>
 #include <QThread>
 #include <QMutex>
 #include <QWaitCondition>
 #include <fftw3.h>
 
 #include "DeviceAPOInfo.h"
+
+struct AnalysisConfigurationFileSnapshot
+{
+	QString path;
+	QByteArray contents;
+	bool readable = false;
+};
+
+struct AnalysisVolumeSnapshot
+{
+	QString requestedEndpointId;
+	QString resolvedEndpointId;
+	double volumeDb = 0.0;
+	bool available = false;
+};
 
 class AnalysisThread : public QThread
 {
@@ -33,7 +50,7 @@ class AnalysisThread : public QThread
 public:
 	AnalysisThread();
 	~AnalysisThread();
-	void setParameters(std::shared_ptr<AbstractAPOInfo> device, int channelMask, int channelIndex, QString configPath, int frameCount);
+	quint64 setParameters(std::shared_ptr<AbstractAPOInfo> device, int channelMask, int channelIndex, QString configPath, int frameCount);
 	void beginGetResult();
 	void endGetResult();
 
@@ -45,6 +62,9 @@ public:
 	double getInitializationTime() const;
 	double getProcessingTime() const;
 	unsigned getProcessedFrames() const;
+	quint64 getResultGeneration() const;
+	const QList<AnalysisConfigurationFileSnapshot>& getConfigurationFiles() const;
+	const QList<AnalysisVolumeSnapshot>& getVolumeSnapshots() const;
 
 signals:
 	void analysisFinished();
@@ -63,6 +83,7 @@ private:
 	int channelIndex;
 	QString configPath;
 	int frameCount = 0;
+	quint64 requestGeneration = 0;
 
 	// output
 	fftw_complex* resultFreqData = NULL;
@@ -73,6 +94,9 @@ private:
 	double initializationTime;
 	double processingTime;
 	int processedFrames;
+	quint64 resultGeneration = 0;
+	QList<AnalysisConfigurationFileSnapshot> resultConfigurationFiles;
+	QList<AnalysisVolumeSnapshot> resultVolumeSnapshots;
 
 	// internal (not protected by mutex)
 	int lastFrameCount = -1;

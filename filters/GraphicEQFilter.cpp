@@ -44,7 +44,7 @@ const std::vector<FilterNode>& GraphicEQFilter::getNodes()
 	return nodes;
 }
 
-void GraphicEQFilter::initializeFilters(unsigned frameCount)
+std::vector<double> GraphicEQFilter::createImpulseResponse(const std::vector<FilterNode>& nodes, unsigned filterLength, float sampleRate)
 {
 	fftw_complex* timeData = fftw_alloc_complex(filterLength * 2);
 	fftw_complex* freqData = fftw_alloc_complex(filterLength * 2);
@@ -69,7 +69,7 @@ void GraphicEQFilter::initializeFilters(unsigned frameCount)
 		freqData[2 * filterLength - i - 1][1] = 0;
 	}
 
-	mps(timeData, freqData, planForward, planReverse);
+	mps(timeData, freqData, planForward, planReverse, filterLength);
 
 	fftw_execute(planReverse);
 
@@ -86,10 +86,10 @@ void GraphicEQFilter::initializeFilters(unsigned frameCount)
 		timeData[i][1] *= factor;
 	}
 
-	double* buf = new double[filterLength];
+	std::vector<double> result(filterLength);
 	for (unsigned i = 0; i < filterLength; i++)
 	{
-		buf[i] = timeData[i][0];
+		result[i] = timeData[i][0];
 	}
 
 	fftw_free(timeData);
@@ -97,17 +97,27 @@ void GraphicEQFilter::initializeFilters(unsigned frameCount)
 	fftw_destroy_plan(planForward);
 	fftw_destroy_plan(planReverse);
 
+	return result;
+}
+
+void GraphicEQFilter::initializeFilters(unsigned frameCount)
+{
+	std::vector<double> impulse = createImpulseResponse(nodes, filterLength, sampleRate);
+	double* buf = new double[impulse.size()];
+	for (size_t i = 0; i < impulse.size(); i++)
+		buf[i] = impulse[i];
+
 	filters = (HConvSingle*)MemoryHelper::alloc(sizeof(HConvSingle) * channelCount);
 	for (unsigned i = 0; i < channelCount; i++)
 	{
 		hcInitSingle(&filters[i], buf, filterLength, frameCount, 1);
 	}
 
-	delete buf;
+	delete[] buf;
 }
 
 // Minimum phase spectrum from coefficients
-void GraphicEQFilter::mps(fftw_complex* timeData, fftw_complex* freqData, fftw_plan planForward, fftw_plan planReverse)
+void GraphicEQFilter::mps(fftw_complex* timeData, fftw_complex* freqData, fftw_plan planForward, fftw_plan planReverse, unsigned filterLength)
 {
 	double threshold = pow(10.0, -100.0 / 20.0);
 	double logThreshold = (double)log(threshold);

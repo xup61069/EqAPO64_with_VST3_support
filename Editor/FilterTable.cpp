@@ -21,6 +21,7 @@
 #include <QMimeData>
 #include <QApplication>
 #include <QClipboard>
+#include <QCursor>
 #include <QLabel>
 #include <QElapsedTimer>
 #include <QLineEdit>
@@ -29,15 +30,84 @@
 #include <QToolBar>
 #include <QComboBox>
 #include <QAbstractSpinBox>
+#include <QAbstractSlider>
 #include <QDial>
 #include <QIcon>
-#include <QJsonDocument>
 #include <QPainter>
+#include <QDoubleSpinBox>
+#include <QJsonDocument>
+#include <QMouseEvent>
+#include <QRegularExpression>
+#include <QSet>
 #include <QSettings>
+#include <QSpinBox>
+#include <QUuid>
 
+#include <cmath>
 #include <memory>
 
 #include "MainWindow.h"
+
+namespace
+{
+const QSet<QString>& preampScopeBoundaries()
+{
+	static const QSet<QString> boundaries = {
+		QStringLiteral("channel"), QStringLiteral("device"),
+		QStringLiteral("if"), QStringLiteral("elseif"),
+		QStringLiteral("else"), QStringLiteral("endif"),
+		QStringLiteral("include"), QStringLiteral("stage")
+	};
+	return boundaries;
+}
+
+bool isPreampScopeBoundary(const QString& line)
+{
+	const QString trimmed = line.trimmed();
+	if (trimmed.isEmpty() || trimmed.startsWith('#'))
+		return false;
+	const int separator = trimmed.indexOf(':');
+	return separator >= 0 && preampScopeBoundaries().contains(
+		trimmed.left(separator).trimmed().toCaseFolded());
+}
+
+bool parseEditablePreampLine(
+	const QString& line,
+	QString* prefix,
+	double* gain,
+	QString* suffix,
+	bool* commaDecimal = nullptr)
+{
+	// The runtime accepts every C %lf spelling, including hexadecimal values,
+	// and stops checking after the conversion succeeds.  Auto preamp supports a
+	// deliberately smaller, unambiguous decimal grammar so rewriting a numeric
+	// prefix can never change the value's token boundary (for example -0x1p2).
+	static const QRegularExpression pattern(QStringLiteral(
+		R"(^(\s*Preamp\s*:\s*)([-+]?(?:(?:\d+(?:[.,]\d*)?)|(?:[.,]\d+))(?:[eE][-+]?\d+)?)(\s*(?:dB)?\s*(?:#.*)?)$)"));
+	if (line.contains('`'))
+		return false;
+	const QRegularExpressionMatch match = pattern.match(line);
+	if (!match.hasMatch())
+		return false;
+
+	bool validGain = false;
+	const QString valueText = match.captured(2);
+	const double parsedGain = QString(valueText).replace(',', '.').toDouble(
+		&validGain);
+	if (!validGain || !std::isfinite(parsedGain))
+		return false;
+
+	if (prefix != nullptr)
+		*prefix = match.captured(1);
+	if (gain != nullptr)
+		*gain = parsedGain;
+	if (suffix != nullptr)
+		*suffix = match.captured(3);
+	if (commaDecimal != nullptr)
+		*commaDecimal = valueText.contains(',');
+	return true;
+}
+}
 #include "FilterTableRow.h"
 #include "FilterTableMimeData.h"
 #include "guis/ExpressionFilterGUIFactory.h"
@@ -47,13 +117,16 @@
 #include "guis/StageFilterGUIFactory.h"
 #include "guis/PreampFilterGUIFactory.h"
 #include "guis/BiQuadFilterGUIFactory.h"
+#include "guis/ParametricEQFilterGUIFactory.h"
 #include "guis/CopyFilterGUIFactory.h"
 #include "guis/DelayFilterGUIFactory.h"
 #include "guis/IncludeFilterGUIFactory.h"
 #include "guis/GraphicEQFilterGUIFactory.h"
 #include "guis/ConvolutionFilterGUIFactory.h"
+#include "guis/HeadphoneCalibrationFilterGUIFactory.h"
 #include "guis/VSTPluginFilterGUIFactory.h"
 #include "guis/LoudnessCorrectionFilterGUIFactory.h"
+#include "guis/AudioToolFilterGUIFactory.h"
 #include "Editor/helpers/GUIHelper.h"
 #include "helpers/StringHelper.h"
 #include "helpers/LogHelper.h"
@@ -127,7 +200,15 @@ FilterTable::FilterTable(MainWindow* mainWindow, QWidget* parent)
 	factories.append(new BiQuadFilterGUIFactory);
 	factories.append(new DelayFilterGUIFactory);
 	factories.append(new CopyFilterGUIFactory);
+	factories.append(new PanFilterGUIFactory);
+	factories.append(new CrossfeedFilterGUIFactory);
+	factories.append(new ChorusFilterGUIFactory);
+	factories.append(new ReverbFilterGUIFactory);
+	factories.append(new ToneGeneratorFilterGUIFactory);
+	factories.append(new VUMeterFilterGUIFactory);
+	factories.append(new HeadphoneCalibrationFilterGUIFactory);
 	factories.append(new GraphicEQFilterGUIFactory);
+	factories.append(new ParametricEQFilterGUIFactory);
 	factories.append(new ConvolutionFilterGUIFactory);
 	factories.append(new VSTPluginFilterGUIFactory);
 	factories.append(new LoudnessCorrectionFilterGUIFactory);
@@ -198,6 +279,7 @@ void FilterTable::updateGuis()
 		factory->startOfFile(configPath);
 
 	int row = 0;
+	int minimumContentHeight = 0;
 	for (Item* item : items)
 	{
 		QString line = item->text;
@@ -243,6 +325,11 @@ void FilterTable::updateGuis()
 			connect(gui, SIGNAL(updateChannels()), this, SLOT(updateChannels()));
 		}
 
+		const int rowHeight = rowWidget->minimumSizeHint().height();
+		rowWidget->setMinimumHeight(rowHeight);
+		gridLayout->setRowMinimumHeight(row, rowHeight);
+		gridLayout->setRowStretch(row, 0);
+		minimumContentHeight += rowHeight;
 		row++;
 	}
 
@@ -265,11 +352,13 @@ void FilterTable::updateGuis()
 	toolBar->addAction(addAction);
 
 	gridLayout->addWidget(toolBar, row++, 0, 1, 1, Qt::AlignLeft | Qt::AlignTop);
+	minimumContentHeight += toolBar->sizeHint().height();
 
 	QSpacerItem* spacerItem = new QSpacerItem(0, 0, QSizePolicy::Minimum, QSizePolicy::Expanding);
 	gridLayout->addItem(spacerItem, row, 0);
 
 	gridLayout->setRowStretch(row, 1);
+	setMinimumHeight(minimumContentHeight);
 
 	disableWheelForWidgets();
 
@@ -299,9 +388,168 @@ QList<QString> FilterTable::getLines()
 	return result;
 }
 
+bool FilterTable::planPreampReduction(
+	double reductionDb,
+	PreampAdjustmentPlan* plan) const
+{
+	if (plan == NULL || !std::isfinite(reductionDb) || reductionDb <= 0.0)
+		return false;
+	*plan = PreampAdjustmentPlan();
+
+	bool hasScopeBoundary = false;
+	for (Item* item : items)
+	{
+		if (isPreampScopeBoundary(item->text))
+		{
+			hasScopeBoundary = true;
+			break;
+		}
+	}
+
+	for (int index = 0; index < items.size(); ++index)
+	{
+		const QString line = items[index]->text;
+		const QString trimmed = line.trimmed();
+		if (trimmed.isEmpty() || trimmed.startsWith('#'))
+			continue;
+		const int separator = trimmed.indexOf(':');
+		if (separator < 0)
+			continue;
+		const QString command = trimmed.left(separator).trimmed();
+		if (preampScopeBoundaries().contains(command.toCaseFolded()))
+			break;
+		if (command != QStringLiteral("Preamp"))
+			continue;
+		double oldDbGain = 0.0;
+		if (!parseEditablePreampLine(line, nullptr, &oldDbGain, nullptr))
+			continue;
+
+		// The line is serialized with two decimal places. Round the final target
+		// toward attenuation as well as rounding the measured excess, otherwise
+		// an existing value with finer precision could round back upward and leave
+		// a small positive response peak.
+		const double unquantizedTarget = oldDbGain - reductionDb;
+		double targetDbGain = std::floor(unquantizedTarget * 100.0) / 100.0;
+		QString targetText = QString::number(targetDbGain, 'f', 2);
+		targetDbGain = targetText.toDouble();
+		// Guard the exact cent boundary against floating-point multiplication or
+		// formatting rounding upward. One extra cent is preferable to any positive
+		// residual in the sampled response.
+		if (oldDbGain - targetDbGain < reductionDb)
+		{
+			targetText = QString::number(targetDbGain - 0.01, 'f', 2);
+			targetDbGain = targetText.toDouble();
+		}
+		if (std::isfinite(targetDbGain)
+			&& targetDbGain >= -100.0 && targetDbGain <= 100.0
+			&& targetDbGain < oldDbGain
+			&& oldDbGain - targetDbGain >= reductionDb)
+		{
+			plan->insertsNewPreamp = false;
+			plan->oldDbGain = oldDbGain;
+			plan->targetDbGain = targetDbGain;
+			plan->itemIndex = index;
+			plan->originalLine = line;
+			return true;
+		}
+		// A root Preamp that is already at its editable floor can still be made
+		// safe by another editable root Preamp later in the file. Keep searching;
+		// if none can represent the cut, insertion is considered below.
+		continue;
+	}
+
+	// Inserting before Device/Channel/If/Include/Stage would broaden a cut from
+	// one conditional path to the entire file. Require a deliberate manual edit
+	// instead of changing unrelated devices or channels.
+	if (hasScopeBoundary)
+		return false;
+
+	plan->insertsNewPreamp = true;
+	plan->oldDbGain = 0.0;
+	plan->targetDbGain = QString::number(
+		std::floor(-reductionDb * 100.0) / 100.0, 'f', 2).toDouble();
+	if (-plan->targetDbGain < reductionDb)
+		plan->targetDbGain = QString::number(
+			plan->targetDbGain - 0.01, 'f', 2).toDouble();
+	plan->itemIndex = -1;
+	plan->originalLine.clear();
+	// Keep newly inserted values within the editable range of the standard
+	// Preamp control.  Refuse instead of silently clipping the requested cut.
+	return std::isfinite(plan->targetDbGain)
+		&& plan->targetDbGain >= -100.0 && plan->targetDbGain < 0.0
+		&& -plan->targetDbGain >= reductionDb;
+}
+
+bool FilterTable::applyPreampReduction(const PreampAdjustmentPlan& plan)
+{
+	if (!std::isfinite(plan.oldDbGain) || !std::isfinite(plan.targetDbGain)
+		|| plan.targetDbGain < -100.0 || plan.targetDbGain > 100.0)
+		return false;
+
+	if (!plan.insertsNewPreamp)
+	{
+		if (plan.itemIndex < 0 || plan.itemIndex >= items.size()
+			|| items[plan.itemIndex]->text != plan.originalLine)
+			return false;
+		for (int index = 0; index <= plan.itemIndex; ++index)
+			if (isPreampScopeBoundary(items[index]->text))
+				return false;
+
+		QString prefix;
+		QString suffix;
+		double parsedOldGain = 0.0;
+		bool commaDecimal = false;
+		if (!parseEditablePreampLine(
+			plan.originalLine, &prefix, &parsedOldGain, &suffix,
+			&commaDecimal))
+			return false;
+		QString targetText = QString::number(plan.targetDbGain, 'f', 2);
+		bool validTargetGain = false;
+		const double serializedTargetGain = targetText.toDouble(&validTargetGain);
+		if (!validTargetGain
+			|| !std::isfinite(parsedOldGain) || !std::isfinite(serializedTargetGain)
+			|| parsedOldGain != plan.oldDbGain
+			|| serializedTargetGain != plan.targetDbGain
+			|| serializedTargetGain >= parsedOldGain)
+			return false;
+		if (commaDecimal)
+			targetText.replace('.', ',');
+		items[plan.itemIndex]->text = prefix + targetText + suffix;
+		updateGuis();
+		updateModel();
+		return true;
+	}
+
+	if (plan.itemIndex != -1 || !plan.originalLine.isEmpty()
+		|| plan.oldDbGain != 0.0 || plan.targetDbGain >= 0.0)
+		return false;
+	const QString serializedTargetText = QString::number(
+		plan.targetDbGain, 'f', 2);
+	bool validSerializedTarget = false;
+	const double serializedTargetGain = serializedTargetText.toDouble(
+		&validSerializedTarget);
+	if (!validSerializedTarget || !std::isfinite(serializedTargetGain)
+		|| serializedTargetGain != plan.targetDbGain
+		|| serializedTargetGain >= 0.0)
+		return false;
+	for (Item* item : items)
+		if (isPreampScopeBoundary(item->text))
+			return false;
+
+	Item* before = items.isEmpty() ? NULL : items.first();
+	addLine(
+		QStringLiteral("Preamp: %1 dB").arg(plan.targetDbGain, 0, 'f', 2),
+		before);
+	updateGuis();
+	return true;
+}
+
 void FilterTable::setLines(const QString& configPath, const QList<QString>& lines)
 {
 	this->configPath = configPath;
+
+	for (Item* item : items)
+		prepareDeleteItem(item);
 
 	selected.clear();
 	focused = NULL;
@@ -391,16 +639,68 @@ FilterTable::Item* FilterTable::addLine(const QString& line, FilterTable::Item* 
 	return newItem;
 }
 
+FilterTable::Item* FilterTable::cloneItem(FilterTable::Item* item, bool insertBelow)
+{
+	const int sourceIndex = items.indexOf(item);
+	if (sourceIndex < 0)
+		return NULL;
+
+	if (item->gui != NULL)
+	{
+		item->prefs.clear();
+		item->gui->storePreferences(item->prefs);
+	}
+
+	QString clonedText = item->text;
+	const QRegularExpression outProcCommand("^\\s*(?:#\\s*)?OutProcVSTPlugin\\s*:");
+	if (outProcCommand.match(clonedText).hasMatch())
+	{
+		const QString replacement = " HostId " + QUuid::createUuid().toString(QUuid::WithoutBraces);
+		const QRegularExpression hostId("(?:(?<=:)\\s*|\\s+)HostId\\s+(?:\"[^\"]*\"|\\S+)");
+		clonedText.remove(hostId);
+		clonedText += replacement;
+	}
+
+	const QRegularExpression vuMeterCommand("^\\s*(?:#\\s*)?VUMeter\\s*:");
+	if (vuMeterCommand.match(clonedText).hasMatch())
+	{
+		const QString replacement = " MeterId " + QUuid::createUuid().toString(QUuid::WithoutBraces);
+		const QRegularExpression meterId("(?:(?<=:)\\s*|\\s+)MeterId\\s+(?:\"[^\"]*\"|\\S+)");
+		clonedText.remove(meterId);
+		clonedText += replacement;
+	}
+
+	Item* clone = new Item(clonedText);
+	clone->prefs = item->prefs;
+	items.insert(sourceIndex + (insertBelow ? 1 : 0), clone);
+
+	selected.clear();
+	selected.insert(clone);
+	focused = clone;
+	selectionStart = clone;
+
+	emit linesChanged();
+	return clone;
+}
+
 void FilterTable::removeItem(FilterTable::Item* item)
 {
 	items.removeOne(item);
+	prepareDeleteItem(item);
+	delete item;
 	emit linesChanged();
+}
+
+void FilterTable::prepareDeleteItem(FilterTable::Item* item)
+{
+	if (item != NULL && item->gui != NULL)
+		item->gui->prepareDelete();
 }
 
 QMenu* FilterTable::createAddPopupMenu()
 {
 	QHash<QList<QString>, QMenu*> pathMap;
-	QMenu* rootMenu = new QMenu;
+	QMenu* rootMenu = new QMenu(this);
 	pathMap[QStringList()] = rootMenu;
 
 	for (IFilterGUIFactory* f : factories)
@@ -419,7 +719,7 @@ QMenu* FilterTable::createAddPopupMenu()
 					menu = pathMap.value(currentPath);
 					if (menu == NULL)
 					{
-						menu = new QMenu(pathSegment);
+						menu = new QMenu(pathSegment, parentMenu);
 						pathMap.insert(currentPath, menu);
 						parentMenu->addMenu(menu);
 					}
@@ -526,6 +826,7 @@ void FilterTable::deleteSelectedLines()
 				focused = NULL;
 			if (item == selectionStart)
 				selectionStart = NULL;
+			prepareDeleteItem(item);
 			delete item;
 		}
 		else
@@ -817,6 +1118,7 @@ void FilterTable::mouseMoveEvent(QMouseEvent* event)
 						if (selectionStart == item)
 							selectionStart = NULL;
 						selected.remove(item);
+						prepareDeleteItem(item);
 						delete item;
 					}
 				}
@@ -1011,6 +1313,65 @@ void FilterTable::wheelEvent(QWheelEvent* event)
 bool FilterTable::eventFilter(QObject* obj, QEvent* event)
 {
 	QEvent::Type type = event->type();
+	if (type == QEvent::MouseButtonRelease)
+	{
+		QWidget* widget = qobject_cast<QWidget*>(obj);
+		if (widget != NULL && widget->property("_eqapoSuppressResetRelease").toBool())
+		{
+			widget->setProperty("_eqapoSuppressResetRelease", false);
+			static_cast<QMouseEvent*>(event)->accept();
+			return true;
+		}
+	}
+	if (type == QEvent::MouseButtonDblClick)
+	{
+		QWidget* widget = qobject_cast<QWidget*>(obj);
+		if (widget != NULL && isAncestorOf(widget))
+		{
+			auto consumeResetEvent = [widget, event]() {
+				widget->setProperty("_eqapoSuppressResetRelease", true);
+				static_cast<QMouseEvent*>(event)->accept();
+				return true;
+			};
+			const QVariant defaultValue = widget->property("defaultValue");
+			if (QDoubleSpinBox* spin = qobject_cast<QDoubleSpinBox*>(widget))
+			{
+				const double neutral = defaultValue.isValid() ? defaultValue.toDouble() : (spin->minimum() <= 0.0 && spin->maximum() >= 0.0 ? 0.0 : spin->minimum());
+				spin->setValue(neutral);
+				return consumeResetEvent();
+			}
+			if (QSpinBox* spin = qobject_cast<QSpinBox*>(widget))
+			{
+				const int neutral = defaultValue.isValid() ? defaultValue.toInt() : (spin->minimum() <= 0 && spin->maximum() >= 0 ? 0 : spin->minimum());
+				spin->setValue(neutral);
+				return consumeResetEvent();
+			}
+			if (QAbstractSlider* slider = qobject_cast<QAbstractSlider*>(widget))
+			{
+				if (qobject_cast<QScrollBar*>(widget) == NULL)
+				{
+					QObject* resetTarget = widget->property("resetTarget").value<QObject*>();
+					const QVariant defaultTargetValue = widget->property("defaultTargetValue");
+					if (resetTarget != NULL && defaultTargetValue.isValid())
+					{
+						if (QDoubleSpinBox* spin = qobject_cast<QDoubleSpinBox*>(resetTarget))
+						{
+							spin->setValue(defaultTargetValue.toDouble());
+							return consumeResetEvent();
+						}
+						if (QSpinBox* spin = qobject_cast<QSpinBox*>(resetTarget))
+						{
+							spin->setValue(defaultTargetValue.toInt());
+							return consumeResetEvent();
+						}
+					}
+					const int neutral = defaultValue.isValid() ? defaultValue.toInt() : (slider->minimum() <= 0 && slider->maximum() >= 0 ? 0 : slider->minimum());
+					slider->setValue(neutral);
+					return consumeResetEvent();
+				}
+			}
+		}
+	}
 	if (scrollingNow)
 	{
 		if (type == QEvent::Wheel)

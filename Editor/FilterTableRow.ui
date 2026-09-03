@@ -16,6 +16,12 @@
     <verstretch>0</verstretch>
    </sizepolicy>
   </property>
+  <property name="minimumSize">
+   <size>
+    <width>0</width>
+    <height>150</height>
+   </size>
+  </property>
   <property name="windowTitle">
    <string notr="true">Form</string>
   </property>
@@ -115,6 +121,30 @@
   <action name="actionRemove">
    <property name="text">
     <string>Remove</string>
+   </property>
+  </action>
+  <action name="actionCloneAbove">
+   <property name="icon">
+    <iconset resource="Editor.qrc">
+     <normaloff>:/icons/edit-copy.ico</normaloff>:/icons/edit-copy.ico</iconset>
+   </property>
+   <property name="text">
+    <string>Clone above</string>
+   </property>
+   <property name="toolTip">
+    <string>Clone this module above</string>
+   </property>
+  </action>
+  <action name="actionCloneBelow">
+   <property name="icon">
+    <iconset resource="Editor.qrc">
+     <normaloff>:/icons/edit-copy.ico</normaloff>:/icons/edit-copy.ico</iconset>
+   </property>
+   <property name="text">
+    <string>Clone below</string>
+   </property>
+   <property name="toolTip">
+    <string>Clone this module below</string>
    </property>
   </action>
   <action name="actionEditText">

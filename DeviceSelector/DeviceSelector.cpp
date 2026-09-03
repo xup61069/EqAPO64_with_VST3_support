@@ -480,7 +480,7 @@ void DeviceSelector::onCopyDeviceCommandClicked()
 			command += "; ";
 
 		std::shared_ptr<AbstractAPOInfo> info = item->data(0, DeviceInfoRole).value<std::shared_ptr<AbstractAPOInfo>>();
-		command += QString::fromStdWString(info->getDeviceString()).replace(';', ' ');
+		command += QString::fromStdWString(info->getDeviceGuid().empty() ? info->getDeviceString() : info->getDeviceGuid()).replace(';', ' ');
 	}
 
 	QClipboard* clipboard = QGuiApplication::clipboard();

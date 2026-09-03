@@ -45,6 +45,8 @@ public:
 
 	void loadPreferences(const QVariantMap& prefs) override;
 	void storePreferences(QVariantMap& prefs) override;
+	QSize sizeHint() const override;
+	QSize minimumSizeHint() const override;
 
 protected:
 	void changeEvent(QEvent* event) override;
@@ -66,6 +68,7 @@ private slots:
 
 	void on_actionImport_triggered();
 	void on_actionExport_triggered();
+	void on_actionExportFIR_triggered();
 	void on_actionInvertResponse_triggered();
 	void on_actionNormalizeResponse_triggered();
 	void on_actionResetResponse_triggered();
@@ -79,10 +82,15 @@ private:
 	void setViewHeight(int height);
 	void setFreqEditable(bool editable);
 	void updateThemeIcons();
+	void updatePreferredHeight();
+	int preferredHeight() const;
+	unsigned currentDeviceSampleRate() const;
 
 	Ui::GraphicEQFilterGUI* ui;
 	GraphicEQFilterGUIScene* scene;
 	QString configPath;
 	FilterTable* filterTable;
+	QString deviceGuid;
+	unsigned deviceSampleRate = 48000;
 	static QRegularExpression numberRegEx;
 };

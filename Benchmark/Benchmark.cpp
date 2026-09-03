@@ -25,12 +25,16 @@
 #include <cstdio>
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <algorithm>
 #include <string>
+#include <vector>
 #include <sndfile.h>
 #include <tclap/CmdLine.h>
+#include <fftw3.h>
 
 #include "../version.h"
 #include "../FilterEngine.h"
+#include "../libHybridConv-0.1.1/libHybridConv_eapo.h"
 #include "../helpers/LogHelper.h"
 #include "../helpers/StringHelper.h"
 #include "../helpers/PrecisionTimer.h"
@@ -316,6 +320,217 @@ public:
 
 namespace
 {
+	int nextPowerOfTwo(int value)
+	{
+		int result = 1;
+		while (result < value)
+			result <<= 1;
+		return result;
+	}
+
+	void referenceConvolutionFft(
+		const vector<double>& input,
+		const vector<double>& impulse,
+		vector<double>& output)
+	{
+		const int resultLength =
+			static_cast<int>(input.size() + impulse.size() - 1);
+		const int fftLength = nextPowerOfTwo(resultLength);
+
+		double* xTime = static_cast<double*>(
+			fftw_malloc(sizeof(double) * fftLength));
+		double* hTime = static_cast<double*>(
+			fftw_malloc(sizeof(double) * fftLength));
+		fftw_complex* xFreq = static_cast<fftw_complex*>(
+			fftw_malloc(sizeof(fftw_complex) * (fftLength / 2 + 1)));
+		fftw_complex* hFreq = static_cast<fftw_complex*>(
+			fftw_malloc(sizeof(fftw_complex) * (fftLength / 2 + 1)));
+
+		memset(xTime, 0, sizeof(double) * fftLength);
+		memset(hTime, 0, sizeof(double) * fftLength);
+		memcpy(xTime, input.data(), sizeof(double) * input.size());
+		memcpy(hTime, impulse.data(), sizeof(double) * impulse.size());
+
+		fftw_plan xPlan = fftw_plan_dft_r2c_1d(
+			fftLength, xTime, xFreq, FFTW_ESTIMATE);
+		fftw_plan hPlan = fftw_plan_dft_r2c_1d(
+			fftLength, hTime, hFreq, FFTW_ESTIMATE);
+		fftw_execute(xPlan);
+		fftw_execute(hPlan);
+
+		for (int index = 0; index < fftLength / 2 + 1; ++index)
+		{
+			const double real =
+				xFreq[index][0] * hFreq[index][0] -
+				xFreq[index][1] * hFreq[index][1];
+			const double imaginary =
+				xFreq[index][0] * hFreq[index][1] +
+				xFreq[index][1] * hFreq[index][0];
+			xFreq[index][0] = real;
+			xFreq[index][1] = imaginary;
+		}
+
+		fftw_plan yPlan = fftw_plan_dft_c2r_1d(
+			fftLength, xFreq, xTime, FFTW_ESTIMATE);
+		fftw_execute(yPlan);
+
+		output.resize(input.size());
+		for (size_t index = 0; index < output.size(); ++index)
+			output[index] = xTime[index] / fftLength;
+
+		fftw_destroy_plan(yPlan);
+		fftw_destroy_plan(hPlan);
+		fftw_destroy_plan(xPlan);
+		fftw_free(hFreq);
+		fftw_free(xFreq);
+		fftw_free(hTime);
+		fftw_free(xTime);
+	}
+
+	double deterministicNoise(unsigned& state)
+	{
+		state = state * 1664525u + 1013904223u;
+		return ((state >> 8) / 16777216.0) * 2.0 - 1.0;
+	}
+
+	bool runConvolutionSelfTestCase(
+		int sampleRate,
+		int frameLength,
+		int impulseLength,
+		int blocks)
+	{
+		const int inputLength = frameLength * blocks;
+		vector<double> input(inputLength);
+		vector<double> impulse(impulseLength);
+		vector<double> actual(inputLength);
+		vector<double> reference;
+		vector<double> block(frameLength);
+
+		unsigned state =
+			0x12345678u ^ static_cast<unsigned>(sampleRate) ^
+			static_cast<unsigned>(frameLength);
+		for (int index = 0; index < inputLength; ++index)
+		{
+			const double time = static_cast<double>(index) / sampleRate;
+			input[index] = 0.17 * sin(2.0 * M_PI * 997.0 * time) +
+				0.11 * sin(2.0 * M_PI * 1234.5 * time) +
+				0.03 * deterministicNoise(state);
+		}
+
+		for (int index = 0; index < impulseLength; ++index)
+		{
+			const double decay =
+				exp(-static_cast<double>(index) / (0.065 * sampleRate));
+			impulse[index] = decay *
+				(0.012 * sin(0.013 * index) +
+					0.006 * deterministicNoise(state));
+		}
+
+		if (!impulse.empty())
+		{
+			impulse[0] += 0.55;
+			for (int index = frameLength - 1;
+				index < impulseLength;
+				index += frameLength)
+			{
+				impulse[index] += 0.04 *
+					((index / frameLength) % 2 == 0 ? 1.0 : -1.0);
+			}
+			for (int index = frameLength;
+				index < impulseLength;
+				index += frameLength)
+			{
+				impulse[index] += 0.035 *
+					((index / frameLength) % 2 == 0 ? -1.0 : 1.0);
+			}
+		}
+
+		referenceConvolutionFft(input, impulse, reference);
+
+		HConvSingle filter;
+		hcInitSingle(&filter, impulse.data(), impulseLength, frameLength, 1);
+		for (int blockIndex = 0; blockIndex < blocks; ++blockIndex)
+		{
+			hcPutSingle(
+				&filter, input.data() + static_cast<size_t>(blockIndex) * frameLength);
+			hcProcessSingle(&filter);
+			hcGetSingle(&filter, block.data());
+			memcpy(
+				actual.data() + static_cast<size_t>(blockIndex) * frameLength,
+				block.data(),
+				sizeof(double) * frameLength);
+		}
+		hcCloseSingle(&filter);
+
+		double maxAbsError = 0.0;
+		double rmsError = 0.0;
+		double maxReference = 0.0;
+		int maxIndex = 0;
+		for (int index = 0; index < inputLength; ++index)
+		{
+			const double error = fabs(actual[index] - reference[index]);
+			if (error > maxAbsError)
+			{
+				maxAbsError = error;
+				maxIndex = index;
+			}
+			rmsError += error * error;
+			maxReference = max(maxReference, fabs(reference[index]));
+		}
+		rmsError = sqrt(rmsError / inputLength);
+		const double relativeError = maxReference > 0.0 ?
+			maxAbsError / maxReference : maxAbsError;
+		const bool passed = maxAbsError < 1e-8 || relativeError < 1e-8;
+
+		printf(
+			"%s sr=%d flen=%d hlen=%d blocks=%d max=%0.12g rel=%0.12g rms=%0.12g idx=%d\n",
+			passed ? "PASS" : "FAIL",
+			sampleRate,
+			frameLength,
+			impulseLength,
+			blocks,
+			maxAbsError,
+			relativeError,
+			rmsError,
+			maxIndex);
+
+		return passed;
+	}
+
+	int runConvolutionSelfTest()
+	{
+		struct TestCase
+		{
+			int sampleRate;
+			int frameLength;
+			int impulseLength;
+			int blocks;
+		};
+
+		const TestCase tests[] = {
+			{ 44100, 256, 8192, 80 },
+			{ 48000, 256, 8916, 80 },
+			{ 96000, 512, 17832, 64 },
+			{ 192000, 1024, 35664, 48 },
+			{ 192000, 256, 35664, 80 },
+		};
+
+		bool passed = true;
+		printf("Running internal HybridConv correctness benchmark...\n");
+		for (const TestCase& test : tests)
+		{
+			passed = runConvolutionSelfTestCase(
+				test.sampleRate,
+				test.frameLength,
+				test.impulseLength,
+				test.blocks) && passed;
+		}
+
+		printf("HybridConv correctness benchmark: %s\n",
+			passed ? "PASS" : "FAIL");
+		return passed ? 0 : 2;
+	}
+
 	bool checkLoudnessFormulaValue(
 		const char* name,
 		size_t frequencyIndex,
@@ -1654,6 +1869,9 @@ int main(int argc, char** argv)
 			"It then filters the waveform using the Equalizer APO filter configuration "
 			"and finally writes to the given file or into the user's temp directory.", ' ', versionStream.str());
 
+		TCLAP::SwitchArg convSelfTestArg(
+			"", "convselftest",
+			"Run internal HybridConv correctness benchmark and exit", cmd);
 		TCLAP::SwitchArg noPauseArg("", "nopause", "Do not wait for key press at the end", cmd);
 		TCLAP::SwitchArg verboseArg("v", "verbose", "Print trace and error messages to console instead of logfile", cmd);
 		TCLAP::SwitchArg loudnessTransitionTestArg(
@@ -1676,6 +1894,8 @@ int main(int argc, char** argv)
 
 		bool verbose = verboseArg.getValue();
 		LogHelper::set(stderr, verbose, true, true);
+		if (convSelfTestArg.getValue())
+			return runConvolutionSelfTest();
 		if (loudnessTransitionTestArg.getValue())
 			return runLoudnessTransitionTests();
 #ifdef _DEBUG
@@ -1706,7 +1926,7 @@ int main(int argc, char** argv)
 			PrecisionTimer timer;
 			timer.start();
 
-			SF_INFO info;
+			SF_INFO info = {};
 			SNDFILE* inFile = sf_open(input.c_str(), SFM_READ, &info);
 			if (inFile == NULL)
 			{

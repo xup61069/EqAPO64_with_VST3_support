@@ -36,7 +36,9 @@ namespace UiSnapshot
 	{
 		const QString value = qEnvironmentVariable(
 			"EQAPO_UI_SNAPSHOT_SCENARIO").trimmed().toLower();
-		return value == QStringLiteral("dense") ? value : QString();
+		return value == QStringLiteral("dense")
+			|| value == QStringLiteral("restored-tools")
+			? value : QString();
 	}
 
 	inline QString localeName()

@@ -47,6 +47,7 @@ class QLabel;
 class QLineEdit;
 class QMenu;
 class QProgressBar;
+class QPushButton;
 class QSystemTrayIcon;
 class QToolBar;
 
@@ -113,6 +114,8 @@ private slots:
 	void on_analysisDockWidget_visibilityChanged(bool visible);
 	void on_actionToolbar_triggered(bool checked);
 	void on_actionAnalysisPanel_triggered(bool checked);
+	void dockAnalysisPanel();
+	void lowerPreampToPreventClipping();
 
 	void languageSelected(bool selected);
 	void on_actionResetAllGlobalPreferences_triggered();
@@ -120,7 +123,7 @@ private slots:
 
 private:
 	FilterTable* addTab(QString title, QString tooltip, QString configPath, QList<QString> lines);
-	void getDeviceAndChannelMask(std::shared_ptr<AbstractAPOInfo>* selectedDevice, int* channelMask);
+	void getDeviceAndChannelMask(std::shared_ptr<AbstractAPOInfo>* selectedDevice, int* channelMask) const;
 	bool askForClose(int tabIndex);
 	void loadPreferences();
 	void savePreferences();
@@ -131,6 +134,9 @@ private:
 	void refreshProfileMenus();
 	void syncProfileSelection();
 	void refreshWorkspaceActionState();
+	void invalidateAnalysisResult();
+	void refreshAutoPreampActionState();
+	bool analysisResultCanAdjustPreamp() const;
 	bool restoreTemporaryProcessingState();
 	bool prepareTemporaryContents(
 		FilterTable* filterTable,
@@ -180,6 +186,7 @@ private:
 	QLabel* headroomValueLabel = NULL;
 	QProgressBar* headroomMeter = NULL;
 	QLabel* analysisStateLabel = NULL;
+	QPushButton* autoPreampButton = NULL;
 	QFileSystemWatcher* profileWatcher = NULL;
 	QSystemTrayIcon* trayIcon = NULL;
 	QMenu* profileMenu = NULL;
@@ -190,17 +197,32 @@ private:
 	QAction* bypassAction = NULL;
 	QAction* closeToTrayAction = NULL;
 	QAction* trayBypassAction = NULL;
+	QAction* dockAnalysisPanelAction = NULL;
 	QList<std::shared_ptr<AbstractAPOInfo>> outputDevices;
 	QList<std::shared_ptr<AbstractAPOInfo>> inputDevices;
 	std::shared_ptr<AbstractAPOInfo> defaultOutputDevice;
 	AnalysisPlotScene* analysisPlotScene;
 	AnalysisThread* analysisThread = NULL;
+	QPointer<FilterTable> requestedAnalysisTable;
+	QByteArray requestedAnalysisLinesHash;
+	QString requestedAnalysisConfigPath;
+	QString requestedAnalysisDeviceId;
+	quint64 requestedAnalysisGeneration = 0;
+	quint64 acceptedAnalysisGeneration = 0;
+	double latestAnalysisPeakGain = 0.0;
+	QList<AnalysisConfigurationFileSnapshot> latestAnalysisConfigurationFiles;
+	QList<AnalysisVolumeSnapshot> latestAnalysisVolumeSnapshots;
+	int requestedAnalysisChannelMask = 0;
+	int requestedAnalysisChannelIndex = -1;
+	int requestedAnalysisStartFrom = -1;
+	bool latestAnalysisResultValid = false;
 	bool restart = false;
 	bool noSavePreferences = false;
 	bool noSaveFilePreferences = false;
 	bool closeToTray = false;
 	bool quitRequested = false;
 	bool restoringTemporaryState = false;
+	bool applyingAutoPreampAdjustment = false;
 	QString temporaryRecoveryOwner;
 	quint64 temporaryRecoveryProcessStartedAt = 0;
 	quint64 workspaceStatusRevision = 0;

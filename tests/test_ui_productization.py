@@ -63,6 +63,7 @@ class UiProductizationTests(unittest.TestCase):
         production_build = production_build.split("#endif", 1)[0]
         self.assertIn('qEnvironmentVariable("EQAPO_UI_SNAPSHOT")', test_build)
         self.assertIn('"EQAPO_UI_SNAPSHOT_SCENARIO"', test_build)
+        self.assertIn('QStringLiteral("restored-tools")', test_build)
         self.assertIn('"EQAPO_UI_SNAPSHOT_LOCALE"', test_build)
         self.assertIn("widget.setAttribute(Qt::WA_DontShowOnScreen, true)", test_build)
         self.assertIn('QGuiApplication::platformName() != QStringLiteral("windows")', test_build)
@@ -147,9 +148,11 @@ class UiProductizationTests(unittest.TestCase):
         self.assertIn("GetAwaiter().GetResult()", capture_function)
         self.assertNotIn("$process.Kill($true)", script)
         self.assertIn("$process.Kill()", script)
-        self.assertIn("Expected exactly 72 UI snapshots", script)
+        self.assertIn("Expected exactly 90 UI snapshots", script)
         self.assertIn('FilePrefix = "editor-dense-zh-tw"', script)
         self.assertIn('SnapshotScenario = "dense"', script)
+        self.assertIn('FilePrefix = "editor-restored-tools-zh-tw"', script)
+        self.assertIn('SnapshotScenario = "restored-tools"', script)
         self.assertIn('Locale = "zh_TW"', script)
         self.assertIn("state.FilePrefix", script)
         self.assertIn(
@@ -211,7 +214,7 @@ class UiProductizationTests(unittest.TestCase):
         self.assertIn("$expectedNames -notcontains $relativeName", exact_set_check)
         self.assertIn("$expectedNames -contains $relativeName", exact_set_check)
         self.assertIn("-or $unexpectedFiles.Count -ne 0", exact_set_check)
-        self.assertIn("Expected exactly 72 UI snapshots", exact_set_check)
+        self.assertIn("Expected exactly 90 UI snapshots", exact_set_check)
 
         self.assertIn("capture-ui-regression.ps1", workflow)
         self.assertIn("ui-regression/*.png", workflow)
@@ -293,17 +296,37 @@ class UiProductizationTests(unittest.TestCase):
             with self.subTest(object_name=object_name):
                 self.assertIn(object_name, dense)
 
+        for restored_command in (
+            "Preamp: -100 dB",
+            "Preamp: 100 dB",
+            "Pan: Position 0 Width 100",
+            "Crossfeed: Algorithm Natural",
+            "Chorus: Rate 0.4 Hz",
+            "Reverb: RoomSize 50 %",
+            "ToneGenerator: State 0",
+            "VUMeter: MeterId snapshot-meter",
+            "ParametricEQ: ON PK",
+            "HeadphoneCalibration:",
+            "OutProcVSTPlugin: Library snapshot-memory",
+        ):
+            with self.subTest(restored_command=restored_command):
+                self.assertIn(restored_command, dense)
+
         layout_contract = MAIN_WINDOW[
             MAIN_WINDOW.index("bool MainWindow::snapshotLayoutIsValid") :
             MAIN_WINDOW.index("void MainWindow::getDeviceAndChannelMask")
         ]
-        self.assertIn('UiSnapshot::scenario() != QStringLiteral("dense")', layout_contract)
+        self.assertIn('UiSnapshot::scenario() == QStringLiteral("dense")', layout_contract)
+        self.assertIn('UiSnapshot::scenario() == QStringLiteral("restored-tools")', layout_contract)
         self.assertGreaterEqual(layout_contract.count("horizontalScrollBar()->maximum() != 0"), 2)
         self.assertIn('QStringLiteral("treeWidget")', layout_contract)
-        self.assertIn("denseGuiObjectNames", layout_contract)
+        self.assertIn("simpleGuiObjectNames", layout_contract)
         self.assertIn("widget->mapTo(container, QPoint(0, 0))", layout_contract)
         self.assertIn("container->rect().contains(geometryInContainer)", layout_contract)
         self.assertIn("gui->findChildren<QWidget*>()", layout_contract)
+        self.assertIn('QStringLiteral("parametricEQScrollArea")', layout_contract)
+        self.assertIn('QStringLiteral("headphoneCalibrationScrollArea")', layout_contract)
+        self.assertIn("contentOverflows", layout_contract)
         self.assertIn(
             "snapshot failed for $($State.Label)/$Theme/$($Scenario.Label)", capture
         )

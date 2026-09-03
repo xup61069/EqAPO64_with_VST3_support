@@ -67,6 +67,7 @@ VSTPluginFilterGUIDialog::VSTPluginFilterGUIDialog(QWidget* parent, VSTPluginIns
 				this->setEditorSize(width, height);
 		}
 	});
+	idleTimer.setTimerType(Qt::PreciseTimer);
 	idleTimer.setInterval(16);
 }
 

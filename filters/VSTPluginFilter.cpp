@@ -20,12 +20,13 @@
 #include "stdafx.h"
 #include "helpers/StringHelper.h"
 #include "helpers/LogHelper.h"
+#include "helpers/PrecisionTimer.h"
 #include "VSTPluginFilter.h"
 
 using namespace std;
 
-VSTPluginFilter::VSTPluginFilter(std::shared_ptr<VSTPluginLibrary> library, std::wstring chunkData, std::unordered_map<std::wstring, float> paramMap)
-	: library(library), chunkData(chunkData), paramMap(paramMap)
+VSTPluginFilter::VSTPluginFilter(std::shared_ptr<VSTPluginLibrary> library, std::wstring chunkData, std::unordered_map<std::wstring, float> paramMap, int vst3ClassIndex)
+	: library(library), chunkData(chunkData), paramMap(paramMap), vst3ClassIndex(vst3ClassIndex)
 {
 	libPath = library->getLibPath();
 }
@@ -40,13 +41,14 @@ std::vector<std::wstring> VSTPluginFilter::initialize(float sampleRate, unsigned
 	cleanup();
 
 	channelCount = channelNames.size();
+	slowProcessingLimitSeconds = max(0.25, (static_cast<double>(maxFrameCount) / max(1.0f, sampleRate)) * 8.0);
 	if (channelCount == 0)
 		return channelNames;
 
 	skipProcessing = false;
 
 	void* mem = MemoryHelper::alloc(sizeof(VSTPluginInstance));
-	VSTPluginInstance* firstEffect = new(mem) VSTPluginInstance(library, 2);
+	VSTPluginInstance* firstEffect = new(mem) VSTPluginInstance(library, 2, vst3ClassIndex);
 	if (!firstEffect->initialize())
 	{
 		LogF(L"The VST plugin %s crashed during initialization.", libPath.c_str());
@@ -67,7 +69,7 @@ std::vector<std::wstring> VSTPluginFilter::initialize(float sampleRate, unsigned
 	for (unsigned i = 1; i < effectCount; i++)
 	{
 		mem = MemoryHelper::alloc(sizeof(VSTPluginInstance));
-		effects[i] = new(mem) VSTPluginInstance(library, 2);
+		effects[i] = new(mem) VSTPluginInstance(library, 2, vst3ClassIndex);
 		if (!effects[i]->initialize() && !skipProcessing)
 		{
 			LogF(L"The VST plugin %s crashed during initialization.", libPath.c_str());
@@ -116,6 +118,7 @@ std::vector<std::wstring> VSTPluginFilter::initialize(float sampleRate, unsigned
 			delayBuffers[i] = (double*)MemoryHelper::alloc(delayBufferLength * sizeof(double));
 			memset(delayBuffers[i], 0, delayBufferLength * sizeof(double));
 		}
+		delayTempBuffer = (double*)MemoryHelper::alloc(maxFrameCount * sizeof(double));
 		delayBufferOffset = 0;
 	}
 
@@ -134,8 +137,8 @@ void VSTPluginFilter::prepareForProcessing(float sampleRate, unsigned maxFrameCo
 				effect->setUsedChannelCount(channelCount % effectChannelCount);
 			else
 				effect->setUsedChannelCount(effectChannelCount);
-			effect->prepareForProcessing(sampleRate, maxFrameCount);
 			effect->writeToEffect(chunkData, paramMap);
+			effect->prepareForProcessing(sampleRate, maxFrameCount);
 			effect->startProcessing();
 		}
 	}
@@ -160,6 +163,9 @@ void VSTPluginFilter::process(double** output, double** input, unsigned frameCou
 			memcpy(output[i], input[i], frameCount * sizeof(double));
 		return;
 	}
+
+	PrecisionTimer processingTimer;
+	processingTimer.start();
 
 	__try
 	{
@@ -233,37 +239,32 @@ void VSTPluginFilter::process(double** output, double** input, unsigned frameCou
 			{
 				double* outputChannel = output[i];
 				double* delayBuffer = delayBuffers[i];
+				memcpy(delayTempBuffer, outputChannel, frameCount * sizeof(double));
 
 				if (delayBufferLength <= frameCount)
 				{
 					// Delay is smaller than frame count - output from buffer then from current processing
 					memcpy(outputChannel, delayBuffer + delayBufferOffset, (delayBufferLength - delayBufferOffset) * sizeof(double));
 					memcpy(outputChannel + delayBufferLength - delayBufferOffset, delayBuffer, delayBufferOffset * sizeof(double));
-					memcpy(outputChannel + delayBufferLength, outputChannel, (frameCount - delayBufferLength) * sizeof(double));
-					memcpy(delayBuffer, outputChannel + frameCount - delayBufferLength, delayBufferLength * sizeof(double));
+					memcpy(outputChannel + delayBufferLength, delayTempBuffer, (frameCount - delayBufferLength) * sizeof(double));
+					memcpy(delayBuffer, delayTempBuffer + frameCount - delayBufferLength, delayBufferLength * sizeof(double));
 				}
 				else
 				{
-					// Create temporary buffer to hold current output
-					double* tempBuffer = (double*)MemoryHelper::alloc(frameCount * sizeof(double));
-					memcpy(tempBuffer, outputChannel, frameCount * sizeof(double));
-
 					if (delayBufferLength < delayBufferOffset + frameCount)
 					{
 						// Wrapping around the delay buffer
 						memcpy(outputChannel, delayBuffer + delayBufferOffset, (delayBufferLength - delayBufferOffset) * sizeof(double));
 						memcpy(outputChannel + delayBufferLength - delayBufferOffset, delayBuffer, (frameCount - (delayBufferLength - delayBufferOffset)) * sizeof(double));
-						memcpy(delayBuffer + delayBufferOffset, tempBuffer, (delayBufferLength - delayBufferOffset) * sizeof(double));
-						memcpy(delayBuffer, tempBuffer + delayBufferLength - delayBufferOffset, (frameCount - (delayBufferLength - delayBufferOffset)) * sizeof(double));
+						memcpy(delayBuffer + delayBufferOffset, delayTempBuffer, (delayBufferLength - delayBufferOffset) * sizeof(double));
+						memcpy(delayBuffer, delayTempBuffer + delayBufferLength - delayBufferOffset, (frameCount - (delayBufferLength - delayBufferOffset)) * sizeof(double));
 					}
 					else
 					{
 						// Simple case - no wrapping
 						memcpy(outputChannel, delayBuffer + delayBufferOffset, frameCount * sizeof(double));
-						memcpy(delayBuffer + delayBufferOffset, tempBuffer, frameCount * sizeof(double));
+						memcpy(delayBuffer + delayBufferOffset, delayTempBuffer, frameCount * sizeof(double));
 					}
-
-					MemoryHelper::free(tempBuffer);
 				}
 			}
 
@@ -285,8 +286,18 @@ void VSTPluginFilter::process(double** output, double** input, unsigned frameCou
 		for (unsigned i = 0; i < channelCount; i++)
 			memcpy(output[i], input[i], frameCount * sizeof(double));
 	}
+
+	const double elapsedSeconds = processingTimer.stop();
+	if (elapsedSeconds > slowProcessingLimitSeconds)
+	{
+		if (reportSlowProcessing)
+		{
+			LogF(L"The VST plugin %s blocked audio processing for %.3f seconds. Disabling this in-process plugin until the configuration is reloaded.", libPath.c_str(), elapsedSeconds);
+			reportSlowProcessing = false;
+		}
+		skipProcessing = true;
+	}
 }
-#pragma AVRT_CODE_END
 
 std::shared_ptr<VSTPluginLibrary> VSTPluginFilter::getLibrary() const
 {
@@ -303,6 +314,11 @@ std::unordered_map<std::wstring, float> VSTPluginFilter::getParamMap() const
 	return paramMap;
 }
 
+int VSTPluginFilter::getVST3ClassIndex() const
+{
+	return vst3ClassIndex;
+}
+
 void VSTPluginFilter::cleanup()
 {
 	if (effects != NULL)
@@ -310,8 +326,15 @@ void VSTPluginFilter::cleanup()
 		for (unsigned i = 0; i < effectCount; i++)
 		{
 			VSTPluginInstance* effect = effects[i];
-			effect->stopProcessing();
-			effect->~VSTPluginInstance();
+			__try
+			{
+				effect->stopProcessing();
+				effect->~VSTPluginInstance();
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogF(L"The VST plugin %s crashed while being unloaded.", libPath.c_str());
+			}
 			MemoryHelper::free(effect);
 		}
 		MemoryHelper::free(effects);
@@ -363,6 +386,11 @@ void VSTPluginFilter::cleanup()
 			MemoryHelper::free(delayBuffers[i]);
 		MemoryHelper::free(delayBuffers);
 		delayBuffers = NULL;
+	}
+	if (delayTempBuffer != NULL)
+	{
+		MemoryHelper::free(delayTempBuffer);
+		delayTempBuffer = NULL;
 	}
 	delayBufferLength = 0;
 	delayBufferOffset = 0;

@@ -25,6 +25,8 @@
 #include "Editor/widgets/FrequencyPlotScene.h"
 #include "helpers/GainIterator.h"
 
+class QVariantAnimation;
+
 class AnalysisPlotScene : public FrequencyPlotScene
 {
 	Q_OBJECT
@@ -37,5 +39,13 @@ public:
 	const std::vector<FilterNode>& getNodes() const;
 
 private:
+	bool responseAnimationAllowed() const;
+	bool responseShapesMatch(const std::vector<FilterNode>& left,
+		const std::vector<FilterNode>& right) const;
+	void setResponseAnimationProgress(qreal progress);
+
 	std::vector<FilterNode> nodes;
+	std::vector<FilterNode> animationStartNodes;
+	std::vector<FilterNode> targetNodes;
+	QVariantAnimation* responseAnimation;
 };

@@ -27,6 +27,8 @@
 #include <QMessageBox>
 #include <QSignalBlocker>
 #include <QToolTip>
+#include <QPushButton>
+#include <QVariant>
 
 LoudnessCorrectionFilterGUI::LoudnessCorrectionFilterGUI(
 	bool state,
@@ -63,6 +65,26 @@ LoudnessCorrectionFilterGUI::LoudnessCorrectionFilterGUI(
 	ui->refLevelSpinBox->setValue((int)refLevel);
 	ui->refOffsetSpinBox->setValue((int)refOffset);
 	ui->attSpinBox->setValue(att);
+	ui->refLevelSpinBox->setProperty("defaultValue", 80);
+	ui->refOffsetSpinBox->setProperty("defaultValue", 0);
+	ui->attSpinBox->setProperty("defaultValue", 1.0);
+	ui->refLevelDial->setProperty("resetTarget", QVariant::fromValue(static_cast<QObject*>(ui->refLevelSpinBox)));
+	ui->refLevelDial->setProperty("defaultTargetValue", 80);
+	ui->refOffsetDial->setProperty("resetTarget", QVariant::fromValue(static_cast<QObject*>(ui->refOffsetSpinBox)));
+	ui->refOffsetDial->setProperty("defaultTargetValue", 0);
+	ui->attDial->setProperty("resetTarget", QVariant::fromValue(static_cast<QObject*>(ui->attSpinBox)));
+	ui->attDial->setProperty("defaultTargetValue", 1.0);
+
+	QPushButton* resetButton = new QPushButton(tr("Reset"), this);
+	resetButton->setMinimumWidth(GUIHelper::scale(88));
+	ui->actionsLayout->insertWidget(1, resetButton);
+	connect(resetButton, &QPushButton::clicked, this, [this]() {
+		this->state = true;
+		ui->refLevelSpinBox->setValue(80);
+		ui->refOffsetSpinBox->setValue(0);
+		ui->attSpinBox->setValue(1.0);
+		emit updateModel();
+	});
 
 	bool bindingBlocked = ui->bindingComboBox->blockSignals(true);
 	ui->bindingComboBox->setCurrentIndex(

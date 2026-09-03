@@ -21,7 +21,7 @@ $paths = @{
 	FFTW_INCLUDE = Join-Path $thirdParty "vcpkg_installed\$triplet\include"
 	FFTW_LIB = Join-Path $thirdParty "vcpkg_installed\$triplet\$vcpkgLibSubdirectory"
 	MUPARSERX_INCLUDE = Join-Path $thirdParty "muparserx\parser"
-	MUPARSERX_LIB = Join-Path $thirdParty "muparserx\build\x64\$Configuration"
+	MUPARSERX_LIB = Join-Path $thirdParty "build\muparserx-$triplet\$Configuration"
 	TCLAP_ROOT = Join-Path $thirdParty "tclap"
 }
 
@@ -32,6 +32,18 @@ foreach ($path in $paths.GetEnumerator()) {
 }
 
 $vsDevCmd = Get-VisualStudioDevCmd -Edition $VisualStudioEdition
+
+$windowsKitInclude = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10\Include"
+$windowsSdkVersion = ""
+if (Test-Path -LiteralPath $windowsKitInclude) {
+	$windowsSdkVersion = Get-ChildItem -LiteralPath $windowsKitInclude -Directory |
+		Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName "um\Windows.h") } |
+		Sort-Object Name -Descending |
+		Select-Object -First 1 -ExpandProperty Name
+}
+if ($windowsSdkVersion -eq "") {
+	throw "Windows 10 SDK was not found under $windowsKitInclude"
+}
 
 # Avoid duplicate PATH/Path process variables confusing MSBuild's CL task.
 [Environment]::SetEnvironmentVariable("PATH", $null, "Process")
@@ -49,6 +61,7 @@ $props = @(
 	"/p:MUPARSERX_LIB=$($paths.MUPARSERX_LIB)",
 	"/p:TCLAP_ROOT=$($paths.TCLAP_ROOT)",
 	"/p:TreatWarningAsError=true",
+	"/p:WindowsTargetPlatformVersion=$windowsSdkVersion",
 	"/m"
 )
 if ($PlatformToolset -ne "") {
@@ -58,11 +71,12 @@ if ($PlatformToolset -ne "") {
 $commands = @(
 	"msbuild Common.vcxproj $($props -join ' ')",
 	"msbuild EqualizerAPO\EqualizerAPO.vcxproj $($props -join ' ')",
+	"msbuild EqApoOutProcHost\EqApoOutProcHost.vcxproj $($props -join ' ')",
 	"msbuild Benchmark\Benchmark.vcxproj $($props -join ' ')",
 	"msbuild VoicemeeterClient\VoicemeeterClient.vcxproj $($props -join ' ')"
 )
 
-$cmd = "call `"$vsDevCmd`" && " + ($commands -join " && ")
+$cmd = "set WindowsTargetPlatformVersion=$windowsSdkVersion && set WindowsSDKVersion=$windowsSdkVersion\ && call `"$vsDevCmd`" -winsdk=$windowsSdkVersion && " + ($commands -join " && ")
 Push-Location $root
 try {
 	cmd /c $cmd

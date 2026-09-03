@@ -25,7 +25,9 @@
 #include <QScrollBar>
 #include <QStyle>
 #include <QStyleOption>
-
+#include <QFile>
+#include <QDir>
+#include <QTextStream>
 #include <algorithm>
 
 #include "Editor/helpers/GUIHelper.h"
@@ -86,6 +88,16 @@ namespace
 				foregroundRole());
 		}
 	};
+
+	void appendFilterRowDebugLog(const QString& message)
+	{
+		QFile file(QDir::temp().absoluteFilePath("EqApoOutProcHost-debug.log"));
+		if (file.open(QIODevice::Append | QIODevice::Text))
+		{
+			QTextStream stream(&file);
+			stream << "[row] " << message << "\n";
+		}
+	}
 }
 
 FilterTableRow::FilterTableRow(FilterTable* table, int number, FilterTable::Item* item, IFilterGUI* gui)
@@ -94,6 +106,8 @@ FilterTableRow::FilterTableRow(FilterTable* table, int number, FilterTable::Item
 {
 	ui->setupUi(this);
 	ui->actionAdd->setIcon(GUIHelper::createAccentAddIcon());
+	ui->actionCloneAbove->setIcon(GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::Duplicate));
+	ui->actionCloneBelow->setIcon(GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::Duplicate));
 	ui->actionRemove->setIcon(GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::Remove));
 	ui->actionEditText->setIcon(GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::Edit));
 	setAttribute(Qt::WA_StyledBackground, false);
@@ -114,6 +128,8 @@ FilterTableRow::FilterTableRow(FilterTable* table, int number, FilterTable::Item
 	ui->labelNumber->setText(QString("%0").arg(number));
 
 	ui->toolBar->addAction(ui->actionAdd);
+	ui->toolBar->addAction(ui->actionCloneAbove);
+	ui->toolBar->addAction(ui->actionCloneBelow);
 	ui->toolBar->addAction(ui->actionRemove);
 	ui->toolBar->addAction(ui->actionEditText);
 	ui->toolBar->setOrientation(Qt::Horizontal);
@@ -154,6 +170,33 @@ void FilterTableRow::editText()
 {
 	if (!ui->actionEditText->isChecked())
 		ui->actionEditText->trigger();
+}
+
+QSize FilterTableRow::sizeHint() const
+{
+	QSize size = QWidget::sizeHint().expandedTo(minimumSizeHint());
+	// The grid owns the available row width. Do not let a plug-in panel's
+	// preferred width force the outer editor back to horizontal scrolling.
+	size.setWidth(0);
+	return size;
+}
+
+QSize FilterTableRow::minimumSizeHint() const
+{
+	QSize size = QWidget::minimumSizeHint();
+	// Rows must remain viewport-compressible. Wide plug-in names and the
+	// experimental tool panels may have a large preferred width, but must not
+	// recreate the outer horizontal scrollbar that the modern UI removed.
+	size.setWidth(0);
+	QWidget* current = ui->stackedWidget->currentWidget();
+	if (current != nullptr)
+	{
+		QSize childSize = current->minimumSizeHint().expandedTo(current->sizeHint()).expandedTo(current->minimumSize());
+		QMargins margins = ui->horizontalLayout->contentsMargins() + ui->stackedWidget->contentsMargins();
+		childSize.rheight() += margins.top() + margins.bottom() + GUIHelper::scale(10);
+		size.setHeight(std::max(size.height(), std::max(childSize.height(), ui->toolBar->maximumHeight() + GUIHelper::scale(10))));
+	}
+	return size;
 }
 
 void FilterTableRow::mouseDoubleClickEvent(QMouseEvent*)
@@ -256,10 +299,24 @@ void FilterTableRow::on_actionAdd_triggered()
 		table->addLine(line, item);
 		table->updateGuis();
 	}
+	delete menu;
+}
+
+void FilterTableRow::on_actionCloneAbove_triggered()
+{
+	table->cloneItem(item, false);
+	table->updateGuis();
+}
+
+void FilterTableRow::on_actionCloneBelow_triggered()
+{
+	table->cloneItem(item, true);
+	table->updateGuis();
 }
 
 void FilterTableRow::on_actionRemove_triggered()
 {
+	appendFilterRowDebugLog("remove clicked itemText=" + item->text + " gui=" + QString(gui != NULL ? "true" : "false"));
 	table->removeItem(item);
 	table->updateGuis();
 }

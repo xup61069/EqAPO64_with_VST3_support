@@ -46,7 +46,8 @@ $expectedBaseSizes = @{
 $appStates = @{
 	Editor = @(
 		@{ Label = "default"; FilePrefix = "editor"; SnapshotScenario = ""; Locale = "en" },
-		@{ Label = "dense"; FilePrefix = "editor-dense-zh-tw"; SnapshotScenario = "dense"; Locale = "zh_TW" }
+		@{ Label = "dense"; FilePrefix = "editor-dense-zh-tw"; SnapshotScenario = "dense"; Locale = "zh_TW" },
+		@{ Label = "restored-tools"; FilePrefix = "editor-restored-tools-zh-tw"; SnapshotScenario = "restored-tools"; Locale = "zh_TW" }
 	)
 	DeviceSelector = @(
 		@{ Label = "default"; FilePrefix = "deviceselector"; SnapshotScenario = ""; Locale = "en" }
@@ -83,9 +84,9 @@ $expectedNames = foreach ($app in $apps) {
 		}
 	}
 }
-if ($expectedNames.Count -ne 72 -or
-	@($expectedNames | Select-Object -Unique).Count -ne 72) {
-	throw "The UI snapshot matrix must define exactly 72 unique output names."
+if ($expectedNames.Count -ne 90 -or
+	@($expectedNames | Select-Object -Unique).Count -ne 90) {
+	throw "The UI snapshot matrix must define exactly 90 unique output names."
 }
 
 # Only replace files whose complete names are owned by this matrix. Any other
@@ -345,7 +346,7 @@ $unexpectedFiles = @($artifactFiles | Where-Object {
 	$expectedNames -notcontains $relativeName
 })
 $count = $expectedFiles.Count
-if ($count -ne 72 -or $snapshotRecords.Count -ne 72 -or $unexpectedFiles.Count -ne 0) {
+if ($count -ne 90 -or $snapshotRecords.Count -ne 90 -or $unexpectedFiles.Count -ne 0) {
 	$unexpectedSummary = if ($unexpectedFiles.Count -eq 0) {
 		"none"
 	} else {
@@ -353,7 +354,7 @@ if ($count -ne 72 -or $snapshotRecords.Count -ne 72 -or $unexpectedFiles.Count -
 			$_.FullName.Substring($outputPrefix.Length)
 		}) -join ", "
 	}
-	throw "Expected exactly 72 UI snapshots but found $count expected, $($snapshotRecords.Count) manifest records, and $($unexpectedFiles.Count) unexpected file(s): $unexpectedSummary."
+	throw "Expected exactly 90 UI snapshots but found $count expected, $($snapshotRecords.Count) manifest records, and $($unexpectedFiles.Count) unexpected file(s): $unexpectedSummary."
 }
 
 $manifestPath = Join-Path $OutputDirectory "manifest.json"

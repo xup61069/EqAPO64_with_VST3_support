@@ -48,8 +48,20 @@
 #include "filters/IfFilterFactory.h"
 #include "filters/ChannelFilterFactory.h"
 #include "filters/BiQuadFilterFactory.h"
+#include "filters/ParametricEQFilterFactory.h"
 #include "filters/IIRFilterFactory.h"
 #include "filters/PreampFilterFactory.h"
+#include "filters/OutputGuardFilterFactory.h"
+#include "filters/PanFilterFactory.h"
+#include "filters/CrossfeedFilterFactory.h"
+#include "filters/ChorusFilterFactory.h"
+#include "filters/ReverbFilterFactory.h"
+#include "filters/ToneGeneratorFilterFactory.h"
+#include "filters/VUMeterFilterFactory.h"
+#include "filters/HeadphoneCalibrationFilterFactory.h"
+#include "filters/OutProcGainFilterFactory.h"
+#include "filters/OutProcBiquadFilterFactory.h"
+#include "filters/OutProcVSTPluginFilterFactory.h"
 #include "filters/DelayFilterFactory.h"
 #include "filters/CopyFilterFactory.h"
 #include "filters/IncludeFilterFactory.h"
@@ -64,10 +76,66 @@ using namespace mup;
 static_assert(std::atomic<FilterConfiguration*>::is_always_lock_free,
 	"Realtime configuration handoff requires lock-free atomic pointers.");
 
+namespace
+{
+	template<typename Sample>
+	void bypassInterleaved(
+		Sample* output,
+		const Sample* input,
+		unsigned inputChannels,
+		unsigned outputChannels,
+		unsigned frameCount)
+	{
+		if (output == input)
+			return;
+
+		if (inputChannels == outputChannels)
+		{
+			memcpy(output, input,
+				outputChannels * frameCount * sizeof(Sample));
+			return;
+		}
+
+		const unsigned copyChannels = min(inputChannels, outputChannels);
+		for (unsigned frame = 0; frame < frameCount; ++frame)
+		{
+			const Sample* inputFrame = input + frame * inputChannels;
+			Sample* outputFrame = output + frame * outputChannels;
+			for (unsigned channel = 0; channel < copyChannels; ++channel)
+				outputFrame[channel] = inputFrame[channel];
+			for (unsigned channel = copyChannels; channel < outputChannels; ++channel)
+				outputFrame[channel] = Sample();
+		}
+	}
+
+	template<typename Sample>
+	void bypassPlanar(
+		Sample** output,
+		Sample** input,
+		unsigned inputChannels,
+		unsigned outputChannels,
+		unsigned frameCount)
+	{
+		if (output == input)
+			return;
+
+		const unsigned copyChannels = min(inputChannels, outputChannels);
+		for (unsigned channel = 0; channel < copyChannels; ++channel)
+		{
+			if (output[channel] != input[channel])
+				memcpy(output[channel], input[channel],
+					frameCount * sizeof(Sample));
+		}
+		for (unsigned channel = copyChannels; channel < outputChannels; ++channel)
+			memset(output[channel], 0, frameCount * sizeof(Sample));
+	}
+}
+
 FilterEngine::FilterEngine()
 	: allocatedFrameCount(0),
 	  preMix(false),
 	  offlineAnalysis(false),
+	  analysisMode(false),
 	  deviceInfoKnown(false),
 	  capture(false),
 	  postMixInstalled(true),
@@ -103,7 +171,19 @@ FilterEngine::FilterEngine()
 	factories.push_back(new ChannelFilterFactory());
 	factories.push_back(new IIRFilterFactory());
 	factories.push_back(new BiQuadFilterFactory());
+	factories.push_back(new ParametricEQFilterFactory());
 	factories.push_back(new PreampFilterFactory());
+	factories.push_back(new OutputGuardFilterFactory());
+	factories.push_back(new PanFilterFactory());
+	factories.push_back(new CrossfeedFilterFactory());
+	factories.push_back(new ChorusFilterFactory());
+	factories.push_back(new ReverbFilterFactory());
+	factories.push_back(new ToneGeneratorFilterFactory());
+	factories.push_back(new VUMeterFilterFactory());
+	factories.push_back(new HeadphoneCalibrationFilterFactory());
+	factories.push_back(new OutProcGainFilterFactory());
+	factories.push_back(new OutProcBiquadFilterFactory());
+	factories.push_back(new OutProcVSTPluginFilterFactory());
 	factories.push_back(new DelayFilterFactory());
 	factories.push_back(new CopyFilterFactory());
 	factories.push_back(new ConvolutionFilterFactory());
@@ -220,6 +300,7 @@ void FilterEngine::initialize(float sampleRate, unsigned inputChannelCount, unsi
 	this->realChannelCount = realChannelCount;
 	this->outputChannelCount = outputChannelCount;
 	this->maxFrameCount = maxFrameCount;
+	this->analysisMode = offlineAnalysis || !customPath.empty();
 	this->transitionCounter = 0;
 	this->transitionLength = (unsigned)(sampleRate / 100);
 	resizeBuffers(maxFrameCount);
@@ -310,6 +391,11 @@ void FilterEngine::loadConfig(const wstring& customPath)
 	EnterCriticalSection(&loadSection);
 	timer.start();
 	reclaimRetiredConfiguration();
+	if (offlineAnalysis)
+	{
+		loadedConfigurationFiles.clear();
+		runtimeVolumeObservations.clear();
+	}
 
 	allChannelNames = ChannelHelper::getChannelNames(max(realChannelCount, outputChannelCount), channelMask);
 
@@ -386,6 +472,8 @@ void FilterEngine::loadConfigFile(const wstring& path)
 			DWORD error = GetLastError();
 			if (error != ERROR_SHARING_VIOLATION)
 			{
+				if (offlineAnalysis)
+					loadedConfigurationFiles.push_back({path, string(), false});
 				LogF(L"Error while reading configuration file %s: %s", path.c_str(), StringHelper::getSystemErrorString(error).c_str());
 				return;
 			}
@@ -404,13 +492,17 @@ void FilterEngine::loadConfigFile(const wstring& path)
 	stringstream inputStream;
 
 	char buf[8192];
-	unsigned long bytesRead = -1;
-	while (ReadFile(hFile, buf, sizeof(buf), &bytesRead, NULL) && bytesRead != 0)
+	unsigned long bytesRead = 0;
+	BOOL readSucceeded = TRUE;
+	while ((readSucceeded = ReadFile(hFile, buf, sizeof(buf), &bytesRead, NULL))
+		&& bytesRead != 0)
 	{
 		inputStream.write(buf, bytesRead);
 	}
 
 	CloseHandle(hFile);
+	if (offlineAnalysis)
+		loadedConfigurationFiles.push_back({path, inputStream.str(), readSucceeded != FALSE});
 
 	inputStream.seekg(0);
 
@@ -590,24 +682,20 @@ void FilterEngine::commitCompletedTransition(
 // Process interleaved audio (float*)
 void FilterEngine::process(float* output, float* input, unsigned frameCount)
 {
+	if (frameCount > maxFrameCount || frameCount > allocatedFrameCount)
+	{
+		bypassInterleaved(
+			output, input, inputChannelCount, outputChannelCount, frameCount);
+		return;
+	}
+
 	FilterConfiguration* const active = currentConfig;
 	FilterConfiguration* const pending =
 		pendingConfig.load(std::memory_order_acquire);
 	if (active == nullptr || (active->isEmpty() && pending == nullptr))
 	{
-		// Bypass mode: if no filters are active, just copy input to output if necessary.
-		if (realChannelCount == outputChannelCount && input != output) {
-			memcpy(output, input, outputChannelCount * frameCount * sizeof(float));
-		}
-		return;
-	}
-
-	// The host is expected to respect maxFrameCount. Never resize from the
-	// realtime callback if it does not.
-	if (frameCount > allocatedFrameCount)
-	{
-		if (realChannelCount == outputChannelCount && input != output)
-			memcpy(output, input, outputChannelCount * frameCount * sizeof(float));
+		bypassInterleaved(
+			output, input, inputChannelCount, outputChannelCount, frameCount);
 		return;
 	}
 
@@ -639,26 +727,20 @@ void FilterEngine::process(float* output, float* input, unsigned frameCount)
 // Process non-interleaved audio (float**)
 void FilterEngine::process(float** output, float** input, unsigned frameCount)
 {
+	if (frameCount > maxFrameCount || frameCount > allocatedFrameCount)
+	{
+		bypassPlanar(
+			output, input, inputChannelCount, outputChannelCount, frameCount);
+		return;
+	}
+
 	FilterConfiguration* const active = currentConfig;
 	FilterConfiguration* const pending =
 		pendingConfig.load(std::memory_order_acquire);
 	if (active == nullptr || (active->isEmpty() && pending == nullptr))
 	{
-		// Bypass mode
-		if (realChannelCount == outputChannelCount && input != output) {
-			for (unsigned c = 0; c < realChannelCount; c++)
-				memcpy(output[c], input[c], frameCount * sizeof(float));
-		}
-		return;
-	}
-
-	if (frameCount > allocatedFrameCount)
-	{
-		if (realChannelCount == outputChannelCount && input != output)
-		{
-			for (unsigned c = 0; c < realChannelCount; ++c)
-				memcpy(output[c], input[c], frameCount * sizeof(float));
-		}
+		bypassPlanar(
+			output, input, inputChannelCount, outputChannelCount, frameCount);
 		return;
 	}
 
@@ -692,15 +774,20 @@ void FilterEngine::process(float** output, float** input, unsigned frameCount)
 // Process interleaved audio (double*) - native double precision without conversion
 void FilterEngine::process(double* output, double* input, unsigned frameCount)
 {
+	if (frameCount > maxFrameCount)
+	{
+		bypassInterleaved(
+			output, input, inputChannelCount, outputChannelCount, frameCount);
+		return;
+	}
+
 	FilterConfiguration* const active = currentConfig;
 	FilterConfiguration* const pending =
 		pendingConfig.load(std::memory_order_acquire);
 	if (active == nullptr || (active->isEmpty() && pending == nullptr))
 	{
-		// Bypass mode: if no filters are active, just copy input to output if necessary.
-		if (realChannelCount == outputChannelCount && input != output) {
-			memcpy(output, input, outputChannelCount * frameCount * sizeof(double));
-		}
+		bypassInterleaved(
+			output, input, inputChannelCount, outputChannelCount, frameCount);
 		return;
 	}
 
@@ -724,16 +811,20 @@ void FilterEngine::process(double* output, double* input, unsigned frameCount)
 // Process non-interleaved audio (double**) - native double precision without conversion
 void FilterEngine::process(double** output, double** input, unsigned frameCount)
 {
+	if (frameCount > maxFrameCount)
+	{
+		bypassPlanar(
+			output, input, inputChannelCount, outputChannelCount, frameCount);
+		return;
+	}
+
 	FilterConfiguration* const active = currentConfig;
 	FilterConfiguration* const pending =
 		pendingConfig.load(std::memory_order_acquire);
 	if (active == nullptr || (active->isEmpty() && pending == nullptr))
 	{
-		// Bypass mode
-		if (realChannelCount == outputChannelCount && input != output) {
-			for (unsigned c = 0; c < realChannelCount; c++)
-				memcpy(output[c], input[c], frameCount * sizeof(double));
-		}
+		bypassPlanar(
+			output, input, inputChannelCount, outputChannelCount, frameCount);
 		return;
 	}
 
@@ -766,6 +857,8 @@ void FilterEngine::addFilters(vector<IFilter*> filters)
 		runtimeContext.offlineAnalysis = offlineAnalysis;
 		if (!deviceGuid.empty())
 			runtimeContext.endpointId = deviceGuid;
+		if (offlineAnalysis)
+			runtimeContext.volumeObservations = &runtimeVolumeObservations;
 		filter->setRuntimeContext(runtimeContext);
 		FilterInfo* filterInfo = (FilterInfo*)MemoryHelper::alloc(sizeof(FilterInfo));
 		filterInfo->filter = filter;

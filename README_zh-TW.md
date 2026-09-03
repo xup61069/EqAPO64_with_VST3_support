@@ -5,13 +5,13 @@
 [![建置](https://github.com/xup61069/loudness-correction-apo/actions/workflows/build.yml/badge.svg)](https://github.com/xup61069/loudness-correction-apo/actions/workflows/build.yml)
 [![最新版本](https://img.shields.io/github/v/release/xup61069/loudness-correction-apo)](https://github.com/xup61069/loudness-correction-apo/releases/latest)
 
-**目前版本：v3.0.5。** 本版把已驗證的 v3.0.4 響度校正執行期與全新的 Windows 原生介面整合在一起；`ReferenceOffset`、單一／全域音量綁定、復原機制及受保護的 1–19 Hz 路徑均維持 v3.0.4 行為。
+**目前版本：v3.0.5。** 本版恢復完整的 Mixomo `exp` 功能，再整合已驗證的 v3.0.4 響度校正執行期與全新的 Windows 原生介面；`ReferenceOffset`、單一／全域音量綁定、復原機制及受保護的 1–19 Hz 路徑均維持 v3.0.4 行為。
 
 本儲存庫是直接 fork 自 [Mixomo/EqAPO64_with_VST3_support](https://github.com/Mixomo/EqAPO64_with_VST3_support) 的 Windows x64 專案，沿用其系統層級雙精度音訊管線與 x64 VST2／VST3 音訊效果流程，並新增或維護公式響度校正、校準工具及繁體中文介面。
 
 原始碼關係：[Equalizer APO](https://sourceforge.net/projects/equalizerapo/) → [TheFireKahuna/equalizerAPO64](https://github.com/TheFireKahuna/equalizerAPO64) → [Mixomo/EqAPO64_with_VST3_support](https://github.com/Mixomo/EqAPO64_with_VST3_support) → 本儲存庫。
 
-從 v3.0.2 起，本專案的專屬提交直接重建在 Mixomo 的 `main` 歷史上，不再把後來的專案檔案複製到無關的 Git 根節點；因此 GitHub 顯示的 fork 關係與 Git 提交祖先會指向同一個來源。
+v3.0.2 至 v3.0.4 把本專案的專屬變更直接重建在 Mixomo 的 `main` 歷史上；v3.0.5 則把 Mixomo 自己在 `main` README 中建議使用、功能完整的 `exp` 程式碼線，以審查過的原始碼變更移植到本 fork。公開歷史刻意不把 `exp` commit 當成合併父節點，因為該分支也包含本專案尚未確認下游再散布條款的第三方資料集。
 
 上面連結中的來源儲存庫名稱只用於歸屬說明，不是本專案名稱。本儲存庫不是 Equalizer APO 上游專案，也不是上游官方建置。本功能僅稱為「響度校正」，不主張符合任何標準、取得認證、受到背書、具有從屬關係或獲得核准。
 
@@ -23,7 +23,24 @@
 - Configuration Editor 新增快速開啟設定檔、複製／重新命名／匯入／匯出、裝置與設定檔連結、濾鏡搜尋、可聽 A/B 比較、整份設定檔暫時旁路、工作區狀態，以及選用的通知區域控制。設定檔清單與裝置連結只決定編輯器顯示的檔案；APO 仍從 `config.txt` 開始載入。
 - 可聽 A/B 與旁路操作使用持久復原紀錄。正常切換設定檔或結束時會還原已保存的音訊狀態；若程式中斷，重新開啟後會先核對檔案內容再提供復原，不會在未確認的情況下覆寫其他程式所做的外部變更。
 - 裝置測試會顯示更清楚的進度與結果；若取消指令抵達時替代安裝模式的註冊交易已經開始，會先完成該交易及必要的 Windows 音訊服務重新啟動，才交還控制。
+- Configuration Editor 的圓形控制器已修正最小值／最大值顯示方向，並改用相對上下拖曳：往上增加、往下降低，按住 `Shift` 可精細調整。分析面板可從**檢視**選單停駐回主視窗；響應變更會顯示短暫且尊重可及性設定的過渡動畫，不會延遲音訊處理。
+- 分析面板新增**自動前級（目前 ≤ 0 dB）**；它只會依目前已儲存檔案與所選聲道的最新分析，在確認後執行一次向下補償，絕不提高增益，也不會沿用過期結果。
 - 音訊引擎維持 v3.0.4 實作：已儲存的 `ReferenceOffset` 會影響分析與執行期輸出；`Binding Single` 跟隨 APO 實際播放端點，`Binding All` 跟隨 Windows 預設 Multimedia 播放端點；1–19 Hz 的穩態輸出不會被校正分支的輸出餘裕往下拉。
+
+## 保留的 Mixomo 完整功能
+
+v3.0.5 使用功能完整的 Mixomo `exp` 歷史，不再採用功能縮減且安裝程式已標示過時的 `main` 版本。以下功能會和響度校正一起保留：
+
+- 雙精度 x64 音訊路徑、行程內 VST2／VST3 載入，以及實驗性的 `OutProcVSTPlugin:` 行程外載入；
+- 原生 Pan、Chorus、Reverb、Crossfeed、Tone Generator，以及不改變訊號的 VU Meter；
+- 可新增、移除、排序、重設、匯入及匯出的多頻帶 `ParametricEQ:` 編輯器；
+- 可載入使用者自行提供之相容目錄的耳機校正，並可輸出 GraphicEQ、參數等化器及 FIR；
+- Convolution 與 GraphicEQ FIR 流程，包含明確取樣率檢查、相符 FIR 重新產生，以及本機脈衝響應探索；以及
+- VST 診斷、多類別 VST3 選擇、濾鏡列複製／重設動作及分離式行程外 host 的生命週期管理。
+
+這些工具與響度校正彼此獨立，不會因安裝而自動啟用；只加入實際需要的濾鏡，並以安全音量測試。公開原始碼與安裝程式刻意不包含耳機量測目錄或脈衝響應音訊。請只加入自己有權使用的資料：相容的 `ash_hpcf_catalog.json` 可放在 `config\HeadphoneCalibrations`，本機卷積檔可放在 `config\IRs`。程式不會自動下載任何資料集，安裝與解除安裝也不會碰觸這兩個使用者資料子目錄。
+
+不改變訊號的 VU Meter 會顯示 RMS、取樣峰值、削波與未套用閘限的響度估計。設定內的 LUFS 標籤僅為相容舊設定而保留，現在會以唯讀顯示；目前估算器未實作各標籤所暗示的不同加權與閘限規則，因此不能視為合規量測器或真峰值量測器。
 
 ## 系統需求
 
@@ -106,6 +123,15 @@ A/B 與旁路都要求設定檔已儲存且沒有未儲存變更，兩者不能�
 
 - 若希望關閉視窗後只隱藏編輯器，請啟用**設定 → 繼續在通知區域執行**。通知區域選單可重新顯示編輯器、開啟設定檔供編輯、切換即時模式、旁路／還原目前設定檔及退出；真正退出前會先復原暫時 A/B 或旁路狀態。
 - 裝置測試會重新啟動 Windows Audio；初次失敗時也可能嘗試其他 APO 註冊模式，因此音訊可能中斷多次。取消採合作式停止：若替代安裝模式的註冊交易已開始，視窗會先完成該交易與必要的 Windows Audio 重新啟動，不會留下只套用一半的裝置狀態。
+
+### 分析面板、響應動畫與自動前級
+
+- 分析面板浮動後若無法用拖曳放回，選擇**檢視 → 停駐分析面板**，即可把它放回 Configuration Editor 底部。
+- 響應曲線變更時會用約 180 ms 移至最新結果。這只影響畫面：DSP 與設定更新不會等待動畫；快速連續調整會直接換成最新目標；Windows 關閉介面動畫或執行固定 UI 快照時也會停用過渡。
+- 圓形控制器改用相對上下拖曳，不會因按下位置而跳到另一個角度。往上拖增加、往下拖降低；按住 `Shift` 可精細調整，滑鼠滾輪與鍵盤仍可使用。
+- **自動前級（目前 ≤ 0 dB）**只會在成功完成最新分析，而且裝置、聲道、已儲存的根設定檔、完整 `Include` 鏈與分析設定仍和編輯器逐位元相符時啟用。若響度校正使用自動音量，Windows 端點與音量也必須和分析時完全相同。確認後，程式會把所需衰減與最終目標都以 0.01 dB 精度向安全衰減方向取整，降低第一個作用域邊界前可編輯的根層 `Preamp:`；只有完全沒有作用域的檔案才會在最前面新增 Preamp。它絕不提高增益，也不會把新 Preamp 插到 `Device`／`Channel`／條件／`Include`／`Stage` 之前而擴大影響範圍。即使已開啟即時模式，結果仍會保留為未儲存變更，必須先檢查再明確按下儲存。
+
+若設定含動態運算式或條件、跨聲道處理、外部卷積相依檔、訊號產生／時變／非線性處理、VST 外掛或實驗性外部處理濾鏡，自動前級會刻意停用。它只針對所選聲道的取樣線性頻率響應峰值；使用自動響度音量時，也只代表分析當下的端點音量快照。它不是限幅器，無法保證後續音量或素材變更、所選聲道以外的多聲道峰值，或取樣間／true-peak。實際播放仍應檢查相關聲道並另外保留餘裕。
 
 ## 響度校正行為
 
@@ -218,9 +244,10 @@ v3.0.0 可能已把舊項目重寫為沒有標記的公式格式 `State 0 Refere
 
 ## VST 外掛載入
 
-編輯器可從**外掛 → VST 外掛**載入 x64 VST2（`.dll`）與 VST3（`.vst3`）音訊效果；本專案不包含任何商業或第三方外掛。
+編輯器可載入使用者自行提供的 x64 VST2（`.dll`）與 VST3（`.vst3`）音訊效果。**VST 外掛**使用原本的行程內載入器；**行程外 VST 外掛**則使用實驗性的分離式 `EqApoOutProcHost.exe`。後者能把部分外掛故障隔離在 Configuration Editor 與 APO 行程之外，但不是安全沙箱。本專案不包含任何商業外掛。
 
-- VST3 僅支援 x64 音訊效果模組，不支援樂器或只使用 MIDI／事件的外掛。若套件公開多個音訊效果類別，目前會選取第一個可辨識類別。
+- VST3 僅支援 x64 音訊效果模組，不支援樂器或只使用 MIDI／事件的外掛。套件若公開多個相容的效果類別，編輯器會提供類別選擇。
+- 部分外掛在其中一種載入方式表現較好。行程外路徑仍屬實驗性功能；編輯器與分析器的狀態同步刻意採週期更新，不是逐取樣同步。
 - Windows 音訊服務必須能讀取外掛及其使用的所有資源。把外掛放到 `C:\Program Files\EqualizerAPO\VSTPlugins` 通常較容易處理權限。
 - 部分外掛依賴桌面工作階段、版權保護、不支援的匯流排配置，或不適合系統音訊服務的 API，因此不保證全部相容。
 - 外掛在 Windows 音訊處理路徑內執行，沒有沙箱隔離；只使用可信且穩定的外掛，以安全音量測試，並保留可復原的設定備份。
@@ -249,6 +276,8 @@ v3.0.5 更新檢查器可重新嘗試失敗的檢查、略過目前提示的版�
 | 跟到錯誤端點音量 | 要跟 APO 實際端點時使用 `Binding Single`；只有刻意讓所有實例共用 Windows 預設 Multimedia 音量時才使用 `Binding All`。 |
 | 裝置連結的設定檔會開啟，但音訊沒有改變 | 裝置連結只會在 Configuration Editor 開啟檔案。確認 `config.txt` 或其 `Include` 鏈有引用該設定檔；APO 安裝由裝置選擇器控制，響度濾鏡的音量來源則由 `Binding` 控制。 |
 | 無法使用 A/B 或旁路 | 先儲存設定檔並清除未儲存的變更。該檔案必須位於有效的 `config.txt`／`Include` 鏈才會有可聽效果，而且 A/B 與旁路不能同時使用。 |
+| 分析面板浮動後無法放回 | 選擇**檢視 → 停駐分析面板**，即可把面板放回 Configuration Editor 底部。 |
+| 自動前級呈停用 | 選好裝置與分析聲道，分析目前已儲存的檔案並等待完成；先儲存未決變更，並離開 A/B 與暫時旁路。此動作會刻意拒絕過期或不相符的分析結果。 |
 | 編輯器提示復原暫時音訊狀態 | 先前工作階段在 A/B 或旁路暫時寫入設定檔時中斷。只有確定要用已保存版本取代目前檔案時才選擇還原，否則保留外部變更；請勿手動刪除復原紀錄。 |
 | 取消後裝置測試仍需要時間關閉 | 替代註冊交易可能已經開始；請讓它完成必要的註冊與 Windows Audio 重新啟動。強制關閉可能留下不完整的裝置狀態。 |
 | 校準按鈕無法播放 | 將所選端點設為 Windows 預設 Console 播放裝置並確認音量可讀；使用 `Binding All` 時，它也必須是預設 Multimedia 裝置。之後重新開啟校準。 |
@@ -272,6 +301,7 @@ Set-Location .\loudness-correction-apo
 python -m unittest discover -s .\tests -p "test_*.py" -v
 .\scripts\build-installer-x64.ps1 -Configuration Release
 .\scripts\test-runtime-loudness.ps1 -Configuration Release
+python -m unittest discover -s .\tests -p "test_outproc_vst_lifecycle.py" -v
 .\scripts\capture-ui-regression.ps1 -Configuration Release
 git diff --check
 ```
@@ -281,7 +311,8 @@ git diff --check
 主要原始碼位置：
 
 - `filters/loudnessCorrection/`：公式參數表、響應擬合、端點追蹤及執行期 DSP；
-- `Editor/guis/`：濾波器控制、舊設定轉換及校準介面；
+- `filters/`、`Editor/guis/` 與 `EqApoOutProcHost/`：原生音訊工具、濾鏡控制、VST host、舊設定轉換及校準介面；
+- `IRs/` 與 `resources/HeadphoneCalibrations/`：使用者自行提供之脈衝響應與相容耳機校正目錄的使用說明及忽略位置；
 - `Setup/` 與 `scripts/`：安裝程式、相依項目準備、檔案暫存與執行期檢查；
 - `tests/`：公式、安全契約、翻譯、安裝、更新及發布流程測試；
 - `third_party/`：受版本控制的第三方原始碼與產生式相依項目位置。
@@ -294,6 +325,6 @@ git diff --check
 
 為了讓 Configuration Editor 能儲存變更，安裝程式會授予 Windows 本機 Users 群組對共用 `config` 目錄的「完全控制」權限。因此在多人共用電腦上，任何本機標準使用者都能修改系統層級音訊設定；部署時應將此納入電腦的信任模型。
 
-儲存庫擁有者已確認，所包含的響度輪廓資料與實作可以隨原始碼和二進位檔公開散布；詳見 [NOTICE.md](NOTICE.md)。本儲存庫沒有隨附該授權的公開證明文件。
+儲存庫擁有者已確認，所包含的響度輪廓資料與實作可以隨原始碼和二進位檔公開散布；詳見 [NOTICE.md](NOTICE.md)。本儲存庫沒有隨附該授權的公開證明文件。這項許可不涵蓋第三方耳機量測目錄或脈衝響應音訊，因此公開原始碼歷史與安裝程式都不包含那些資料。
 
 程式碼採 GPL-3.0 授權，請見 [LICENSE](LICENSE)。受版本控制及建置時產生的相依項目各自保留原授權；重新散布自行建置的二進位檔前，請參閱 [third_party/README.md](third_party/README.md) 與各原始碼目錄中的授權檔案。

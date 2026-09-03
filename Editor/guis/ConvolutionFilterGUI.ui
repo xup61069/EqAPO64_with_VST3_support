@@ -7,13 +7,13 @@
     <x>0</x>
     <y>0</y>
     <width>560</width>
-    <height>132</height>
+    <height>220</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string notr="true"/>
   </property>
-  <layout class="QGridLayout" name="gridLayout" columnstretch="0,1,0">
+  <layout class="QGridLayout" name="gridLayout" columnstretch="0,1,0,0">
    <property name="leftMargin">
     <number>0</number>
    </property>
@@ -50,7 +50,7 @@
      </property>
     </widget>
    </item>
-   <item row="1" column="0" colspan="3">
+   <item row="3" column="0" colspan="4">
     <widget class="QGroupBox" name="groupBox">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
@@ -76,13 +76,23 @@
         </property>
        </widget>
       </item>
-      <item row="2" column="0" colspan="2">
+      <item row="3" column="0" colspan="2">
        <widget class="QLabel" name="labelError">
         <property name="text">
          <string notr="true"/>
         </property>
         <property name="wordWrap">
          <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0" colspan="2">
+       <widget class="QPushButton" name="matchSampleRatePushButton">
+        <property name="toolTip">
+         <string>Extract the loaded IR/FIR magnitude response and regenerate a sample-rate-matched FIR for the current audio device.</string>
+        </property>
+        <property name="text">
+         <string>Create matched IR/FIR</string>
         </property>
        </widget>
       </item>

@@ -55,6 +55,15 @@ public:
 		IFilterGUI* gui = NULL;
 	};
 
+	struct PreampAdjustmentPlan
+	{
+		bool insertsNewPreamp = false;
+		double oldDbGain = 0.0;
+		double targetDbGain = 0.0;
+		int itemIndex = -1;
+		QString originalLine;
+	};
+
 	explicit FilterTable(MainWindow* mainWindow, QWidget* parent = 0);
 	~FilterTable();
 	void initialize(QScrollArea* scrollArea, const QList<std::shared_ptr<AbstractAPOInfo>>& outputDevices, const QList<std::shared_ptr<AbstractAPOInfo>>& inputDevices);
@@ -62,8 +71,11 @@ public:
 	void updateGuis();
 	void propagateChannels();
 	QList<QString> getLines();
+	bool planPreampReduction(double reductionDb, PreampAdjustmentPlan* plan) const;
+	bool applyPreampReduction(const PreampAdjustmentPlan& plan);
 	void setLines(const QString& configPath, const QList<QString>& lines);
 	Item* addLine(const QString& line, Item* before = NULL);
+	Item* cloneItem(Item* item, bool insertBelow);
 	void removeItem(Item* item);
 	QMenu* createAddPopupMenu();
 	void cut();
@@ -117,6 +129,7 @@ protected:
 	void showEvent(QShowEvent*) override;
 
 private:
+	void prepareDeleteItem(Item* item);
 	void ensureRowVisible(int row);
 	int rowForPos(QPoint pos, bool insert);
 	QRectF rowRect(int row);

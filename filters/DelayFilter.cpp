@@ -63,6 +63,14 @@ vector<wstring> DelayFilter::initialize(float sampleRate, unsigned maxFrameCount
 #pragma AVRT_CODE_BEGIN
 void DelayFilter::process(double** output, double** input, unsigned frameCount)
 {
+	if (bufferLength == 0)
+	{
+		for (unsigned i = 0; i < channelCount; i++)
+			if (output[i] != input[i])
+				memcpy(output[i], input[i], frameCount * sizeof(double));
+		return;
+	}
+
 	for (unsigned i = 0; i < channelCount; i++)
 	{
 		double* inputChannel = input[i];

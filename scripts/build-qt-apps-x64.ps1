@@ -48,7 +48,7 @@ $paths = @{
 	FFTW_INCLUDE = Join-Path $thirdParty "vcpkg_installed\$triplet\include"
 	FFTW_LIB = Join-Path $thirdParty "vcpkg_installed\$triplet\$vcpkgLibSubdirectory"
 	MUPARSERX_INCLUDE = Join-Path $thirdParty "muparserx\parser"
-	MUPARSERX_LIB = Join-Path $thirdParty "muparserx\build\x64\$Configuration"
+	MUPARSERX_LIB = Join-Path $thirdParty "build\muparserx-$triplet\$Configuration"
 }
 
 foreach ($path in $paths.GetEnumerator()) {

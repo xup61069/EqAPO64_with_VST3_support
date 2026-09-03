@@ -35,6 +35,13 @@ namespace mup {
 class ParserX;
 }
 
+struct LoadedConfigurationFile
+{
+	std::wstring path;
+	std::string contents;
+	bool readable = false;
+};
+
 #pragma AVRT_VTABLES_BEGIN
 class FilterEngine
 {
@@ -56,6 +63,7 @@ public:
 	void process(double** output, double** input, unsigned frameCount);
 
 	bool isPreMix() const {return preMix;}
+	bool isAnalysisMode() const {return analysisMode;}
 	bool isDeviceInfoKnown() const {return deviceInfoKnown;}
 	bool isCapture() const {return capture;}
 	bool isPostMixInstalled() const {return postMixInstalled;}
@@ -70,6 +78,8 @@ public:
 	float getSampleRate() const {return sampleRate;}
 	unsigned getMaxFrameCount() const {return maxFrameCount;}
 	mup::ParserX* getParser() {return parser;}
+	const std::vector<LoadedConfigurationFile>& getLoadedConfigurationFiles() const {return loadedConfigurationFiles;}
+	const std::vector<FilterRuntimeVolumeObservation>& getRuntimeVolumeObservations() const {return runtimeVolumeObservations;}
 
 private:
 	void addFilters(std::vector<IFilter*> filters);
@@ -90,6 +100,7 @@ private:
 
 	bool preMix;
 	bool offlineAnalysis;
+	bool analysisMode;
 	bool deviceInfoKnown;
 	bool capture;
 	bool postMixInstalled;
@@ -113,6 +124,8 @@ private:
 	std::vector<std::wstring> lastChannelNames;
 	std::vector<std::wstring> lastNewChannelNames;
 	std::vector<std::wstring> allChannelNames;
+	std::vector<LoadedConfigurationFile> loadedConfigurationFiles;
+	std::vector<FilterRuntimeVolumeObservation> runtimeVolumeObservations;
 	bool lastInPlace;
 	mup::ParserX* parser;
 

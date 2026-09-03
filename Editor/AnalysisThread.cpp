@@ -52,7 +52,7 @@ AnalysisThread::~AnalysisThread()
 		fftw_destroy_plan(planForward);
 }
 
-void AnalysisThread::setParameters(shared_ptr<AbstractAPOInfo> device, int channelMask, int channelIndex, QString configPath, int frameCount)
+quint64 AnalysisThread::setParameters(shared_ptr<AbstractAPOInfo> device, int channelMask, int channelIndex, QString configPath, int frameCount)
 {
 	QMutexLocker mutexLocker(&mutex);
 	this->device = device;
@@ -60,8 +60,10 @@ void AnalysisThread::setParameters(shared_ptr<AbstractAPOInfo> device, int chann
 	this->channelIndex = channelIndex;
 	this->configPath = configPath;
 	this->frameCount = frameCount;
+	++requestGeneration;
 
 	condition.wakeAll();
+	return requestGeneration;
 }
 
 void AnalysisThread::beginGetResult()
@@ -114,6 +116,21 @@ unsigned AnalysisThread::getProcessedFrames() const
 	return processedFrames;
 }
 
+quint64 AnalysisThread::getResultGeneration() const
+{
+	return resultGeneration;
+}
+
+const QList<AnalysisConfigurationFileSnapshot>& AnalysisThread::getConfigurationFiles() const
+{
+	return resultConfigurationFiles;
+}
+
+const QList<AnalysisVolumeSnapshot>& AnalysisThread::getVolumeSnapshots() const
+{
+	return resultVolumeSnapshots;
+}
+
 void AnalysisThread::run()
 {
 	while (true)
@@ -132,6 +149,7 @@ void AnalysisThread::run()
 		int channelIndex = this->channelIndex;
 		QString configPath = this->configPath;
 		int frameCount = this->frameCount;
+		quint64 generation = this->requestGeneration;
 		this->frameCount = 0;
 		mutex.unlock();
 
@@ -165,6 +183,29 @@ void AnalysisThread::run()
 		engine.setOfflineAnalysis(true);
 		engine.setDeviceInfo(device->isInput(), true, device->getDeviceName(), device->getConnectionName(), device->getDeviceGuid(), device->getDeviceString());
 		engine.initialize(sampleRate, channelCount, channelCount, channelCount, channelMask, frameCount, configPath.toStdWString());
+		QList<AnalysisConfigurationFileSnapshot> configurationFiles;
+		for (const LoadedConfigurationFile& file : engine.getLoadedConfigurationFiles())
+		{
+			AnalysisConfigurationFileSnapshot snapshot;
+			snapshot.path = QString::fromStdWString(file.path);
+			snapshot.contents = QByteArray(
+				file.contents.data(), static_cast<int>(file.contents.size()));
+			snapshot.readable = file.readable;
+			configurationFiles.append(snapshot);
+		}
+		QList<AnalysisVolumeSnapshot> volumeSnapshots;
+		for (const FilterRuntimeVolumeObservation& observation :
+			engine.getRuntimeVolumeObservations())
+		{
+			AnalysisVolumeSnapshot snapshot;
+			snapshot.requestedEndpointId = QString::fromStdWString(
+				observation.requestedEndpointId);
+			snapshot.resolvedEndpointId = QString::fromStdWString(
+				observation.resolvedEndpointId);
+			snapshot.volumeDb = observation.volumeDb;
+			snapshot.available = observation.available;
+			volumeSnapshots.append(snapshot);
+		}
 		double initializationTime = (timer.nsecsElapsed() - startTime) / 1e6;
 
 		if (frameCount != lastFrameCount || channelCount != lastChannelCount)
@@ -291,6 +332,9 @@ void AnalysisThread::run()
 		this->initializationTime = initializationTime;
 		this->processingTime = processingTime;
 		this->processedFrames = processedFrames;
+		this->resultGeneration = generation;
+		this->resultConfigurationFiles = configurationFiles;
+		this->resultVolumeSnapshots = volumeSnapshots;
 		mutex.unlock();
 
 		qDebug("Analysis took %.1f ms", timer.nsecsElapsed() / 1e6);

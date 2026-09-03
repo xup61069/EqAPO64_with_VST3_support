@@ -32,9 +32,15 @@ void ConvolutionFilterGUIFactory::initialize(FilterTable* filterTable)
 {
 	shared_ptr<AbstractAPOInfo> selectedDevice = filterTable->getSelectedDevice();
 	if (selectedDevice != NULL)
+	{
 		deviceSampleRate = filterTable->getSelectedDevice()->getSampleRate();
+		deviceGuid = QString::fromStdWString(filterTable->getSelectedDevice()->getDeviceGuid());
+	}
 	else
+	{
 		deviceSampleRate = 0;
+		deviceGuid.clear();
+	}
 }
 
 QList<FilterTemplate> ConvolutionFilterGUIFactory::createFilterTemplates()
@@ -55,7 +61,7 @@ IFilterGUI* ConvolutionFilterGUIFactory::createFilterGUI(QString& command, QStri
 
 	if (command == "Convolution")
 	{
-		result = new ConvolutionFilterGUI(configPath, deviceSampleRate, parameters.trimmed());
+		result = new ConvolutionFilterGUI(configPath, deviceSampleRate, deviceGuid, parameters.trimmed());
 	}
 
 	return result;

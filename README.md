@@ -5,13 +5,13 @@
 [![Build](https://github.com/xup61069/loudness-correction-apo/actions/workflows/build.yml/badge.svg)](https://github.com/xup61069/loudness-correction-apo/actions/workflows/build.yml)
 [![Latest release](https://img.shields.io/github/v/release/xup61069/loudness-correction-apo)](https://github.com/xup61069/loudness-correction-apo/releases/latest)
 
-**Current release: v3.0.5.** It combines the verified v3.0.4 loudness-correction runtime with a new Windows-native interface. `ReferenceOffset`, Single/Global volume binding, recovery behavior, and the protected 1–19 Hz path retain their v3.0.4 behavior.
+**Current release: v3.0.5.** It restores the complete Mixomo `exp` feature set, combines it with the verified v3.0.4 loudness-correction runtime, and adds a new Windows-native interface. `ReferenceOffset`, Single/Global volume binding, recovery behavior, and the protected 1–19 Hz path retain their v3.0.4 behavior.
 
 This repository is a direct Windows x64 fork of [Mixomo/EqAPO64_with_VST3_support](https://github.com/Mixomo/EqAPO64_with_VST3_support). It retains the system-wide double-precision audio pipeline and x64 VST2/VST3 audio-effect workflow, and adds or maintains formula-based loudness correction, calibration tools, and a Traditional Chinese interface.
 
 Code lineage: [Equalizer APO](https://sourceforge.net/projects/equalizerapo/) → [TheFireKahuna/equalizerAPO64](https://github.com/TheFireKahuna/equalizerAPO64) → [Mixomo/EqAPO64_with_VST3_support](https://github.com/Mixomo/EqAPO64_with_VST3_support) → this repository.
 
-Starting with v3.0.2, the fork-specific commit series is rebuilt directly on Mixomo's `main` history instead of copying a later project tree onto an unrelated root. The GitHub fork relationship and the Git commit ancestry therefore identify the same parent.
+Versions v3.0.2 through v3.0.4 rebuilt the fork-specific changes directly on Mixomo's `main` history. Version 3.0.5 ports the feature-complete `exp` code line—the branch recommended by Mixomo's own `main` README—onto this fork as reviewed source changes. The public history deliberately does not import `exp` as a merge parent because that branch also contains third-party datasets whose downstream redistribution terms have not been established here.
 
 The linked source repository name appears here only for attribution; it is not this project's product name. This repository is not the upstream Equalizer APO project or an official upstream build. The feature is presented only as loudness correction; no standards-conformance, certification, endorsement, affiliation, or approval claim is made.
 
@@ -23,7 +23,24 @@ The linked source repository name appears here only for attribution; it is not t
 - Configuration Editor now provides quick access for opening profiles, duplicate/rename/import/export commands, per-device editor links, filter search, audible A/B comparison, temporary whole-profile bypass, live workspace status, and optional notification-area controls. Profile access and device links only choose the file shown in the editor; the APO still starts at `config.txt`.
 - Audible A/B and bypass operations use a persistent recovery journal. Normal profile changes or exit restore the saved audio state; after interruption, the editor verifies the recorded file contents before offering recovery and does not silently overwrite unrelated external edits.
 - Device testing now presents clearer progress and results. If cancellation arrives after a fallback registration transaction has begun, the test finishes that transaction and its required Windows audio-service restart before returning control.
+- Configuration Editor's circular controls now show minimum and maximum values in the correct direction and use relative vertical dragging: drag up to increase, drag down to decrease, and hold `Shift` for fine adjustment. The analysis panel can be docked back from the **View** menu, and response changes use a short, accessibility-aware visual transition without delaying audio processing.
+- The analysis panel now offers **Auto preamp (current ≤ 0 dB)**. It is a confirmed one-time reduction based on a fresh analysis of the open saved file and selected channel; it never raises gain or reuses a stale result.
 - The audio engine remains the v3.0.4 implementation: saved `ReferenceOffset` values affect analysis and runtime output, `Binding Single` follows the actual APO playback endpoint, `Binding All` follows the Windows default Multimedia playback endpoint, and settled 1–19 Hz output is not pulled down by correction-branch headroom.
+
+## Mixomo feature set retained
+
+Version 3.0.5 is based on the complete Mixomo `exp` feature line, not the outdated reduced `main` installer. The following tools are retained alongside loudness correction:
+
+- the double-precision x64 signal path, in-process VST2/VST3 hosting, and the experimental `OutProcVSTPlugin:` host;
+- native Pan, Chorus, Reverb, Crossfeed, Tone Generator, and pass-through VU Meter filters;
+- the multi-band `ParametricEQ:` editor with add, remove, sort, reset, import, and export operations;
+- Headphone Calibration support for a compatible catalog supplied by the user, with GraphicEQ, parametric-EQ, and FIR export paths;
+- Convolution and GraphicEQ FIR workflows with explicit sample-rate checks, matched-FIR regeneration, and local impulse-response discovery; and
+- VST diagnostics, multi-class VST3 selection, filter-row clone/reset actions, and the detached out-of-process host lifecycle.
+
+These tools are separate from loudness correction. Their presence does not enable them automatically; add only the filters you intend to use and test at a safe listening level. The public source tree and installer intentionally contain no headphone-measurement catalog or impulse-response audio. Supply only data you are licensed to use: place a compatible `ash_hpcf_catalog.json` under `config\HeadphoneCalibrations`, and local convolution files under `config\IRs`. No dataset is downloaded automatically, and setup/uninstall leaves these user-data subdirectories untouched.
+
+The pass-through VU Meter reports RMS, sample peak, clipping, and ungated loudness estimates. Its saved LUFS label is retained as compatibility metadata but is read-only because the current estimator does not implement the distinct weighting and gating rules implied by those labels; it must not be treated as a compliance meter or true-peak meter.
 
 ## Requirements
 
@@ -106,6 +123,15 @@ A/B and bypass require a saved profile with no unsaved edits, cannot run at the 
 
 - Enable **Settings → Keep running in the notification area** if closing the window should hide the editor. Its menu can show the editor, open profiles for editing, toggle Instant mode, bypass or restore the current profile, and exit. A real exit first restores any temporary A/B or bypass state.
 - Device Test can restart Windows Audio and try alternative APO registration modes after an initial failure, so audio may be interrupted more than once. Cancelling is cooperative: if a fallback registration transaction has begun, the dialog finishes that transaction and its required Windows Audio restart rather than leaving a half-applied device state.
+
+### Analysis panel, response animation, and Auto preamp
+
+- If the analysis panel is floating or cannot be returned by dragging, choose **View → Dock analysis panel** to restore it to the bottom of Configuration Editor.
+- A changed response curve moves to the latest result over about 180 ms. This is display-only: DSP and configuration updates are not delayed, rapid edits replace the older visual target, and the transition is disabled for Windows reduced-animation settings and deterministic UI captures.
+- Circular controls use relative vertical dragging instead of jumping to the pointer angle. Drag upward to increase, downward to decrease, or hold `Shift` while dragging for finer control; mouse-wheel and keyboard operation remain available.
+- **Auto preamp (current ≤ 0 dB)** becomes available only after a successful current analysis whose device, channel, saved root file, complete `Include` chain, and analysis settings still match the editor byte-for-byte. Automatic loudness correction also has to resolve to the same Windows endpoint and exact volume used by the analysis. After confirmation, it rounds both the required reduction and final target toward attenuation at 0.01 dB precision and lowers an editable root-level `Preamp:` before the first scope boundary. In an unscoped file it can instead insert a new Preamp at the beginning. It never boosts gain, never widens a `Device`/`Channel`/conditional/`Include`/`Stage` scope by inserting above it, and always leaves a dirty edit for explicit review and Save—even when Instant mode is enabled.
+
+Auto preamp is deliberately unavailable for dynamic expressions or conditions, cross-channel processing, convolution dependencies, generated/time-varying/nonlinear processing, VST plug-ins, and experimental out-of-process filters. It targets only the sampled linear frequency-response peak for the selected channel and, when automatic loudness volume is used, the current endpoint-volume snapshot. It is not a limiter and cannot guarantee later volume or source changes, multichannel peaks not represented by the selected channel, or intersample/true peaks. Check the relevant channels and retain additional headroom for real playback.
 
 ## Loudness-correction behavior
 
@@ -218,9 +244,10 @@ v3.0.0 may already have rewritten an older entry as an unmarked formula-format `
 
 ## VST plug-in hosting
 
-The editor can load x64 VST2 (`.dll`) and VST3 (`.vst3`) audio effects through **Plugins → VST plugin**. No commercial or third-party plug-ins are included.
+The editor can load user-supplied x64 VST2 (`.dll`) and VST3 (`.vst3`) audio effects. **VST plugin** uses the original in-process loader; **Out-of-process VST plugin** uses the experimental detached `EqApoOutProcHost.exe`. The latter can isolate some plug-in failures from Configuration Editor and the APO process, but it is not a security sandbox. No commercial plug-ins are included.
 
-- VST3 support is limited to x64 audio-effect modules. Instruments and MIDI/event-only plug-ins are not supported. If a bundle exposes several audio-effect classes, the current host selects the first recognized class.
+- VST3 support is limited to x64 audio-effect modules. Instruments and MIDI/event-only plug-ins are not supported. When a bundle exposes several compatible effect classes, the editor provides class selection.
+- Some plug-ins behave better in one loader than the other. The out-of-process path is experimental, and editor/analyzer state synchronization is intentionally periodic rather than sample-accurate.
 - The Windows audio service must be able to read the plug-in and every resource it uses. Copying a plug-in to `C:\Program Files\EqualizerAPO\VSTPlugins` can simplify permissions.
 - Some plug-ins depend on a desktop session, copy protection, unsupported bus layouts, or APIs that are unsuitable for a system audio service. Compatibility is not guaranteed.
 - Plug-ins run inside the Windows audio-processing path and are not sandboxed. Use only trusted, stable plug-ins, test at a safe volume, and keep a recoverable configuration backup.
@@ -249,6 +276,8 @@ Configuration files and registry backups are preserved unless **Remove configura
 | The wrong endpoint volume is followed | Use `Binding Single` to follow the APO's actual endpoint. Use `Binding All` only when every instance should deliberately share the Windows default Multimedia volume. |
 | A device-linked profile opens but does not affect audio | Device links only open files in Configuration Editor. Ensure `config.txt` or its `Include` chain references that profile; use Device Selector for APO installation and the loudness filter's `Binding` control for its volume source. |
 | A/B or bypass is unavailable | Save the profile first and clear unsaved edits. The profile must be in the active `config.txt`/`Include` chain for an audible result, and A/B and bypass cannot be active together. |
+| The analysis panel is floating and will not return | Choose **View → Dock analysis panel**. It is restored to the bottom of Configuration Editor. |
+| Auto preamp is disabled | Select the intended device and analysis channel, analyze the open saved file, and wait for the result. Save pending edits first and leave A/B and temporary bypass. The action deliberately rejects stale or mismatched analysis results. |
 | The editor offers temporary-state recovery | Another session ended while A/B or bypass had temporarily written a profile. Restore the saved profile only if it should replace the current file; otherwise keep the external changes. Do not delete the recovery record manually. |
 | Device Test takes time to close after cancellation | A fallback registration transaction may already be in progress. Let it finish the required registration and Windows Audio restart; force-closing it can leave the device state incomplete. |
 | Calibration is blocked | Make the selected endpoint the Windows default Console playback device and confirm its volume is readable. With `Binding All`, it must also be the default Multimedia device. Then reopen calibration. |
@@ -272,6 +301,7 @@ Set-Location .\loudness-correction-apo
 python -m unittest discover -s .\tests -p "test_*.py" -v
 .\scripts\build-installer-x64.ps1 -Configuration Release
 .\scripts\test-runtime-loudness.ps1 -Configuration Release
+python -m unittest discover -s .\tests -p "test_outproc_vst_lifecycle.py" -v
 .\scripts\capture-ui-regression.ps1 -Configuration Release
 git diff --check
 ```
@@ -281,7 +311,8 @@ The installer and checksum are written to `Setup\EqualizerAPO-x64-<version>.exe`
 Important source areas:
 
 - `filters/loudnessCorrection/` — formula table, response fitting, endpoint tracking, and runtime DSP;
-- `Editor/guis/` — filter controls, conversion, and calibration UI;
+- `filters/`, `Editor/guis/`, and `EqApoOutProcHost/` — native audio tools, filter controls, VST hosts, conversion, and calibration UI;
+- `IRs/` and `resources/HeadphoneCalibrations/` — usage notes and ignored locations for user-supplied impulse responses and compatible headphone-correction catalogs;
 - `Setup/` and `scripts/` — installer, dependency bootstrap, staging, and runtime checks;
 - `tests/` — formula, safety-contract, translation, installer, update, and release-workflow tests;
 - `third_party/` — tracked third-party source and generated dependency locations.
@@ -294,6 +325,6 @@ Only the latest release receives security fixes. Report vulnerabilities privatel
 
 The installer grants the local Windows Users group Full Control over the shared `config` directory so Configuration Editor can save changes. On a multi-user computer, any local standard user can therefore alter the system-wide audio configuration; account for that in the machine's trust model.
 
-The repository owner has confirmed permission to redistribute the included loudness-profile data and implementation in source and binary form. See [NOTICE.md](NOTICE.md). Public proof of that authorization is not bundled with the repository.
+The repository owner has confirmed permission to redistribute the included loudness-profile data and implementation in source and binary form. See [NOTICE.md](NOTICE.md). Public proof of that authorization is not bundled with the repository. That permission does not cover third-party headphone-measurement catalogs or impulse-response audio, which are not included in the public source history or installer.
 
 The program code is distributed under GPL-3.0; see [LICENSE](LICENSE). Tracked and generated dependencies retain their own licenses; see [third_party/README.md](third_party/README.md) and the license files in those source trees before redistributing a custom binary build.

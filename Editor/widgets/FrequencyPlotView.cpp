@@ -238,6 +238,14 @@ void FrequencyPlotView::changeEvent(QEvent* event)
 void FrequencyPlotView::wheelEvent(QWheelEvent* event)
 {
 	event->accept();
+	if (event->modifiers() & Qt::ShiftModifier)
+	{
+		const QPoint angle = event->angleDelta();
+		const int delta = angle.y() != 0 ? angle.y() : angle.x();
+		horizontalScrollBar()->setValue(horizontalScrollBar()->value() - delta);
+		hRuler->update();
+		return;
+	}
 	int delta = event->angleDelta().y();
 	zoom(delta, delta, event->position().x(), event->position().y());
 }

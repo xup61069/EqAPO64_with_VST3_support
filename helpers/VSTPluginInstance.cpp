@@ -20,11 +20,13 @@
 #include "stdafx.h"
 #include <wincrypt.h>
 #include <inttypes.h>
+#include <cstdint>
 #include "StringHelper.h"
 #include "../Version.h"
 #include "VSTPluginLibrary.h"
 #include "VSTPluginInstance.h"
 #include "pluginterfaces/base/futils.h"
+#include "public.sdk/source/vst/hosting/parameterchanges.h"
 
 using namespace std;
 using namespace Steinberg;
@@ -163,6 +165,171 @@ public:
 static EmptyVST3ParameterChanges emptyVST3ParameterChanges;
 static EmptyVST3EventList emptyVST3EventList;
 
+static const char vst2StateEnvelopeMagic[] = "EAPOVST2STATE2\n";
+static const char vst3StateEnvelopeMagic[] = "EAPOVST3STATE2\n";
+static const wchar_t vst3ParamIdPrefix[] = L"#";
+
+static bool base64Decode(const wstring& value, vector<char>& data)
+{
+	data.clear();
+	if (value.empty())
+		return false;
+
+	DWORD bufSize = 0;
+	if (CryptStringToBinaryW(value.c_str(), 0, CRYPT_STRING_BASE64, NULL, &bufSize, NULL, NULL) != TRUE || bufSize == 0)
+		return false;
+
+	data.assign(bufSize, 0);
+	if (CryptStringToBinaryW(value.c_str(), 0, CRYPT_STRING_BASE64, (BYTE*)data.data(), &bufSize, NULL, NULL) != TRUE)
+	{
+		data.clear();
+		return false;
+	}
+	data.resize(bufSize);
+	return true;
+}
+
+static bool base64Encode(const vector<char>& data, wstring& value)
+{
+	value.clear();
+	if (data.empty())
+		return false;
+
+	DWORD stringLength = 0;
+	if (CryptBinaryToStringW((BYTE*)data.data(), (DWORD)data.size(), CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, NULL, &stringLength) != TRUE || stringLength == 0)
+		return false;
+
+	vector<wchar_t> string(stringLength);
+	if (CryptBinaryToStringW((BYTE*)data.data(), (DWORD)data.size(), CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, string.data(), &stringLength) != TRUE)
+		return false;
+
+	value = string.data();
+	return true;
+}
+
+static void appendBytes(vector<char>& data, const void* value, size_t size)
+{
+	const char* begin = static_cast<const char*>(value);
+	data.insert(data.end(), begin, begin + size);
+}
+
+static void appendUInt32(vector<char>& data, uint32_t value)
+{
+	appendBytes(data, &value, sizeof(value));
+}
+
+static bool readUInt32(const vector<char>& data, size_t& offset, uint32_t& value)
+{
+	if (offset + sizeof(value) > data.size())
+		return false;
+	memcpy(&value, data.data() + offset, sizeof(value));
+	offset += sizeof(value);
+	return true;
+}
+
+static bool readBytes(const vector<char>& data, size_t& offset, uint32_t size, vector<char>& value)
+{
+	if (offset + size > data.size())
+		return false;
+	value.assign(data.begin() + offset, data.begin() + offset + size);
+	offset += size;
+	return true;
+}
+
+static void appendBlob(vector<char>& data, const vector<char>& blob)
+{
+	appendUInt32(data, (uint32_t)blob.size());
+	if (!blob.empty())
+		appendBytes(data, blob.data(), blob.size());
+}
+
+static bool readBlob(const vector<char>& data, size_t& offset, vector<char>& blob)
+{
+	uint32_t size = 0;
+	return readUInt32(data, offset, size) && readBytes(data, offset, size, blob);
+}
+
+static void appendParamMap(vector<char>& data, const unordered_map<wstring, float>& paramMap)
+{
+	appendUInt32(data, (uint32_t)paramMap.size());
+	for (const auto& it : paramMap)
+	{
+		appendUInt32(data, (uint32_t)it.first.size());
+		if (!it.first.empty())
+			appendBytes(data, it.first.data(), it.first.size() * sizeof(wchar_t));
+		appendBytes(data, &it.second, sizeof(it.second));
+	}
+}
+
+static bool readParamMap(const vector<char>& data, size_t& offset, unordered_map<wstring, float>& paramMap)
+{
+	uint32_t count = 0;
+	if (!readUInt32(data, offset, count) || count > 65536)
+		return false;
+
+	paramMap.clear();
+	for (uint32_t i = 0; i < count; ++i)
+	{
+		uint32_t length = 0;
+		if (!readUInt32(data, offset, length) || length > 1024 * 1024)
+			return false;
+		if (offset + length * sizeof(wchar_t) + sizeof(float) > data.size())
+			return false;
+
+		wstring key(length, L'\0');
+		if (length > 0)
+			memcpy(&key[0], data.data() + offset, length * sizeof(wchar_t));
+		offset += length * sizeof(wchar_t);
+
+		float value = 0.0f;
+		memcpy(&value, data.data() + offset, sizeof(value));
+		offset += sizeof(value);
+		paramMap[key] = value;
+	}
+	return true;
+}
+
+static bool hasEnvelopeMagic(const vector<char>& data, const char* magic)
+{
+	const size_t magicLength = strlen(magic);
+	return data.size() >= magicLength && memcmp(data.data(), magic, magicLength) == 0;
+}
+
+static vector<char> makeVST2Envelope(const vector<char>& chunk, const unordered_map<wstring, float>& paramMap)
+{
+	vector<char> data;
+	appendBytes(data, vst2StateEnvelopeMagic, strlen(vst2StateEnvelopeMagic));
+	appendBlob(data, chunk);
+	appendParamMap(data, paramMap);
+	return data;
+}
+
+static bool parseVST2Envelope(const vector<char>& data, vector<char>& chunk, unordered_map<wstring, float>& paramMap)
+{
+	if (!hasEnvelopeMagic(data, vst2StateEnvelopeMagic))
+		return false;
+	size_t offset = strlen(vst2StateEnvelopeMagic);
+	return readBlob(data, offset, chunk) && readParamMap(data, offset, paramMap);
+}
+
+static vector<char> makeVST3Envelope(const vector<char>& componentState, const vector<char>& controllerState, const unordered_map<wstring, float>& paramMap)
+{
+	vector<char> data;
+	appendBytes(data, vst3StateEnvelopeMagic, strlen(vst3StateEnvelopeMagic));
+	appendBlob(data, componentState);
+	appendBlob(data, controllerState);
+	appendParamMap(data, paramMap);
+	return data;
+}
+
+static bool parseVST3Envelope(const vector<char>& data, vector<char>& componentState, vector<char>& controllerState, unordered_map<wstring, float>& paramMap)
+{
+	if (!hasEnvelopeMagic(data, vst3StateEnvelopeMagic))
+		return false;
+	size_t offset = strlen(vst3StateEnvelopeMagic);
+	return readBlob(data, offset, componentState) && readBlob(data, offset, controllerState) && readParamMap(data, offset, paramMap);
+}
+
 class VSTPluginInstance::VST3HostContext : public IHostApplication, public IComponentHandler, public IPlugFrame
 {
 public:
@@ -199,10 +366,13 @@ public:
 	}
 
 	tresult PLUGIN_API beginEdit(ParamID) override { return kResultOk; }
-	tresult PLUGIN_API performEdit(ParamID, ParamValue) override
+	tresult PLUGIN_API performEdit(ParamID id, ParamValue value) override
 	{
 		if (instance != NULL)
+		{
+			instance->queueVST3ParameterChange(id, value);
 			instance->onAutomate();
+		}
 		return kResultOk;
 	}
 	tresult PLUGIN_API endEdit(ParamID) override { return kResultOk; }
@@ -345,8 +515,8 @@ static void registerVST3EditorHostWindowClass()
 	registered = true;
 }
 
-VSTPluginInstance::VSTPluginInstance(const std::shared_ptr<VSTPluginLibrary>& library, int processLevel)
-	: library(library), processLevel(processLevel)
+VSTPluginInstance::VSTPluginInstance(const std::shared_ptr<VSTPluginLibrary>& library, int processLevel, int vst3ClassIndex)
+	: library(library), processLevel(processLevel), vst3ClassIndex(vst3ClassIndex)
 {
 }
 
@@ -400,7 +570,7 @@ bool VSTPluginInstance::initializeVST3()
 {
 	vst3HostContext = new VST3HostContext(this);
 
-	const PClassInfo& classInfo = library->getVST3ClassInfo();
+	const PClassInfo& classInfo = library->getVST3ClassInfo(vst3ClassIndex);
 	FUID componentId(classInfo.cid);
 	TUID componentIid;
 	IComponent::iid.toTUID(componentIid);
@@ -500,7 +670,7 @@ int VSTPluginInstance::uniqueID() const
 {
 	if (library->isVST3())
 	{
-		const PClassInfo& classInfo = library->getVST3ClassInfo();
+		const PClassInfo& classInfo = library->getVST3ClassInfo(vst3ClassIndex);
 		int result = 0;
 		memcpy(&result, classInfo.cid, sizeof(result));
 		return result;
@@ -514,7 +684,7 @@ int VSTPluginInstance::uniqueID() const
 std::wstring VSTPluginInstance::getName() const
 {
 	if (library->isVST3())
-		return StringHelper::toWString(library->getVST3ClassInfo().name, CP_UTF8);
+		return StringHelper::toWString(library->getVST3ClassInfo(vst3ClassIndex).name, CP_UTF8);
 	if (effect == NULL)
 		return L"";
 
@@ -611,24 +781,91 @@ void VSTPluginInstance::writeToEffect(const std::wstring& chunkData, const std::
 	{
 		if (chunkData != L"")
 		{
-			DWORD bufSize = 0;
-			CryptStringToBinaryW(chunkData.c_str(), 0, CRYPT_STRING_BASE64, NULL, &bufSize, NULL, NULL);
-			vector<char> data(bufSize);
-			if (bufSize > 0 && CryptStringToBinaryW(chunkData.c_str(), 0, CRYPT_STRING_BASE64, (BYTE*)data.data(), &bufSize, NULL, NULL) == TRUE)
+			vector<char> data;
+			if (base64Decode(chunkData, data))
 			{
-				VST3MemoryStream* stream = new VST3MemoryStream(data);
-				if (vst3Component != NULL)
-					vst3Component->setState(stream);
-				stream->seek(0, IBStream::kIBSeekSet);
-				if (vst3Controller != NULL)
+				vector<char> componentState;
+				vector<char> controllerState;
+				unordered_map<wstring, float> envelopeParamMap;
+				const bool isEnvelope = parseVST3Envelope(data, componentState, controllerState, envelopeParamMap);
+				if (!isEnvelope)
+					componentState = data;
+
+				if (!componentState.empty())
+				{
+					VST3MemoryStream* stream = new VST3MemoryStream(componentState);
+					if (vst3Component != NULL)
+						vst3Component->setState(stream);
+					stream->seek(0, IBStream::kIBSeekSet);
+					if (vst3Controller != NULL)
+						vst3Controller->setComponentState(stream);
+					if (!isEnvelope && vst3Controller != NULL)
+					{
+						stream->seek(0, IBStream::kIBSeekSet);
+						vst3Controller->setState(stream);
+					}
+					stream->release();
+				}
+
+				if (!controllerState.empty() && vst3Controller != NULL)
+				{
+					VST3MemoryStream* stream = new VST3MemoryStream(controllerState);
 					vst3Controller->setState(stream);
-				stream->release();
+					stream->release();
+				}
+				if (!controllerState.empty() && vst3Component != NULL)
+				{
+					VST3MemoryStream* stream = new VST3MemoryStream(controllerState);
+					vst3Component->setState(stream);
+					stream->release();
+				}
+
+				const unordered_map<wstring, float>& paramsToApply = isEnvelope ? envelopeParamMap : paramMap;
+				if (vst3Controller != NULL)
+				{
+					for (auto it : paramsToApply)
+					{
+						if (!it.first.empty() && it.first[0] == vst3ParamIdPrefix[0])
+						{
+							wchar_t* end = NULL;
+							ParamID id = static_cast<ParamID>(wcstoul(it.first.c_str() + 1, &end, 10));
+							if (end != it.first.c_str() + 1)
+							{
+								vst3Controller->setParamNormalized(id, it.second);
+								queueVST3ParameterChange(id, it.second);
+							}
+							continue;
+						}
+						for (int32 i = 0; i < vst3Controller->getParameterCount(); i++)
+						{
+							ParameterInfo info;
+							if (vst3Controller->getParameterInfo(i, info) == kResultOk
+								&& it.first == wstring((wchar_t*)info.title))
+							{
+								vst3Controller->setParamNormalized(info.id, it.second);
+								queueVST3ParameterChange(info.id, it.second);
+								break;
+							}
+						}
+					}
+				}
 			}
 		}
 		else if (vst3Controller != NULL)
 		{
 			for (auto it : paramMap)
 			{
+				if (!it.first.empty() && it.first[0] == vst3ParamIdPrefix[0])
+				{
+					wchar_t* end = NULL;
+					ParamID id = static_cast<ParamID>(wcstoul(it.first.c_str() + 1, &end, 10));
+					if (end != it.first.c_str() + 1)
+					{
+						vst3Controller->setParamNormalized(id, it.second);
+						queueVST3ParameterChange(id, it.second);
+					}
+					continue;
+				}
 				for (int32 i = 0; i < vst3Controller->getParameterCount(); i++)
 				{
 					ParameterInfo info;
@@ -636,6 +873,7 @@ void VSTPluginInstance::writeToEffect(const std::wstring& chunkData, const std::
 						&& it.first == wstring((wchar_t*)info.title))
 					{
 						vst3Controller->setParamNormalized(info.id, it.second);
+						queueVST3ParameterChange(info.id, it.second);
 						break;
 					}
 				}
@@ -647,19 +885,42 @@ void VSTPluginInstance::writeToEffect(const std::wstring& chunkData, const std::
 	if (effect == NULL)
 		return;
 
+	bool appliedChunk = false;
 	if (effect->flags & VST_EFFECT_FLAG_CHUNKS)
 	{
 		if (chunkData != L"")
 		{
-			DWORD bufSize = 0;
-			CryptStringToBinaryW(chunkData.c_str(), 0, CRYPT_STRING_BASE64, NULL, &bufSize, NULL, NULL);
-			BYTE* buf = new BYTE[bufSize];
-			if (CryptStringToBinaryW(chunkData.c_str(), 0, CRYPT_STRING_BASE64, buf, &bufSize, NULL, NULL) == TRUE)
-				effect->control(effect, VST_EFFECT_OPCODE_SET_CHUNK_DATA, 1, bufSize, buf, 0.0f);
-			delete[] buf;
+			vector<char> data;
+			if (base64Decode(chunkData, data))
+			{
+				vector<char> chunk;
+				unordered_map<wstring, float> envelopeParamMap;
+				const bool isEnvelope = parseVST2Envelope(data, chunk, envelopeParamMap);
+				if (!isEnvelope)
+					chunk = data;
+
+				if (!chunk.empty())
+				{
+					effect->control(effect, VST_EFFECT_OPCODE_SET_CHUNK_DATA, 1, (intptr_t)chunk.size(), chunk.data(), 0.0f);
+					appliedChunk = true;
+				}
+
+				if (isEnvelope)
+				{
+					for (int i = 0; i < effect->num_params; i++)
+					{
+						char buf[256];
+						effect->control(effect, VST_EFFECT_OPCODE_PARAM_GET_NAME, i, 0, buf, 0.0f);
+						buf[255] = '\0';
+						auto it = envelopeParamMap.find(StringHelper::toWString(buf, CP_UTF8));
+						if (it != envelopeParamMap.end())
+							effect->set_parameter(effect, i, it->second);
+					}
+				}
+			}
 		}
 	}
-	else
+	if (!appliedChunk)
 	{
 		for (int i = 0; i < effect->num_params; i++)
 		{
@@ -681,29 +942,38 @@ void VSTPluginInstance::readFromEffect(std::wstring& chunkData, std::unordered_m
 		chunkData = L"";
 		paramMap.clear();
 
+		vector<char> componentState;
+		vector<char> controllerState;
 		if (vst3Component != NULL)
 		{
 			VST3MemoryStream* stream = new VST3MemoryStream();
 			if (vst3Component->getState(stream) == kResultOk && !stream->getData().empty())
-			{
-				DWORD stringLength = 0;
-				CryptBinaryToStringW((BYTE*)stream->getData().data(), (DWORD)stream->getData().size(), CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, NULL, &stringLength);
-				wchar_t* string = new wchar_t[stringLength];
-				if (CryptBinaryToStringW((BYTE*)stream->getData().data(), (DWORD)stream->getData().size(), CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, string, &stringLength) == TRUE)
-					chunkData = string;
-				delete[] string;
-			}
+				componentState = stream->getData();
 			stream->release();
 		}
 
-		if (chunkData == L"" && vst3Controller != NULL)
+		if (vst3Controller != NULL)
 		{
+			VST3MemoryStream* stream = new VST3MemoryStream();
+			if (vst3Controller->getState(stream) == kResultOk && !stream->getData().empty())
+				controllerState = stream->getData();
+			stream->release();
+
 			for (int32 i = 0; i < vst3Controller->getParameterCount(); i++)
 			{
 				ParameterInfo info;
 				if (vst3Controller->getParameterInfo(i, info) == kResultOk)
+				{
 					paramMap[wstring((wchar_t*)info.title)] = (float)vst3Controller->getParamNormalized(info.id);
+					paramMap[wstring(vst3ParamIdPrefix) + to_wstring(info.id)] = (float)vst3Controller->getParamNormalized(info.id);
+				}
 			}
+		}
+
+		if (!componentState.empty() || !controllerState.empty())
+		{
+			vector<char> envelope = makeVST3Envelope(componentState, controllerState, paramMap);
+			base64Encode(envelope, chunkData);
 		}
 		return;
 	}
@@ -718,12 +988,24 @@ void VSTPluginInstance::readFromEffect(std::wstring& chunkData, std::unordered_m
 	{
 		BYTE* chunk = NULL;
 		int size = (int)effect->control(effect, VST_EFFECT_OPCODE_GET_CHUNK_DATA, 1, 0, &chunk, 0.0f);
-		DWORD stringLength = 0;
-		CryptBinaryToStringW(chunk, size, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, NULL, &stringLength);
-		wchar_t* string = new wchar_t[stringLength];
-		if (CryptBinaryToStringW(chunk, size, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, string, &stringLength) == TRUE)
-			chunkData = string;
-		delete[] string;
+		vector<char> chunkDataRaw;
+		if (chunk != NULL && size > 0)
+			chunkDataRaw.assign((char*)chunk, (char*)chunk + size);
+
+		for (int i = 0; i < effect->num_params; i++)
+		{
+			char buf[256];
+			effect->control(effect, VST_EFFECT_OPCODE_PARAM_GET_NAME, i, 0, buf, 0.0f);
+			buf[255] = '\0';
+			float value = effect->get_parameter(effect, i);
+			paramMap[StringHelper::toWString(buf, CP_UTF8)] = value;
+		}
+
+		if (!chunkDataRaw.empty())
+		{
+			vector<char> envelope = makeVST2Envelope(chunkDataRaw, paramMap);
+			base64Encode(envelope, chunkData);
+		}
 	}
 	else
 	{
@@ -782,7 +1064,18 @@ void VSTPluginInstance::processReplacing(float** inputArray, float** outputArray
 		data.numOutputs = vst3OutputBusCount > 0 ? 1 : 0;
 		data.inputs = data.numInputs > 0 ? &inputBuffers : NULL;
 		data.outputs = data.numOutputs > 0 ? &outputBuffers : NULL;
-		data.inputParameterChanges = &emptyVST3ParameterChanges;
+		ParameterChanges inputChanges(static_cast<int32>(pendingVST3ParameterChanges.size()));
+		for (const auto& change : pendingVST3ParameterChanges)
+		{
+			int32 queueIndex = -1;
+			IParamValueQueue* queue = inputChanges.addParameterData(change.first, queueIndex);
+			if (queue != NULL)
+			{
+				int32 pointIndex = -1;
+				queue->addPoint(0, change.second, pointIndex);
+			}
+		}
+		data.inputParameterChanges = pendingVST3ParameterChanges.empty() ? static_cast<IParameterChanges*>(&emptyVST3ParameterChanges) : static_cast<IParameterChanges*>(&inputChanges);
 		data.inputEvents = &emptyVST3EventList;
 		data.processContext = &vst3ProcessContext;
 		vst3ProcessContext.state = ProcessContext::kPlaying | ProcessContext::kContTimeValid;
@@ -791,6 +1084,7 @@ void VSTPluginInstance::processReplacing(float** inputArray, float** outputArray
 		vst3ProcessContext.continousTimeSamples = vst3SamplePosition;
 		if (vst3Processor->process(data) == kResultOk)
 			vst3SamplePosition += frameCount;
+		pendingVST3ParameterChanges.clear();
 		return;
 	}
 
@@ -820,7 +1114,18 @@ void VSTPluginInstance::processDoubleReplacing(double** inputArray, double** out
 		data.numOutputs = vst3OutputBusCount > 0 ? 1 : 0;
 		data.inputs = data.numInputs > 0 ? &inputBuffers : NULL;
 		data.outputs = data.numOutputs > 0 ? &outputBuffers : NULL;
-		data.inputParameterChanges = &emptyVST3ParameterChanges;
+		ParameterChanges inputChanges(static_cast<int32>(pendingVST3ParameterChanges.size()));
+		for (const auto& change : pendingVST3ParameterChanges)
+		{
+			int32 queueIndex = -1;
+			IParamValueQueue* queue = inputChanges.addParameterData(change.first, queueIndex);
+			if (queue != NULL)
+			{
+				int32 pointIndex = -1;
+				queue->addPoint(0, change.second, pointIndex);
+			}
+		}
+		data.inputParameterChanges = pendingVST3ParameterChanges.empty() ? static_cast<IParameterChanges*>(&emptyVST3ParameterChanges) : static_cast<IParameterChanges*>(&inputChanges);
 		data.inputEvents = &emptyVST3EventList;
 		data.processContext = &vst3ProcessContext;
 		vst3ProcessContext.state = ProcessContext::kPlaying | ProcessContext::kContTimeValid;
@@ -829,6 +1134,7 @@ void VSTPluginInstance::processDoubleReplacing(double** inputArray, double** out
 		vst3ProcessContext.continousTimeSamples = vst3SamplePosition;
 		if (vst3Processor->process(data) == kResultOk)
 			vst3SamplePosition += frameCount;
+		pendingVST3ParameterChanges.clear();
 		return;
 	}
 
@@ -874,6 +1180,19 @@ void VSTPluginInstance::stopProcessing()
 
 	effect->control(effect, VST_EFFECT_OPCODE_PROCESS_END, 0, 0, NULL, 0.0f);
 	effect->control(effect, VST_EFFECT_OPCODE_SUSPEND, 0, 0, NULL, 0.0f);
+}
+
+void VSTPluginInstance::queueVST3ParameterChange(ParamID id, ParamValue value)
+{
+	for (auto& change : pendingVST3ParameterChanges)
+	{
+		if (change.first == id)
+		{
+			change.second = value;
+			return;
+		}
+	}
+	pendingVST3ParameterChanges.push_back(make_pair(id, value));
 }
 
 bool VSTPluginInstance::startEditing(HWND hWnd, short* width, short* height)

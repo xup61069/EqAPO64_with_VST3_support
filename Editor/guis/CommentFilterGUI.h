@@ -37,6 +37,7 @@ public:
 
 	void loadPreferences(const QVariantMap& prefs) override;
 	void storePreferences(QVariantMap& prefs) override;
+	void prepareDelete() override;
 
 private slots:
 	void on_actionPowerOn_toggled(bool checked);

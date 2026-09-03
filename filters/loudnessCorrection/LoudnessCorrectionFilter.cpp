@@ -250,13 +250,30 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 	{
 		if (!canTrackAutomaticVolume())
 		{
+			if (_runtimeContext.volumeObservations != nullptr)
+			{
+				FilterRuntimeVolumeObservation observation;
+				observation.requestedEndpointId = getVolumeControllerEndpointId();
+				observation.available = false;
+				_runtimeContext.volumeObservations->push_back(observation);
+			}
 			_runtimeBypass.store(true, std::memory_order_relaxed);
 			LogF(L"LoudnessCorrection automatic volume mode is unavailable for this binding; filter is bypassed. Use manual volume mode.");
 		}
 		else
 		{
 			VolumeController volumeController(getVolumeControllerEndpointId());
-			if (FAILED(volumeController.getVolume(initialVolume)))
+			const HRESULT volumeResult = volumeController.getVolume(initialVolume);
+			if (_runtimeContext.volumeObservations != nullptr)
+			{
+				FilterRuntimeVolumeObservation observation;
+				observation.requestedEndpointId = getVolumeControllerEndpointId();
+				observation.resolvedEndpointId = volumeController.getEndpointId();
+				observation.volumeDb = initialVolume;
+				observation.available = SUCCEEDED(volumeResult);
+				_runtimeContext.volumeObservations->push_back(observation);
+			}
+			if (FAILED(volumeResult))
 			{
 				_runtimeBypass.store(true, std::memory_order_relaxed);
 				initialVolume = 0.0;

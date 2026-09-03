@@ -113,6 +113,8 @@ VIAddVersionKey /LANG=1033 "LegalCopyright" "Equalizer APO contributors"
   Var ApoRollbackStatus
   Var FailedRegistrationCode
   Var DeviceSelectorResult
+  Var InstallLogPath
+  Var DiagnosticIssues
 
 ;--------------------------------
 ;Interface Settings
@@ -433,6 +435,26 @@ Var renameIndex
   ${EndIf}
 !macroend
 
+!macro LogLoadLibrary dll
+  FileWrite $9 "Checking ${dll}... "
+  ${IfNot} ${FileExists} "$INSTDIR\${dll}"
+    FileWrite $9 "missing$\r$\n"
+    StrCpy $DiagnosticIssues "$DiagnosticIssues- ${dll}: missing$\r$\n"
+  ${Else}
+    FileWrite $9 "present$\r$\n"
+  ${EndIf}
+!macroend
+
+!macro LogFileExists file
+  FileWrite $9 "Checking ${file}... "
+  ${IfNot} ${FileExists} "$INSTDIR\${file}"
+    FileWrite $9 "missing$\r$\n"
+    StrCpy $DiagnosticIssues "$DiagnosticIssues- ${file}: missing$\r$\n"
+  ${Else}
+    FileWrite $9 "present$\r$\n"
+  ${EndIf}
+!macroend
+
 LangString VersionError ${LANG_ENGLISH} "This installer is only supposed to be run on {0} Windows. Please use the {1} installer."
 LangString VersionError ${LANG_SPANISH} "Este instalador solo debe ejecutarse en Windows {0}. Use el instalador {1}."
 LangString VersionError ${LANG_GERMAN} "Dieses Installationsprogramm kann nur auf einem {0}-Windows verwendet werden. Bitte nutzen Sie die {1}-Version."
@@ -533,6 +555,7 @@ Function CloseRunningApplications
     nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /IM UpdateChecker.exe /T /F'
     nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /IM Benchmark.exe /T /F'
     nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /IM VoicemeeterClient.exe /T /F'
+    nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /IM EqApoOutProcHost.exe /T /F'
   ${EndIf}
   done:
 FunctionEnd
@@ -1901,6 +1924,7 @@ Function RemoveInstalledProductFiles
   ; Current payload. Keep config and VSTPlugins intact even on a fresh-install
   ; failure: an existing folder may already contain user-created data.
   !insertmacro DeleteTransactionFile "$INSTDIR\EqualizerAPO.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\EqApoOutProcHost.exe"
   !insertmacro DeleteTransactionFile "$INSTDIR\DeviceSelector.exe"
   !insertmacro DeleteTransactionFile "$INSTDIR\Benchmark.exe"
   !insertmacro DeleteTransactionFile "$INSTDIR\VoicemeeterClient.exe"
@@ -1909,6 +1933,7 @@ Function RemoveInstalledProductFiles
   !insertmacro DeleteTransactionFile "$INSTDIR\Uninstall.exe"
   !insertmacro DeleteTransactionFile "$INSTDIR\NOTICE.md"
   !insertmacro DeleteTransactionFile "$INSTDIR\LICENSE.txt"
+  !insertmacro DeleteTransactionFile "$INSTDIR\install-diagnostics.log"
   !insertmacro DeleteTransactionFile "$INSTDIR\libfftw3.dll"
   !insertmacro DeleteTransactionFile "$INSTDIR\fftw3.dll"
   !insertmacro DeleteTransactionFile "$INSTDIR\sndfile.dll"
@@ -1947,6 +1972,8 @@ Function RemoveInstalledProductFiles
   ; Files retired by this release may have been removed or renamed before the
   ; failure. The snapshot restores them for an upgrade.
   !insertmacro DeleteTransactionFile "$INSTDIR\Configurator.exe"
+  !insertmacro DeleteTransactionFile "$INSTDIR\EqApoJuceVST3Host.dll"
+  !insertmacro DeleteTransactionFile "$INSTDIR\EqApoOutProcJuceHost.exe"
   !insertmacro DeleteTransactionFile "$INSTDIR\Qt5Core.dll"
   !insertmacro DeleteTransactionFile "$INSTDIR\Qt5Gui.dll"
   !insertmacro DeleteTransactionFile "$INSTDIR\Qt5Widgets.dll"
@@ -2872,6 +2899,7 @@ FunctionEnd
 
 Function VerifyRequiredAssets
   !insertmacro RequireInstalledAsset "$INSTDIR\EqualizerAPO.dll"
+  !insertmacro RequireInstalledAsset "$INSTDIR\EqApoOutProcHost.exe"
   !insertmacro RequireInstalledAsset "$INSTDIR\DeviceSelector.exe"
   !insertmacro RequireInstalledAsset "$INSTDIR\Benchmark.exe"
   !insertmacro RequireInstalledAsset "$INSTDIR\VoicemeeterClient.exe"
@@ -2897,6 +2925,111 @@ Function VerifyRequiredAssets
   ${EndIf}
   Call RollbackInstallTransaction
   Abort
+FunctionEnd
+
+Function WriteInstallDiagnostics
+  StrCpy $DiagnosticIssues ""
+  StrCpy $InstallLogPath "$INSTDIR\install-diagnostics.log"
+  FileOpen $9 "$InstallLogPath" w
+  ${If} $9 == ""
+    Return
+  ${EndIf}
+
+  FileWrite $9 "Equalizer APO installer diagnostics$\r$\n"
+  FileWrite $9 "Version: ${VERSION}$\r$\n"
+  FileWrite $9 "Target architecture: ${TARGET_ARCH}$\r$\n"
+  FileWrite $9 "Install path: $INSTDIR$\r$\n"
+  FileWrite $9 "$\r$\n"
+
+  !insertmacro LogLoadLibrary "EqualizerAPO.dll"
+  !insertmacro LogFileExists "EqApoOutProcHost.exe"
+  !insertmacro LogFileExists "Editor.exe"
+  !insertmacro LogFileExists "DeviceSelector.exe"
+  !insertmacro LogFileExists "Benchmark.exe"
+  !insertmacro LogFileExists "VoicemeeterClient.exe"
+  !insertmacro LogFileExists "UpdateChecker.exe"
+  !insertmacro LogLoadLibrary "libfftw3.dll"
+  !insertmacro LogLoadLibrary "fftw3.dll"
+  !insertmacro LogLoadLibrary "sndfile.dll"
+  !insertmacro LogLoadLibrary "FLAC.dll"
+  !insertmacro LogLoadLibrary "libmp3lame.dll"
+  !insertmacro LogLoadLibrary "mpg123.dll"
+  !insertmacro LogLoadLibrary "ogg.dll"
+  !insertmacro LogLoadLibrary "opus.dll"
+  !insertmacro LogLoadLibrary "vorbis.dll"
+  !insertmacro LogLoadLibrary "vorbisenc.dll"
+  !insertmacro LogLoadLibrary "vorbisfile.dll"
+  !insertmacro LogLoadLibrary "msvcp140.dll"
+  !insertmacro LogLoadLibrary "msvcp140_1.dll"
+  !insertmacro LogLoadLibrary "vcruntime140.dll"
+  !insertmacro LogLoadLibrary "vcruntime140_1.dll"
+  !insertmacro LogLoadLibrary "Qt6Core.dll"
+  !insertmacro LogLoadLibrary "Qt6Gui.dll"
+  !insertmacro LogLoadLibrary "Qt6Network.dll"
+  !insertmacro LogLoadLibrary "Qt6Svg.dll"
+  !insertmacro LogLoadLibrary "Qt6Widgets.dll"
+  !insertmacro LogLoadLibrary "d3dcompiler_47.dll"
+
+  FileClose $9
+FunctionEnd
+
+Function InstallBundledRuntimeDlls
+  SetOutPath "$INSTDIR"
+  File "${LIBPATH}\libfftw3.dll"
+  File "${LIBPATH}\fftw3.dll"
+  File "${LIBPATH}\sndfile.dll"
+  File "${LIBPATH}\FLAC.dll"
+  File "${LIBPATH}\libmp3lame.dll"
+  File "${LIBPATH}\mpg123.dll"
+  File "${LIBPATH}\ogg.dll"
+  File "${LIBPATH}\opus.dll"
+  File "${LIBPATH}\vorbis.dll"
+  File "${LIBPATH}\vorbisenc.dll"
+  File "${LIBPATH}\vorbisfile.dll"
+  File "${LIBPATH}\msvcp140.dll"
+  File "${LIBPATH}\msvcp140_1.dll"
+  File "${LIBPATH}\vcruntime140.dll"
+  File "${LIBPATH}\vcruntime140_1.dll"
+  File "${LIBPATH}\d3dcompiler_47.dll"
+  !if /FileExists "${LIBPATH}\dxcompiler.dll"
+    File "${LIBPATH}\dxcompiler.dll"
+  !endif
+  !if /FileExists "${LIBPATH}\dxil.dll"
+    File "${LIBPATH}\dxil.dll"
+  !endif
+  File "${LIBPATH}\icuuc.dll"
+  File "${LIBPATH}\Qt6Core.dll"
+  File "${LIBPATH}\Qt6Gui.dll"
+  File "${LIBPATH}\Qt6Network.dll"
+  File "${LIBPATH}\Qt6Svg.dll"
+  File "${LIBPATH}\Qt6Widgets.dll"
+FunctionEnd
+
+Function WriteX64LoadDiagnostics
+  InitPluginsDir
+  SetOutPath "$PLUGINSDIR"
+  File "x64-load-check.ps1"
+
+  StrCpy $0 "$WINDIR\Sysnative\WindowsPowerShell\v1.0\powershell.exe"
+  ${IfNot} ${FileExists} "$0"
+    StrCpy $0 "$SYSDIR\WindowsPowerShell\v1.0\powershell.exe"
+  ${EndIf}
+
+  ${If} ${FileExists} "$0"
+    nsExec::ExecToLog '"$0" -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\x64-load-check.ps1" "$INSTDIR\EqualizerAPO.dll" "$InstallLogPath"'
+    Pop $2
+    FileOpen $9 "$InstallLogPath" a
+    ${If} $9 != ""
+      FileWrite $9 "64-bit LoadLibrary diagnostic exit code: $2$\r$\n"
+      FileClose $9
+    ${EndIf}
+  ${Else}
+    FileOpen $9 "$InstallLogPath" a
+    ${If} $9 != ""
+      FileWrite $9 "$\r$\n64-bit PowerShell was not found. Skipping LoadLibrary diagnostic.$\r$\n"
+      FileClose $9
+    ${EndIf}
+  ${EndIf}
 FunctionEnd
 
 ;--------------------------------
@@ -2951,11 +3084,15 @@ Section "-Install"
       Abort
     ${EndIf}
   ${EndIf}
+  !insertmacro RenameAndDelete "$INSTDIR\EqApoOutProcHost.exe"
+  !insertmacro RenameAndDelete "$INSTDIR\EqApoJuceVST3Host.dll"
+  !insertmacro RenameAndDelete "$INSTDIR\EqApoOutProcJuceHost.exe"
   !insertmacro RenameAndDelete "$INSTDIR\libfftw3-3.dll"
   !insertmacro RenameAndDelete "$INSTDIR\libfftw3.dll"
   !insertmacro RenameAndDelete "$INSTDIR\fftw3.dll"
   !insertmacro RenameAndDelete "$INSTDIR\libsndfile-1.dll"
   !insertmacro RenameAndDelete "$INSTDIR\sndfile.dll"
+  !insertmacro RenameAndDelete "$INSTDIR\samplerate.dll"
   !insertmacro RenameAndDelete "$INSTDIR\msvcp100.dll"
   !insertmacro RenameAndDelete "$INSTDIR\msvcr100.dll"
   !insertmacro RenameAndDelete "$INSTDIR\msvcp120.dll"
@@ -2981,6 +3118,8 @@ Section "-Install"
   !insertmacro RenameAndDelete "$INSTDIR\vorbisenc.dll"
   !insertmacro RenameAndDelete "$INSTDIR\vorbisfile.dll"
   !insertmacro RenameAndDelete "$INSTDIR\d3dcompiler_47.dll"
+  !insertmacro RenameAndDelete "$INSTDIR\dxcompiler.dll"
+  !insertmacro RenameAndDelete "$INSTDIR\dxil.dll"
   !insertmacro RenameAndDelete "$INSTDIR\Qt6Core.dll"
   !insertmacro RenameAndDelete "$INSTDIR\Qt6Gui.dll"
   !insertmacro RenameAndDelete "$INSTDIR\Qt6Network.dll"
@@ -2988,6 +3127,7 @@ Section "-Install"
   !insertmacro RenameAndDelete "$INSTDIR\Qt6Widgets.dll"
 
   File "${BINPATH}\EqualizerAPO.dll"
+  File "${BINPATH}\EqApoOutProcHost.exe"
   File "${BINPATH}\DeviceSelector.exe"
   File "${BINPATH}\Benchmark.exe"
   File "${BINPATH}\VoicemeeterClient.exe"
@@ -3012,6 +3152,12 @@ Section "-Install"
   File "${LIBPATH}\vcruntime140.dll"
   File "${LIBPATH}\vcruntime140_1.dll"
   File "${LIBPATH}\d3dcompiler_47.dll"
+  !if /FileExists "${LIBPATH}\dxcompiler.dll"
+    File "${LIBPATH}\dxcompiler.dll"
+  !endif
+  !if /FileExists "${LIBPATH}\dxil.dll"
+    File "${LIBPATH}\dxil.dll"
+  !endif
   File "${LIBPATH}\icuuc.dll"
   File "${LIBPATH}\Qt6Core.dll"
   File "${LIBPATH}\Qt6Gui.dll"
@@ -3030,7 +3176,9 @@ Section "-Install"
 
   File /oname=qt\generic\qtuiotouchplugin.dll "${LIBPATH}\qt\generic\qtuiotouchplugin.dll"
   File /oname=qt\iconengines\qsvgicon.dll "${LIBPATH}\qt\iconengines\qsvgicon.dll"
+  File /nonfatal /oname=qt\imageformats\qgif.dll "${LIBPATH}\qt\imageformats\qgif.dll"
   File /oname=qt\imageformats\qico.dll "${LIBPATH}\qt\imageformats\qico.dll"
+  File /nonfatal /oname=qt\imageformats\qjpeg.dll "${LIBPATH}\qt\imageformats\qjpeg.dll"
   File /oname=qt\imageformats\qsvg.dll "${LIBPATH}\qt\imageformats\qsvg.dll"
   File /oname=qt\networkinformation\qnetworklistmanager.dll "${LIBPATH}\qt\networkinformation\qnetworklistmanager.dll"
   File /oname=qt\platforms\qwindows.dll "${LIBPATH}\qt\platforms\qwindows.dll"
@@ -3043,6 +3191,8 @@ Section "-Install"
   File "qt.conf"
 
   CreateDirectory "$INSTDIR\config"
+  CreateDirectory "$INSTDIR\config\HeadphoneCalibrations"
+  CreateDirectory "$INSTDIR\config\IRs"
   CreateDirectory "$INSTDIR\VSTPlugins"
 
   SetOverwrite off
@@ -3056,6 +3206,7 @@ Section "-Install"
 
   ; Do not make persistent system changes when the installer payload is incomplete.
   Call VerifyRequiredAssets
+  Call WriteInstallDiagnostics
 
   Call BeginProtectedAudioOverride
   ${If} $ProtectedAudioOverrideActive != "1"
@@ -3090,14 +3241,49 @@ Section "-Install"
   ${EndIf}
   ${If} $1 != 0
     StrCpy $FailedRegistrationCode "$1"
+    ${If} $DiagnosticIssues != ""
+      ${IfNot} ${Silent}
+        MessageBox MB_ICONQUESTION|MB_YESNO "Equalizer APO could not be registered.$\r$\n$\r$\nThe installer found these missing or incompatible bundled files:$\r$\n$\r$\n$DiagnosticIssues$\r$\nSetup can reinstall the bundled DLLs into the Equalizer APO folder and retry registration.$\r$\n$\r$\nThis will not replace Windows system DLLs.$\r$\n$\r$\nDo you want to reinstall the bundled DLLs and retry?" IDNO apoRegistrationFailed
+        Call InstallBundledRuntimeDlls
+        Call WriteInstallDiagnostics
+        Call BeginProtectedAudioOverride
+        ${If} $ProtectedAudioOverrideActive != "1"
+          StrCpy $FailedRegistrationCode "protected-audio recovery journal could not be recreated for registration retry"
+          Goto apoRegistrationFailed
+        ${EndIf}
+        ClearErrors
+        StrCpy $1 "process did not start"
+        ExecWait '"$SYSDIR\regsvr32.exe" /s "$INSTDIR\EqualizerAPO.dll"' $1
+        ${If} ${Errors}
+          StrCpy $FailedRegistrationCode "retry process did not start"
+          Call RestoreProtectedAudioSetting
+          Goto apoRegistrationFailed
+        ${EndIf}
+        Call RestoreProtectedAudioSetting
+        ${If} $ProtectedAudioOverrideActive == "1"
+          StrCpy $FailedRegistrationCode "protected-audio setting could not be restored after registration retry"
+          Goto apoRegistrationFailed
+        ${EndIf}
+        ${If} $1 == 0
+          Goto apoRegistrationSucceeded
+        ${EndIf}
+        StrCpy $FailedRegistrationCode "$1 (retry)"
+      ${EndIf}
+    ${EndIf}
     Goto apoRegistrationFailed
   ${EndIf}
   Goto apoRegistrationSucceeded
 
   apoRegistrationFailed:
+  FileOpen $9 "$InstallLogPath" a
+  ${If} $9 != ""
+    FileWrite $9 "$\r$\nregsvr32 result: $FailedRegistrationCode$\r$\n"
+    FileClose $9
+  ${EndIf}
+  Call WriteX64LoadDiagnostics
   Call RollbackInstallTransaction
   ${IfNot} ${Silent}
-    MessageBox MB_ICONSTOP|MB_OK "Equalizer APO could not be registered. Installation will stop before modifying audio devices.$\r$\n$\r$\nThis usually means a required runtime DLL is missing or incompatible.$\r$\n$\r$\nregsvr32 result: $FailedRegistrationCode$\r$\n$\r$\n$ApoRollbackStatus"
+    MessageBox MB_ICONSTOP|MB_OK "Equalizer APO could not be registered. Installation will stop before modifying audio devices.$\r$\n$\r$\nThis usually means a required runtime DLL is missing or incompatible.$\r$\n$\r$\nregsvr32 result: $FailedRegistrationCode$\r$\nDiagnostics log: $InstallLogPath$\r$\n$\r$\n$ApoRollbackStatus"
   ${EndIf}
   Abort
 
@@ -3458,6 +3644,7 @@ Section "-un.Uninstall"
     ExecWait '"$INSTDIR\UpdateChecker.exe" -u'
     ExecWait '"$INSTDIR\DeviceSelector.exe" /u'
   ${EndIf}
+  nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /IM EqApoOutProcHost.exe /T /F'
   Pop $OUTDIR
   SetOutPath $OUTDIR
 
@@ -3470,9 +3657,7 @@ Section "-un.Uninstall"
 
   Delete "$INSTDIR\Configuration reference (online).url"
   Delete "$INSTDIR\Configuration tutorial (online).url"
-
   Call un.RemoveQtPluginTreeSafely
-
   Delete "$INSTDIR\Qt6Widgets.dll"
   Delete "$INSTDIR\Qt6Svg.dll"
   Delete "$INSTDIR\Qt6Network.dll"
@@ -3487,12 +3672,14 @@ Section "-un.Uninstall"
   Delete "$INSTDIR\msvcp140_1.dll"
   Delete "$INSTDIR\msvcp140.dll"
   Delete /REBOOTOK "$INSTDIR\sndfile.dll"
+  Delete /REBOOTOK "$INSTDIR\samplerate.dll"
   Delete /REBOOTOK "$INSTDIR\libfftw3.dll"
   Delete /REBOOTOK "$INSTDIR\fftw3.dll"
   Delete "$INSTDIR\Editor.exe"
   Delete "$INSTDIR\qt.conf"
   Delete "$INSTDIR\NOTICE.md"
   Delete "$INSTDIR\LICENSE.txt"
+  Delete "$INSTDIR\install-diagnostics.log"
 
   Delete /REBOOTOK "$INSTDIR\FLAC.dll"
   Delete /REBOOTOK "$INSTDIR\libmp3lame.dll"
@@ -3506,6 +3693,9 @@ Section "-un.Uninstall"
   Delete "$INSTDIR\UpdateChecker.exe"
   Delete "$INSTDIR\VoicemeeterClient.exe"
   Delete "$INSTDIR\Benchmark.exe"
+  Delete /REBOOTOK "$INSTDIR\EqApoOutProcHost.exe"
+  Delete /REBOOTOK "$INSTDIR\EqApoJuceVST3Host.dll"
+  Delete /REBOOTOK "$INSTDIR\EqApoOutProcJuceHost.exe"
   Delete "$INSTDIR\DeviceSelector.exe"
   Delete /REBOOTOK "$INSTDIR\EqualizerAPO.dll"
 

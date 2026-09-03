@@ -26,6 +26,7 @@
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDebug>
+#include <QDockWidget>
 #include <QDrag>
 #include <QElapsedTimer>
 #include <QFile>
@@ -69,6 +70,7 @@
 #include "version.h"
 #include "FilterTable.h"
 #include "MainWindow.h"
+#include "filters/loudnessCorrection/VolumeController.h"
 #include "ui_MainWindow.h"
 
 using namespace std;
@@ -443,6 +445,162 @@ static bool hasConflictingTemporaryJournal(
 	return false;
 }
 
+static QString analysisDeviceId(const shared_ptr<AbstractAPOInfo>& device)
+{
+	if (device == NULL)
+		return QString();
+	const wstring& guid = device->getDeviceGuid();
+	return QString::fromStdWString(
+		guid.empty() ? device->getDeviceString() : guid);
+}
+
+static double conservativePreampReduction(double peakGain)
+{
+	// Preamp controls display hundredths. Round the measured excess upward so
+	// representation rounding cannot leave the sampled peak just above 0 dB.
+	// Even a sub-hundredth positive excess needs one representable step.
+	if (!std::isfinite(peakGain) || peakGain <= 0.0)
+		return 0.0;
+	double reduction = (std::max)(
+		0.01, std::ceil(peakGain * 100.0) / 100.0);
+	reduction = QString::number(reduction, 'f', 2).toDouble();
+	// Multiplication can round nextafter(0.35, +inf) back to exactly 35 before
+	// ceil() sees it. Enforce the safety postcondition on the serialized value.
+	if (reduction < peakGain)
+		reduction = QString::number(reduction + 0.01, 'f', 2).toDouble();
+	return reduction >= peakGain ? reduction : 0.0;
+}
+
+static bool analysisFilesStillMatch(
+	const QList<AnalysisConfigurationFileSnapshot>& snapshots)
+{
+	if (snapshots.isEmpty())
+		return false;
+	for (const AnalysisConfigurationFileSnapshot& snapshot : snapshots)
+	{
+		if (!snapshot.readable || snapshot.path.isEmpty())
+			return false;
+		QFile file(snapshot.path);
+		if (!file.open(QIODevice::ReadOnly))
+			return false;
+		const QByteArray contents = file.readAll();
+		const bool matched = file.error() == QFileDevice::NoError
+			&& contents == snapshot.contents;
+		file.close();
+		if (!matched)
+			return false;
+	}
+	return true;
+}
+
+static bool analysisRootMatchesEditor(
+	const QList<AnalysisConfigurationFileSnapshot>& snapshots,
+	const QString& rootPath,
+	const QList<QString>& editorLines)
+{
+	if (rootPath.isEmpty())
+		return false;
+	const QString rootKey = configurationPathKey(rootPath);
+	int matchingSnapshots = 0;
+	for (const AnalysisConfigurationFileSnapshot& snapshot : snapshots)
+	{
+		if (configurationPathKey(snapshot.path) != rootKey)
+			continue;
+		++matchingSnapshots;
+		if (!snapshot.readable
+			|| deserializeConfigurationLines(snapshot.contents) != editorLines)
+			return false;
+	}
+	// A recursive Include of the root is ambiguous, so require exactly the one
+	// load that began this analysis.
+	return matchingSnapshots == 1;
+}
+
+static bool analysisVolumesStillMatch(
+	const QList<AnalysisVolumeSnapshot>& snapshots)
+{
+	for (const AnalysisVolumeSnapshot& snapshot : snapshots)
+	{
+		// A failed automatic-volume read made the analyzed filter fail closed.
+		// Do not turn that temporary bypass into an actionable safety estimate.
+		if (!snapshot.available)
+			return false;
+		VolumeController controller(snapshot.requestedEndpointId.toStdWString());
+		double currentVolumeDb = 0.0;
+		if (FAILED(controller.getVolume(currentVolumeDb))
+			|| QString::fromStdWString(controller.getEndpointId()).compare(
+				snapshot.resolvedEndpointId, Qt::CaseInsensitive) != 0
+			|| !std::isfinite(currentVolumeDb)
+			|| currentVolumeDb != snapshot.volumeDb)
+			return false;
+	}
+	return true;
+}
+
+static bool analysisTopologySupportsAutoPreamp(
+	const QList<AnalysisConfigurationFileSnapshot>& snapshots)
+{
+	// The regular response plot drives every input with the same impulse. That
+	// is exact for independent per-channel LTI chains, but it is not a safe
+	// arbitrary-input bound for cross-channel, time-varying, generated, staged,
+	// conditional, dependency-backed, or opaque processing. An allowlist makes
+	// new filter types fail closed until their analysis semantics are reviewed.
+	static const QSet<QString> supportedCommands = {
+		QStringLiteral("device"), QStringLiteral("include"),
+		QStringLiteral("channel"), QStringLiteral("preamp"),
+		QStringLiteral("parametriceq"), QStringLiteral("graphiceq"),
+		QStringLiteral("delay"), QStringLiteral("loudnesscorrection"),
+		QStringLiteral("vumeter"), QStringLiteral("headphonecalibration")
+	};
+	for (const AnalysisConfigurationFileSnapshot& snapshot : snapshots)
+	{
+		// Expressions can depend on state outside the configuration bytes and are
+		// expanded before individual command parsers run. A fresh plot therefore
+		// is not a stable bound for a later destructive edit.
+		if (snapshot.contents.contains('`'))
+			return false;
+		for (const QString& line : deserializeConfigurationLines(snapshot.contents))
+		{
+			const QString trimmed = line.trimmed();
+			if (trimmed.isEmpty() || trimmed.startsWith('#'))
+				continue;
+			const int separator = trimmed.indexOf(':');
+			if (separator < 0)
+				return false;
+			const QString command = trimmed.left(separator).trimmed();
+			const QString normalizedCommand = command.toCaseFolded();
+			if (!supportedCommands.contains(normalizedCommand)
+				&& !normalizedCommand.startsWith(QStringLiteral("filter")))
+				return false;
+		}
+	}
+	return true;
+}
+
+namespace
+{
+bool matchesStoredDevice(const shared_ptr<AbstractAPOInfo>& apoInfo, const QString& storedDevice)
+{
+	if (apoInfo == NULL || storedDevice.isEmpty())
+		return false;
+
+	const QString deviceString = QString::fromStdWString(apoInfo->getDeviceString());
+	const QString deviceGuid = QString::fromStdWString(apoInfo->getDeviceGuid());
+	return deviceString.compare(storedDevice, Qt::CaseInsensitive) == 0
+		|| (!deviceGuid.isEmpty()
+			&& (deviceGuid.compare(storedDevice, Qt::CaseInsensitive) == 0
+				|| storedDevice.contains(deviceGuid, Qt::CaseInsensitive)));
+}
+
+bool hasInstalledDevice(const QList<shared_ptr<AbstractAPOInfo>>& devices)
+{
+	for (const shared_ptr<AbstractAPOInfo>& apoInfo : devices)
+		if (apoInfo != NULL && apoInfo->isInstalled())
+			return true;
+	return false;
+}
+}
+
 MainWindow::MainWindow(QDir configDir, QWidget* parent)
 	: QMainWindow(parent), ui(new Ui::MainWindow), configDir(configDir)
 {
@@ -469,6 +627,42 @@ MainWindow::MainWindow(QDir configDir, QWidget* parent)
 	}
 
 	ui->setupUi(this);
+	// Keep every standard docking gesture available even when a saved layout
+	// previously left the analysis panel floating.  These defaults are made
+	// explicit because a QMainWindow state restore also restores the floating
+	// state, which otherwise leaves no reliable in-app recovery command.
+	setDockNestingEnabled(true);
+	ui->analysisDockWidget->setAllowedAreas(Qt::AllDockWidgetAreas);
+	ui->analysisDockWidget->setFeatures(
+		QDockWidget::DockWidgetClosable
+		| QDockWidget::DockWidgetMovable
+		| QDockWidget::DockWidgetFloatable);
+	dockAnalysisPanelAction = ui->menuView->addAction(tr("Dock analysis panel"));
+	dockAnalysisPanelAction->setObjectName(QStringLiteral("actionDockAnalysisPanel"));
+	dockAnalysisPanelAction->setToolTip(
+		tr("Return the analysis panel to the bottom of the editor"));
+	connect(
+		dockAnalysisPanelAction,
+		&QAction::triggered,
+		this,
+		&MainWindow::dockAnalysisPanel);
+	const auto refreshDockRecoveryAction = [this]()
+	{
+		dockAnalysisPanelAction->setEnabled(
+			ui->analysisDockWidget->isFloating()
+			|| dockWidgetArea(ui->analysisDockWidget) == Qt::NoDockWidgetArea);
+	};
+	connect(
+		ui->analysisDockWidget,
+		&QDockWidget::topLevelChanged,
+		this,
+		[refreshDockRecoveryAction](bool) { refreshDockRecoveryAction(); });
+	connect(
+		ui->analysisDockWidget,
+		&QDockWidget::dockLocationChanged,
+		this,
+		[refreshDockRecoveryAction](Qt::DockWidgetArea) { refreshDockRecoveryAction(); });
+	refreshDockRecoveryAction();
 	ui->startFromLabel->setBuddy(ui->startFromComboBox);
 	ui->analysisChannelLabel->setBuddy(ui->analysisChannelComboBox);
 	ui->resolutionLabel->setBuddy(ui->resolutionSpinBox);
@@ -627,10 +821,22 @@ MainWindow::MainWindow(QDir configDir, QWidget* parent)
 	analysisStateLabel->setObjectName(QStringLiteral("analysisStateLabel"));
 	analysisStateLabel->setWordWrap(true);
 	analysisStateLabel->setProperty("statusLevel", "normal");
+	autoPreampButton = new QPushButton(
+		tr("Auto preamp (current ≤ 0 dB)"), ui->groupBox_2);
+	autoPreampButton->setObjectName(QStringLiteral("autoPreampButton"));
+	autoPreampButton->setToolTip(tr(
+		"One-time estimated cut for a supported static per-channel chain from the latest saved current-file analysis; review and save manually"));
+	autoPreampButton->setEnabled(false);
+	connect(
+		autoPreampButton,
+		&QPushButton::clicked,
+		this,
+		&MainWindow::lowerPreampToPreventClipping);
 	ui->gridLayout_4->addWidget(headroomLabel, 4, 0);
 	ui->gridLayout_4->addWidget(headroomValueLabel, 4, 1);
 	ui->gridLayout_4->addWidget(headroomMeter, 5, 0, 1, 2);
 	ui->gridLayout_4->addWidget(analysisStateLabel, 6, 0, 1, 2);
+	ui->gridLayout_4->addWidget(autoPreampButton, 7, 0, 1, 2);
 
 	analysisThread = new AnalysisThread;
 	analysisThread->start();
@@ -2362,6 +2568,69 @@ void MainWindow::refreshWorkspaceActionState()
 		bypassAction->setEnabled(hasSavedProfile && (!showingComparisonA || bypassAction->isChecked()));
 	if (searchLineEdit != NULL)
 		searchLineEdit->setEnabled(hasTable);
+	refreshAutoPreampActionState();
+}
+
+void MainWindow::invalidateAnalysisResult()
+{
+	latestAnalysisResultValid = false;
+	acceptedAnalysisGeneration = 0;
+	latestAnalysisPeakGain = 0.0;
+	latestAnalysisConfigurationFiles.clear();
+	latestAnalysisVolumeSnapshots.clear();
+	if (autoPreampButton != NULL)
+		autoPreampButton->setEnabled(false);
+}
+
+bool MainWindow::analysisResultCanAdjustPreamp() const
+{
+	if (!latestAnalysisResultValid || acceptedAnalysisGeneration == 0
+		|| acceptedAnalysisGeneration != requestedAnalysisGeneration
+		|| !std::isfinite(latestAnalysisPeakGain) || latestAnalysisPeakGain <= 0.0
+		|| showingComparisonA || !bypassTable.isNull() || restoringTemporaryState)
+		return false;
+
+	FilterTable* filterTable = currentFilterTable();
+	if (filterTable == NULL || filterTable != requestedAnalysisTable
+		|| filterTable->getConfigPath().isEmpty()
+		|| configurationPathKey(filterTable->getConfigPath())
+			!= configurationPathKey(requestedAnalysisConfigPath)
+		|| isFilterTableDirty(filterTable)
+		|| requestedAnalysisStartFrom != ui->startFromComboBox->currentIndex()
+		|| requestedAnalysisChannelIndex != ui->analysisChannelComboBox->currentIndex())
+		return false;
+
+	shared_ptr<AbstractAPOInfo> selectedDevice;
+	int channelMask = 0;
+	getDeviceAndChannelMask(&selectedDevice, &channelMask);
+	if (channelMask != requestedAnalysisChannelMask
+		|| analysisDeviceId(selectedDevice).compare(
+			requestedAnalysisDeviceId, Qt::CaseInsensitive) != 0)
+		return false;
+	if (!analysisFilesStillMatch(latestAnalysisConfigurationFiles)
+		|| !analysisRootMatchesEditor(
+			latestAnalysisConfigurationFiles,
+			requestedAnalysisConfigPath,
+			filterTable->getLines())
+		|| !analysisVolumesStillMatch(latestAnalysisVolumeSnapshots)
+		|| !analysisTopologySupportsAutoPreamp(latestAnalysisConfigurationFiles))
+		return false;
+
+	const QByteArray currentHash = QCryptographicHash::hash(
+		serializeConfigurationLines(filterTable->getLines()),
+		QCryptographicHash::Sha256);
+	if (currentHash != requestedAnalysisLinesHash)
+		return false;
+
+	FilterTable::PreampAdjustmentPlan plan;
+	return filterTable->planPreampReduction(
+		conservativePreampReduction(latestAnalysisPeakGain), &plan);
+}
+
+void MainWindow::refreshAutoPreampActionState()
+{
+	if (autoPreampButton != NULL)
+		autoPreampButton->setEnabled(analysisResultCanAdjustPreamp());
 }
 
 void MainWindow::closeToTrayToggled(bool enabled)
@@ -2387,7 +2656,7 @@ void MainWindow::doChecks()
 		}
 	}
 
-	if (defaultOutputDevice != NULL && !defaultOutputDevice->isInstalled())
+	if (!hasInstalledDevice(outputDevices) && !hasInstalledDevice(inputDevices))
 	{
 		if (QMessageBox::warning(this, tr("APO not installed to device"), tr("Equalizer APO has not been installed to the selected device.\nDo you want to run the Device Selector application to fix the problem?"), QMessageBox::Yes, QMessageBox::No) == QMessageBox::Yes)
 		{
@@ -2722,11 +2991,12 @@ void MainWindow::linesChanged()
 {
 	if (restoringTemporaryState)
 		return;
+	invalidateAnalysisResult();
 
 	FilterTable* filterTable = qobject_cast<FilterTable*>(sender());
 	bool savedInstantly = false;
 
-	if (instantModeCheckBox->isChecked())
+	if (instantModeCheckBox->isChecked() && !applyingAutoPreampAdjustment)
 	{
 		QString configPath = filterTable->getConfigPath();
 		if (configPath.length() > 0)
@@ -2889,6 +3159,9 @@ void MainWindow::on_actionSaveAs_triggered()
 		if (!save(filterTable, savePath))
 			return;
 		filterTable->setConfigPath(QDir::toNativeSeparators(savePath));
+		// save() queued analysis while the table still had its old path. Queue a
+		// new generation for the path that Save As actually established.
+		startAnalysis();
 
 		QFileInfo fileInfo(savePath);
 		ui->tabWidget->setTabText(ui->tabWidget->currentIndex(), fileInfo.fileName());
@@ -3044,10 +3317,19 @@ void MainWindow::on_resolutionSpinBox_valueChanged(int value)
 void MainWindow::updateAnalysisPanel()
 {
 	analysisThread->beginGetResult();
+	const quint64 resultGeneration = analysisThread->getResultGeneration();
+	if (resultGeneration == 0 || resultGeneration != requestedAnalysisGeneration)
+	{
+		// A newer device/channel/file request is already pending. Do not briefly
+		// publish the older response or enable a destructive action from it.
+		analysisThread->endGetResult();
+		return;
+	}
 	int sampleRate = analysisThread->getFreqDataSampleRate();
 	int latency = analysisThread->getLatency();
 	if (sampleRate <= 0)
 	{
+		invalidateAnalysisResult();
 		analysisThread->endGetResult();
 		ui->peakGainValueLabel->setText(QStringLiteral("—"));
 		ui->latencyValueLabel->setText(QStringLiteral("—"));
@@ -3073,6 +3355,11 @@ void MainWindow::updateAnalysisPanel()
 	analysisPlotScene->setFreqData(analysisThread->getFreqData(), analysisThread->getFreqDataLength(), sampleRate);
 
 	double peakGain = analysisThread->getPeakGain();
+	latestAnalysisPeakGain = peakGain;
+	acceptedAnalysisGeneration = resultGeneration;
+	latestAnalysisConfigurationFiles = analysisThread->getConfigurationFiles();
+	latestAnalysisVolumeSnapshots = analysisThread->getVolumeSnapshots();
+	latestAnalysisResultValid = std::isfinite(peakGain);
 	if (std::isfinite(peakGain))
 	{
 		ui->peakGainValueLabel->setText(tr("%0 dB").arg(peakGain, 0, 'f', 1));
@@ -3137,6 +3424,7 @@ void MainWindow::updateAnalysisPanel()
 	}
 
 	analysisThread->endGetResult();
+	refreshAutoPreampActionState();
 }
 
 void MainWindow::on_mainToolBar_visibilityChanged(bool visible)
@@ -3162,6 +3450,111 @@ void MainWindow::on_actionToolbar_triggered(bool checked)
 void MainWindow::on_actionAnalysisPanel_triggered(bool checked)
 {
 	ui->analysisDockWidget->setVisible(checked);
+}
+
+void MainWindow::dockAnalysisPanel()
+{
+	// addDockWidget() also recovers a panel whose previous saved dock location
+	// is no longer valid (for example after a display/layout change).
+	addDockWidget(Qt::BottomDockWidgetArea, ui->analysisDockWidget);
+	ui->analysisDockWidget->setFloating(false);
+	ui->analysisDockWidget->show();
+	ui->analysisDockWidget->raise();
+	dockAnalysisPanelAction->setEnabled(false);
+}
+
+void MainWindow::lowerPreampToPreventClipping()
+{
+	if (!analysisResultCanAdjustPreamp())
+	{
+		showWorkspaceStatus(
+			tr("Run a fresh Current file analysis before adjusting Preamp"),
+			"warning");
+		return;
+	}
+
+	FilterTable* filterTable = currentFilterTable();
+	const double reductionDb = conservativePreampReduction(latestAnalysisPeakGain);
+	FilterTable::PreampAdjustmentPlan plan;
+	if (filterTable == NULL
+		|| !filterTable->planPreampReduction(reductionDb, &plan))
+	{
+		showWorkspaceStatus(
+			tr("Auto preamp cannot safely edit this configuration; add or adjust a root Preamp manually"),
+			"warning");
+		return;
+	}
+
+	const QString channelName = ui->analysisChannelComboBox->currentText().isEmpty()
+		? tr("selected channel")
+		: ui->analysisChannelComboBox->currentText();
+	QMessageBox confirmation(this);
+	confirmation.setWindowTitle(tr("Apply estimated Preamp safety cut"));
+	confirmation.setIcon(QMessageBox::Warning);
+	if (plan.insertsNewPreamp)
+	{
+		confirmation.setText(tr(
+			"The latest analysis estimates a +%1 dB peak for %2.\n\n"
+			"No root Preamp with enough editable range was found. Add a new %3 dB Preamp at the beginning of this file?")
+			.arg(latestAnalysisPeakGain, 0, 'f', 2)
+			.arg(channelName)
+			.arg(plan.targetDbGain, 0, 'f', 2));
+	}
+	else
+	{
+		confirmation.setText(tr(
+			"The latest analysis estimates a +%1 dB peak for %2.\n\n"
+			"Change the first editable root Preamp from %3 dB to %4 dB?")
+			.arg(latestAnalysisPeakGain, 0, 'f', 2)
+			.arg(channelName)
+			.arg(plan.oldDbGain, 0, 'f', 2)
+			.arg(plan.targetDbGain, 0, 'f', 2));
+	}
+	confirmation.setInformativeText(tr(
+		"This one-time cut uses the sampled linear response and current Windows-volume snapshot for the selected channel. "
+		"It is not a limiter and cannot guarantee later volume or source changes, nonlinear processing, or intersample peaks. "
+		"Review the edit and save it manually."));
+	confirmation.setStandardButtons(QMessageBox::Apply | QMessageBox::Cancel);
+	confirmation.setDefaultButton(QMessageBox::Cancel);
+	confirmation.setEscapeButton(QMessageBox::Cancel);
+	if (confirmation.exec() != QMessageBox::Apply)
+		return;
+
+	// The modal dialog runs an event loop. Revalidate the request and compare
+	// the plan before touching the file in case it changed while the question
+	// was open.
+	FilterTable::PreampAdjustmentPlan currentPlan;
+	if (!analysisResultCanAdjustPreamp()
+		|| !filterTable->planPreampReduction(reductionDb, &currentPlan)
+		|| currentPlan.insertsNewPreamp != plan.insertsNewPreamp
+		|| currentPlan.itemIndex != plan.itemIndex
+		|| currentPlan.originalLine != plan.originalLine
+		|| qAbs(currentPlan.targetDbGain - plan.targetDbGain) >= 0.005)
+	{
+		showWorkspaceStatus(
+			tr("The profile or analysis changed; no Preamp adjustment was made"),
+			"warning");
+		return;
+	}
+	// Auto preamp is intentionally an editor transaction even when Instant mode
+	// is enabled. Leaving the result dirty prevents an automatic save from
+	// overwriting a file that another process changes in the final race window.
+	QScopedValueRollback<bool> adjustmentGuard(applyingAutoPreampAdjustment, true);
+	if (!filterTable->applyPreampReduction(currentPlan))
+	{
+		showWorkspaceStatus(
+			tr("The profile or analysis changed; no Preamp adjustment was made"),
+			"warning");
+		return;
+	}
+
+	// Auto preamp deliberately leaves the editor dirty in every mode. This makes
+	// the final disk write an explicit user action and prevents Instant mode from
+	// overwriting a configuration changed during the last race window.
+	const double appliedReductionDb = currentPlan.oldDbGain - currentPlan.targetDbGain;
+	showWorkspaceStatus(tr("Reduced Preamp by %1 dB for %2; save the file to apply it")
+		.arg(appliedReductionDb, 0, 'f', 2)
+		.arg(channelName));
 }
 
 void MainWindow::languageSelected(bool selected)
@@ -3259,13 +3652,15 @@ FilterTable* MainWindow::addTab(QString title, QString tooltip, QString configPa
 bool MainWindow::loadSnapshotScenario(const QString& scenario)
 {
 #ifdef EQAPO_ENABLE_UI_SNAPSHOTS
-	if (scenario != QStringLiteral("dense") || !isEmpty())
+	const bool denseScenario = scenario == QStringLiteral("dense");
+	const bool restoredToolsScenario = scenario == QStringLiteral("restored-tools");
+	if ((!denseScenario && !restoredToolsScenario) || !isEmpty())
 		return false;
 
 	// Keep this representative configuration entirely in memory. In
 	// particular, do not call FilterTable::setLines(), because that method
 	// intentionally restores the real user's per-file QSettings.
-	const QList<QString> lines = {
+	const QList<QString> lines = denseScenario ? QList<QString>{
 		QStringLiteral("LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 1 ReferenceLevel 80 ReferenceOffset 40 Attenuation 1.0 Volume -38.0"),
 		QStringLiteral("Filter: ON PK Fc 1000 Hz Gain -3 dB Q 1"),
 		QStringLiteral("UnsupportedSnapshotCommand: this-deliberately-long-unknown-command-keeps-the-raw-text-middle-elision-and-tooltip-path-covered"),
@@ -3284,6 +3679,18 @@ bool MainWindow::loadSnapshotScenario(const QString& scenario)
 		QStringLiteral("Device: SNAPSHOT-MISSING-CAPTURE-DEVICE-{B3D1-48C7-A2F0-118D-98B737227C61}"),
 		QStringLiteral("# Preamp: -13.70 dB"),
 		QStringLiteral("Include: snapshot-memory\\profiles\\another-deliberately-long-missing-profile-name-for-horizontal-overflow-regression.txt")
+	} : QList<QString>{
+		QStringLiteral("Preamp: -100 dB"),
+		QStringLiteral("Preamp: 100 dB"),
+		QStringLiteral("Pan: Position 0 Width 100"),
+		QStringLiteral("Crossfeed: Algorithm Natural Preset \"Average Male\" Amount 35 % Circumference 57 cm HeadWidth 15 cm HeadLength 19 cm Angle 60 deg Cutoff 900 Hz Direct 100 %"),
+		QStringLiteral("Chorus: Rate 0.4 Hz Depth 8 ms Mix 25 % Feedback 0 %"),
+		QStringLiteral("Reverb: RoomSize 50 % Damping 50 % Wet 20 % Dry 100 % Width 100 %"),
+		QStringLiteral("ToneGenerator: State 0 Type Sine Frequency 1000 Hz Level -20 dB Channels all Mode Replace"),
+		QStringLiteral("VUMeter: MeterId snapshot-meter Channels all RMS \"AES17\" LUFS \"ITU-R BS.1770-5\""),
+		QStringLiteral("ParametricEQ: ON PK Fc 1000 Hz Gain -3 dB Q 1 ON LS Fc 120 Hz Gain 2 dB Q 0.7"),
+		QStringLiteral("HeadphoneCalibration:"),
+		QStringLiteral("OutProcVSTPlugin: Library snapshot-memory\\plugins\\restored-out-of-process-vst3-effect.vst3 HostId snapshot-outproc")
 	};
 
 	QScrollArea* scrollArea = new QScrollArea(ui->tabWidget);
@@ -3298,13 +3705,17 @@ bool MainWindow::loadSnapshotScenario(const QString& scenario)
 	getDeviceAndChannelMask(&selectedDevice, &channelMask);
 	filterTable->updateDeviceAndChannelMask(selectedDevice, channelMask);
 	filterTable->initialize(scrollArea, outputDevices, inputDevices);
-	filterTable->setConfigPath(QStringLiteral(":/snapshot/dense-real-world.txt"));
+	filterTable->setConfigPath(denseScenario
+		? QStringLiteral(":/snapshot/dense-real-world.txt")
+		: QStringLiteral(":/snapshot/restored-tools.txt"));
 	for (const QString& line : lines)
 		filterTable->addLine(line);
 	filterTable->updateGuis();
 
-	const int tabIndex = ui->tabWidget->addTab(
-		scrollArea, QStringLiteral("dense-real-world.txt"));
+	const QString snapshotTitle = denseScenario
+		? QStringLiteral("dense-real-world.txt")
+		: QStringLiteral("restored-tools.txt");
+	const int tabIndex = ui->tabWidget->addTab(scrollArea, snapshotTitle);
 	ui->tabWidget->setTabToolTip(
 		tabIndex, QStringLiteral("In-memory UI regression scenario"));
 	ui->tabWidget->setCurrentIndex(tabIndex);
@@ -3316,16 +3727,37 @@ bool MainWindow::loadSnapshotScenario(const QString& scenario)
 	{
 		return findChildren<QWidget*>(objectName).size();
 	};
-	const bool complete = filterTable->getLines().size() == lines.size()
-		&& objectCount(QStringLiteral("FilterTableRow")) == lines.size()
-		&& objectCount(QStringLiteral("DeviceFilterGUI")) == 3
-		&& objectCount(QStringLiteral("PreampFilterGUI")) == 4
-		&& objectCount(QStringLiteral("ConvolutionFilterGUI")) == 3
-		&& objectCount(QStringLiteral("IncludeFilterGUI")) == 4
-		&& objectCount(QStringLiteral("BiQuadFilterGUI")) == 1
-		&& objectCount(QStringLiteral("LoudnessCorrectionFilterGUI")) == 1
-		&& objectCount(QStringLiteral("VSTPluginFilterGUI")) == 1
-		&& objectCount(QStringLiteral("elidingCommandLabel")) == 1;
+	bool complete = filterTable->getLines().size() == lines.size()
+		&& objectCount(QStringLiteral("FilterTableRow")) == lines.size();
+	if (denseScenario)
+	{
+		complete = complete
+			&& objectCount(QStringLiteral("DeviceFilterGUI")) == 3
+			&& objectCount(QStringLiteral("PreampFilterGUI")) == 4
+			&& objectCount(QStringLiteral("ConvolutionFilterGUI")) == 3
+			&& objectCount(QStringLiteral("IncludeFilterGUI")) == 4
+			&& objectCount(QStringLiteral("BiQuadFilterGUI")) == 1
+			&& objectCount(QStringLiteral("LoudnessCorrectionFilterGUI")) == 1
+			&& objectCount(QStringLiteral("VSTPluginFilterGUI")) == 1
+			&& objectCount(QStringLiteral("elidingCommandLabel")) == 1;
+	}
+	else
+	{
+		complete = complete && objectCount(QStringLiteral("PreampFilterGUI")) == 2;
+		const QStringList restoredGuiObjectNames = {
+			QStringLiteral("PanFilterGUI"),
+			QStringLiteral("CrossfeedFilterGUI"),
+			QStringLiteral("ChorusFilterGUI"),
+			QStringLiteral("ReverbFilterGUI"),
+			QStringLiteral("ToneGeneratorFilterGUI"),
+			QStringLiteral("VUMeterFilterGUI"),
+			QStringLiteral("ParametricEQFilterGUI"),
+			QStringLiteral("HeadphoneCalibrationFilterGUI"),
+			QStringLiteral("VSTPluginFilterGUI")
+		};
+		for (const QString& objectName : restoredGuiObjectNames)
+			complete = complete && objectCount(objectName) == 1;
+	}
 	if (!complete)
 		return false;
 
@@ -3340,7 +3772,9 @@ bool MainWindow::loadSnapshotScenario(const QString& scenario)
 bool MainWindow::snapshotLayoutIsValid() const
 {
 #ifdef EQAPO_ENABLE_UI_SNAPSHOTS
-	if (UiSnapshot::scenario() != QStringLiteral("dense"))
+	const bool denseScenario = UiSnapshot::scenario() == QStringLiteral("dense");
+	const bool restoredToolsScenario = UiSnapshot::scenario() == QStringLiteral("restored-tools");
+	if (!denseScenario && !restoredToolsScenario)
 		return true;
 
 	QScrollArea* scrollArea = qobject_cast<QScrollArea*>(
@@ -3349,17 +3783,20 @@ bool MainWindow::snapshotLayoutIsValid() const
 		|| scrollArea->horizontalScrollBar()->maximum() != 0)
 		return false;
 
-	const QList<QWidget*> deviceRows = findChildren<QWidget*>(
-		QStringLiteral("DeviceFilterGUI"));
-	if (deviceRows.size() != 3)
-		return false;
-	for (QWidget* deviceRow : deviceRows)
+	if (denseScenario)
 	{
-		QAbstractScrollArea* tree = deviceRow->findChild<QAbstractScrollArea*>(
-			QStringLiteral("treeWidget"));
-		if (tree == NULL || tree->horizontalScrollBar() == NULL
-			|| tree->horizontalScrollBar()->maximum() != 0)
+		const QList<QWidget*> deviceRows = findChildren<QWidget*>(
+			QStringLiteral("DeviceFilterGUI"));
+		if (deviceRows.size() != 3)
 			return false;
+		for (QWidget* deviceRow : deviceRows)
+		{
+			QAbstractScrollArea* tree = deviceRow->findChild<QAbstractScrollArea*>(
+				QStringLiteral("treeWidget"));
+			if (tree == NULL || tree->horizontalScrollBar() == NULL
+				|| tree->horizontalScrollBar()->maximum() != 0)
+				return false;
+		}
 	}
 
 	// The table deliberately accepts a zero horizontal minimum so wide text
@@ -3395,7 +3832,10 @@ bool MainWindow::snapshotLayoutIsValid() const
 		}
 		return fits;
 	};
-	const QStringList denseGuiObjectNames = {
+	if (autoPreampButton == NULL
+		|| !fitsInsideContainer(autoPreampButton->parentWidget(), autoPreampButton))
+		return false;
+	const QStringList simpleGuiObjectNames = denseScenario ? QStringList{
 		QStringLiteral("DeviceFilterGUI"),
 		QStringLiteral("PreampFilterGUI"),
 		QStringLiteral("ConvolutionFilterGUI"),
@@ -3404,8 +3844,17 @@ bool MainWindow::snapshotLayoutIsValid() const
 		QStringLiteral("LoudnessCorrectionFilterGUI"),
 		QStringLiteral("VSTPluginFilterGUI"),
 		QStringLiteral("elidingCommandLabel")
+	} : QStringList{
+		QStringLiteral("PreampFilterGUI"),
+		QStringLiteral("PanFilterGUI"),
+		QStringLiteral("CrossfeedFilterGUI"),
+		QStringLiteral("ChorusFilterGUI"),
+		QStringLiteral("ReverbFilterGUI"),
+		QStringLiteral("ToneGeneratorFilterGUI"),
+		QStringLiteral("VUMeterFilterGUI"),
+		QStringLiteral("VSTPluginFilterGUI")
 	};
-	for (const QString& objectName : denseGuiObjectNames)
+	for (const QString& objectName : simpleGuiObjectNames)
 	{
 		const QList<QWidget*> guis = findChildren<QWidget*>(objectName);
 		if (guis.isEmpty())
@@ -3424,13 +3873,42 @@ bool MainWindow::snapshotLayoutIsValid() const
 			}
 		}
 	}
+
+	if (restoredToolsScenario)
+	{
+		const QPair<QString, QString> scrollChecks[] = {
+			qMakePair(QStringLiteral("ParametricEQFilterGUI"), QStringLiteral("parametricEQScrollArea")),
+			qMakePair(QStringLiteral("HeadphoneCalibrationFilterGUI"), QStringLiteral("headphoneCalibrationScrollArea"))
+		};
+		for (const QPair<QString, QString>& check : scrollChecks)
+		{
+			QWidget* gui = findChild<QWidget*>(check.first);
+			QScrollArea* internalScroll = gui == NULL
+				? NULL
+				: gui->findChild<QScrollArea*>(check.second);
+			QWidget* content = internalScroll == NULL ? NULL : internalScroll->widget();
+			if (!fitsInsideContainer(gui == NULL ? NULL : gui->parentWidget(), gui)
+				|| internalScroll == NULL || content == NULL
+				|| internalScroll->horizontalScrollBar() == NULL
+				|| internalScroll->viewport() == NULL
+				|| !fitsInsideContainer(gui, internalScroll))
+				return false;
+
+			const bool contentOverflows = content->width() > internalScroll->viewport()->width();
+			if (contentOverflows && internalScroll->horizontalScrollBar()->maximum() <= 0)
+				return false;
+			for (QWidget* child : content->findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly))
+				if (child->isVisible() && !fitsInsideContainer(content, child))
+					return false;
+		}
+	}
 	return true;
 #else
 	return true;
 #endif
 }
 
-void MainWindow::getDeviceAndChannelMask(shared_ptr<AbstractAPOInfo>* selectedDevice, int* channelMask)
+void MainWindow::getDeviceAndChannelMask(shared_ptr<AbstractAPOInfo>* selectedDevice, int* channelMask) const
 {
 	*selectedDevice = deviceComboBox->currentData().value<shared_ptr<AbstractAPOInfo>>();
 	if (*selectedDevice == NULL)
@@ -3495,6 +3973,15 @@ bool MainWindow::askForClose(int tabIndex)
 
 void MainWindow::startAnalysis()
 {
+	invalidateAnalysisResult();
+	requestedAnalysisGeneration = 0;
+	requestedAnalysisTable.clear();
+	requestedAnalysisLinesHash.clear();
+	requestedAnalysisConfigPath.clear();
+	requestedAnalysisDeviceId.clear();
+	requestedAnalysisChannelMask = 0;
+	requestedAnalysisChannelIndex = -1;
+	requestedAnalysisStartFrom = -1;
 	if (UiSnapshot::requested())
 		return;
 	if (!ui->analysisDockWidget->isVisible())
@@ -3531,8 +4018,28 @@ void MainWindow::startAnalysis()
 		if (configPath.isEmpty())
 			configPath = configDir.absoluteFilePath("config.txt");
 		configPath = QDir::toNativeSeparators(configPath);
+		requestedAnalysisConfigPath = configPath;
 
-		analysisThread->setParameters(selectedDevice, channelMask, ui->analysisChannelComboBox->currentIndex(), configPath, ui->resolutionSpinBox->value());
+		FilterTable* filterTable = currentFilterTable();
+		if (filterTable != NULL && !filterTable->getConfigPath().isEmpty()
+			&& configurationPathKey(filterTable->getConfigPath())
+				== configurationPathKey(configPath))
+		{
+			requestedAnalysisTable = filterTable;
+			requestedAnalysisLinesHash = QCryptographicHash::hash(
+				serializeConfigurationLines(filterTable->getLines()),
+				QCryptographicHash::Sha256);
+		}
+		requestedAnalysisDeviceId = analysisDeviceId(selectedDevice);
+		requestedAnalysisChannelMask = channelMask;
+		requestedAnalysisChannelIndex = ui->analysisChannelComboBox->currentIndex();
+		requestedAnalysisStartFrom = ui->startFromComboBox->currentIndex();
+		requestedAnalysisGeneration = analysisThread->setParameters(
+			selectedDevice,
+			channelMask,
+			requestedAnalysisChannelIndex,
+			configPath,
+			ui->resolutionSpinBox->value());
 	}
 	else
 	{
@@ -3568,13 +4075,10 @@ void MainWindow::loadPreferences()
 		for (int i = 0; i < deviceComboBox->count(); i++)
 		{
 			shared_ptr<AbstractAPOInfo> apoInfo = deviceComboBox->itemData(i).value<shared_ptr<AbstractAPOInfo>>();
-			if (apoInfo != NULL)
+			if (matchesStoredDevice(apoInfo, selectedDevice))
 			{
-				if (QString::fromStdWString(apoInfo->getDeviceString()).compare(selectedDevice, Qt::CaseInsensitive) == 0)
-				{
-					deviceComboBox->setCurrentIndex(i);
-					break;
-				}
+				deviceComboBox->setCurrentIndex(i);
+				break;
 			}
 		}
 	}
@@ -3652,7 +4156,7 @@ void MainWindow::savePreferences()
 	settings.setValue("instantMode", instantModeCheckBox->isChecked());
 	settings.setValue("closeToTray", closeToTray);
 	shared_ptr<AbstractAPOInfo> selectedDevice = deviceComboBox->currentData().value<shared_ptr<AbstractAPOInfo>>();
-	settings.setValue("selectedDevice", selectedDevice != NULL ? QString::fromStdWString(selectedDevice->getDeviceString()) : "");
+	settings.setValue("selectedDevice", selectedDevice != NULL ? QString::fromStdWString(selectedDevice->getDeviceGuid().empty() ? selectedDevice->getDeviceString() : selectedDevice->getDeviceGuid()) : "");
 	int channelMask = channelConfigurationComboBox->currentData().toInt();
 	settings.setValue("selectedChannelMask", channelMask);
 

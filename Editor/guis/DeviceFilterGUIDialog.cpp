@@ -115,7 +115,7 @@ QString DeviceFilterGUIDialog::getPattern()
 					if (pattern != "")
 						pattern += "; ";
 					shared_ptr<AbstractAPOInfo> apoInfo = item->data(0, Qt::UserRole).value<shared_ptr<AbstractAPOInfo>>();
-					pattern += QString::fromStdWString(apoInfo->getDeviceString());
+					pattern += QString::fromStdWString(apoInfo->getDeviceGuid().empty() ? apoInfo->getDeviceString() : apoInfo->getDeviceGuid()).replace(';', ' ');
 				}
 			}
 		}

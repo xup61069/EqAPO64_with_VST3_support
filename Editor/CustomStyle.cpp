@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <cmath>
 #include <QApplication>
+#include <QAbstractSlider>
 #include <QPainter>
 #include <QStyleOptionSlider>
 
@@ -93,12 +94,14 @@ void CustomStyle::drawComplexControl(
 	painter->setPen(QPen(track, trackWidth, Qt::SolidLine, Qt::RoundCap));
 	painter->drawArc(arcRect, 225 * 16, -270 * 16);
 
+	const QAbstractSlider* slider = qobject_cast<const QAbstractSlider*>(widget);
+	const bool invertedAppearance = slider != nullptr && slider->invertedAppearance();
 	const int position = QStyle::sliderPositionFromValue(
 		dial->minimum,
 		dial->maximum,
 		dial->sliderPosition,
 		1000,
-		dial->upsideDown);
+		invertedAppearance);
 	const qreal progress = position / 1000.0;
 	painter->setPen(QPen(
 		accent,

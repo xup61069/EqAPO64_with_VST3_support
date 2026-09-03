@@ -19,15 +19,21 @@
 
 #include <algorithm>
 #include <cmath>
-#include <vector>
 #include <QEvent>
 #include <QFileDialog>
 #include <QScreen>
-#include <QScrollBar>
 #include <QTimer>
+#include <vector>
+#include <QAbstractScrollArea>
+#include <QMessageBox>
+#include <QScrollBar>
+#include <QSizePolicy>
 #include <QTextStream>
+#define ENABLE_SNDFILE_WINDOWS_PROTOTYPES 1
+#include <sndfile.h>
 
 #include "helpers/GainIterator.h"
+#include "DeviceAPOInfo.h"
 #include "Editor/helpers/GUIHelper.h"
 #include "Editor/widgets/ResizeCorner.h"
 #include "Editor/FilterTable.h"
@@ -35,7 +41,7 @@
 #include "GraphicEQFilterGUI.h"
 #include "ui_GraphicEQFilterGUI.h"
 
-static const double DEFAULT_TABLE_WIDTH = 119;
+static const double DEFAULT_TABLE_WIDTH = 150;
 static const double DEFAULT_VIEW_HEIGHT = 150;
 static const int TABLE_RESIZE_ORIGIN = 10000;
 
@@ -56,6 +62,8 @@ GraphicEQFilterGUI::GraphicEQFilterGUI(GraphicEQFilter* filter, QString configPa
 	ui->tableWidget->horizontalHeader()->setDefaultSectionSize(GUIHelper::scale(10));
 	ui->tableWidget->verticalHeader()->setMinimumSectionSize(GUIHelper::scale(23));
 	ui->tableWidget->verticalHeader()->setDefaultSectionSize(GUIHelper::scale(23));
+	ui->tableWidget->setSizeAdjustPolicy(QAbstractScrollArea::AdjustIgnored);
+	setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 
 	scene = new GraphicEQFilterGUIScene(ui->graphicsView);
 	ui->graphicsView->setScene(scene);
@@ -66,17 +74,21 @@ GraphicEQFilterGUI::GraphicEQFilterGUI(GraphicEQFilter* filter, QString configPa
 			[this]() {
 		return QSize(TABLE_RESIZE_ORIGIN - ui->tableWidget->width(), ui->graphicsView->height());
 	},
-			[this](QSize size) {
+		[this](QSize size) {
 		setTableWidth(TABLE_RESIZE_ORIGIN - size.width());
 		setViewHeight(size.height());
+		updatePreferredHeight();
 	}, ui->graphicsView);
 	ui->graphicsView->setCornerWidget(cornerWidget);
 
 	ui->toolBar->addAction(ui->actionImport);
 	ui->toolBar->addAction(ui->actionExport);
+	QAction* exportFirAction = new QAction(ui->actionExport->icon(), tr("Export FIR"), this);
+	ui->toolBar->addAction(exportFirAction);
 	ui->toolBar->addAction(ui->actionInvertResponse);
 	ui->toolBar->addAction(ui->actionNormalizeResponse);
 	ui->toolBar->addAction(ui->actionResetResponse);
+	connect(exportFirAction, &QAction::triggered, this, &GraphicEQFilterGUI::on_actionExportFIR_triggered);
 
 	connect(scene, SIGNAL(nodeInserted(int,double,double)), this, SLOT(insertRow(int,double,double)));
 	connect(scene, SIGNAL(nodeRemoved(int)), this, SLOT(removeRow(int)));
@@ -86,6 +98,11 @@ GraphicEQFilterGUI::GraphicEQFilterGUI(GraphicEQFilter* filter, QString configPa
 	connect(scene, SIGNAL(updateModel()), this, SIGNAL(updateModel()));
 
 	scene->setNodes(filter->getNodes());
+	if (filterTable != nullptr && filterTable->getSelectedDevice() != nullptr && filterTable->getSelectedDevice()->getSampleRate() != 0)
+	{
+		deviceSampleRate = filterTable->getSelectedDevice()->getSampleRate();
+		deviceGuid = QString::fromStdWString(filterTable->getSelectedDevice()->getDeviceGuid());
+	}
 
 	int bandCount = scene->verifyBands(filter->getNodes());
 	switch (bandCount)
@@ -101,6 +118,7 @@ GraphicEQFilterGUI::GraphicEQFilterGUI(GraphicEQFilter* filter, QString configPa
 	}
 
 	ui->tableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+	updatePreferredHeight();
 }
 
 GraphicEQFilterGUI::~GraphicEQFilterGUI()
@@ -123,6 +141,7 @@ void GraphicEQFilterGUI::changeEvent(QEvent* event)
 		event->type() == QEvent::ApplicationFontChange)
 	{
 		setTableWidth(ui->tableWidget->width());
+		updatePreferredHeight();
 	}
 }
 
@@ -251,6 +270,7 @@ void GraphicEQFilterGUI::setViewHeight(int height)
 		ui->graphicsView->maximumHeight() != boundedHeight)
 	{
 		ui->graphicsView->setFixedHeight(boundedHeight);
+		updatePreferredHeight();
 	}
 }
 
@@ -300,6 +320,7 @@ void GraphicEQFilterGUI::loadPreferences(const QVariantMap& prefs)
 		storedViewHeight,
 		GUIHelper::invScale(maximumViewHeight()));
 	setViewHeight(GUIHelper::scale(storedViewHeight));
+	updatePreferredHeight();
 	double zoomX = GUIHelper::scaleZoom(prefs.value("zoomX", 1.0).toDouble());
 	double zoomY = GUIHelper::scaleZoom(prefs.value("zoomY", 1.0).toDouble());
 	scene->setZoom(zoomX, zoomY);
@@ -331,6 +352,34 @@ void GraphicEQFilterGUI::storePreferences(QVariantMap& prefs)
 	value = vScrollBar->value();
 	if (value != round(scene->dbToY(22)))
 		prefs.insert("scrollY", GUIHelper::invScale(value));
+}
+
+QSize GraphicEQFilterGUI::sizeHint() const
+{
+	QSize size = QWidget::sizeHint();
+	size.setHeight(preferredHeight());
+	return size;
+}
+
+QSize GraphicEQFilterGUI::minimumSizeHint() const
+{
+	QSize size = QWidget::minimumSizeHint();
+	size.setHeight(preferredHeight());
+	return size;
+}
+
+int GraphicEQFilterGUI::preferredHeight() const
+{
+	return std::max(ui->graphicsView->height(), ui->graphicsView->minimumHeight())
+		+ ui->toolBar->sizeHint().height()
+		+ GUIHelper::scale(18);
+}
+
+void GraphicEQFilterGUI::updatePreferredHeight()
+{
+	const int preferred = preferredHeight();
+	setFixedHeight(preferred);
+	updateGeometry();
 }
 
 void GraphicEQFilterGUI::insertRow(int index, double hz, double db)
@@ -482,6 +531,18 @@ void GraphicEQFilterGUI::setFreqEditable(bool editable)
 	ui->tableWidget->blockSignals(false);
 }
 
+unsigned GraphicEQFilterGUI::currentDeviceSampleRate() const
+{
+	if (!deviceGuid.isEmpty())
+	{
+		DeviceAPOInfo info;
+		if (info.load(deviceGuid.toStdWString()) && info.getSampleRate() != 0)
+			return info.getSampleRate();
+	}
+
+	return deviceSampleRate != 0 ? deviceSampleRate : 48000;
+}
+
 void GraphicEQFilterGUI::on_actionImport_triggered()
 {
 	QFileInfo fileInfo(configPath);
@@ -581,6 +642,53 @@ void GraphicEQFilterGUI::on_actionExport_triggered()
 			stream.flush();
 		}
 	}
+}
+
+void GraphicEQFilterGUI::on_actionExportFIR_triggered()
+{
+	QFileInfo fileInfo(configPath);
+	const unsigned sampleRate = currentDeviceSampleRate();
+	QFileDialog dialog(this, tr("Export FIR impulse response"), fileInfo.absolutePath(), "*.wav");
+	dialog.setFileMode(QFileDialog::AnyFile);
+	dialog.setAcceptMode(QFileDialog::AcceptSave);
+	QStringList nameFilters;
+	nameFilters.append(tr("FIR impulse response (*.wav)"));
+	nameFilters.append(tr("All files (*.*)"));
+	dialog.setNameFilters(nameFilters);
+	dialog.setDefaultSuffix(".wav");
+	dialog.selectFile(QString("GraphicEQ_FIR_%0Hz.wav").arg(sampleRate));
+
+	if (dialog.exec() != QDialog::Accepted)
+		return;
+
+	QString savePath = dialog.selectedFiles().first();
+	std::vector<double> impulse = GraphicEQFilter::createImpulseResponse(scene->getNodes(), 16384, static_cast<float>(sampleRate));
+	if (impulse.empty())
+	{
+		QMessageBox::warning(this, tr("Export FIR"), tr("Could not generate FIR impulse response."));
+		return;
+	}
+
+	SF_INFO info = {};
+	info.channels = 1;
+	info.samplerate = static_cast<int>(sampleRate);
+	info.format = SF_FORMAT_WAV | SF_FORMAT_FLOAT;
+	SNDFILE* file = sf_wchar_open(savePath.toStdWString().c_str(), SFM_WRITE, &info);
+	if (file == nullptr)
+	{
+		QMessageBox::warning(this, tr("Export FIR"), tr("Could not create FIR file."));
+		return;
+	}
+
+	sf_count_t written = sf_writef_double(file, impulse.data(), static_cast<sf_count_t>(impulse.size()));
+	sf_close(file);
+	if (written != static_cast<sf_count_t>(impulse.size()))
+	{
+		QMessageBox::warning(this, tr("Export FIR"), tr("Could not write the complete FIR file."));
+		return;
+	}
+
+	QMessageBox::information(this, tr("Export FIR"), tr("Exported FIR at %0 Hz.").arg(sampleRate));
 }
 
 void GraphicEQFilterGUI::on_actionInvertResponse_triggered()

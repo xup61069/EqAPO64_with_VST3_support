@@ -31,6 +31,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Verify public source history
+        shell: pwsh
+        run: .\scripts\test-public-history.ps1 -Revision HEAD
 
       - name: Run regression tests
         shell: pwsh
@@ -50,6 +56,10 @@ jobs:
       - name: Test runtime loudness processing
         shell: pwsh
         run: .\scripts\test-runtime-loudness.ps1 -Configuration "${{ inputs.configuration || 'Release' }}"
+
+      - name: Test built out-of-process VST host lifecycle
+        shell: pwsh
+        run: python -m unittest discover -s .\tests -p "test_outproc_vst_lifecycle.py" -v
 
       - name: Capture UI theme and DPI regression matrix
         shell: pwsh

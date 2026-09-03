@@ -119,8 +119,20 @@ try {
 		throw "The enabled loudness-correction benchmark clipped samples:`n$($enabledLog -join [Environment]::NewLine)"
 	}
 
-	$transitionLog = & $benchmark --nopause --loudness-transition-test 2>&1
-	if ($LASTEXITCODE -ne 0) {
+	# Windows PowerShell promotes redirected native stderr records according to
+	# ErrorActionPreference.  The transition harness deliberately logs its
+	# fail-closed automatic-binding diagnostic to stderr while still succeeding,
+	# so capture that diagnostic without allowing it to terminate this script.
+	$previousErrorActionPreference = $ErrorActionPreference
+	try {
+		$ErrorActionPreference = "Continue"
+		$transitionLog = & $benchmark --nopause --loudness-transition-test 2>&1
+		$transitionExitCode = $LASTEXITCODE
+	}
+	finally {
+		$ErrorActionPreference = $previousErrorActionPreference
+	}
+	if ($transitionExitCode -ne 0) {
 		throw "Dynamic loudness transition regression failed:`n$($transitionLog -join [Environment]::NewLine)"
 	}
 	$transitionLog | ForEach-Object { Write-Host $_ }

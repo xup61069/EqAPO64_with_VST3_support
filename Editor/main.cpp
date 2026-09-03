@@ -20,9 +20,11 @@
 #include <QTranslator>
 #include <QApplication>
 #include <QDir>
+#include <QFileInfo>
 #include <QCommandLineParser>
 #include <QSettings>
 #include <QStyleHints>
+#include <windows.h>
 #include "CustomStyle.h"
 #include "MainWindow.h"
 #include "ModernTheme.h"
@@ -32,6 +34,16 @@
 
 using namespace std;
 
+static QString getExecutableDir()
+{
+	wchar_t path[MAX_PATH] = {};
+	DWORD length = GetModuleFileNameW(NULL, path, MAX_PATH);
+	if (length == 0 || length >= MAX_PATH)
+		return QDir::currentPath();
+
+	return QFileInfo(QString::fromWCharArray(path, length)).absolutePath();
+}
+
 int main(int argc, char* argv[])
 {
 	int result = -1;
@@ -40,7 +52,10 @@ int main(int argc, char* argv[])
 	// _CrtSetBreakAlloc(3318);
 #endif
 
-	QCoreApplication::addLibraryPath("qt");
+	const QString executableDir = getExecutableDir();
+	const QString qtPluginDir = QDir(executableDir).filePath("qt");
+	QCoreApplication::addLibraryPath(qtPluginDir);
+	qputenv("QT_PLUGIN_PATH", QDir::toNativeSeparators(qtPluginDir).toLocal8Bit());
 
 	bool restart;
 	do

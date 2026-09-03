@@ -2,10 +2,15 @@
 
 ## 3.0.5
 
+- Ported the complete Mixomo `exp` feature code onto this fork rather than using its reduced, outdated `main` tree, retaining native audio tools, Parametric EQ, user-supplied headphone calibration and convolution/IR workflows, VST3 class selection, and the experimental out-of-process VST host.
 - Added a Windows-native, responsive desktop interface across Configuration Editor, Device Selector, device testing, and Update Checker, with improved high-DPI scaling, keyboard access, screen-reader labels, and translated status feedback.
 - Added quick profile access, duplication, import/export, editor-only device links, temporary bypass, A/B comparison, and tray controls to Configuration Editor while retaining the v3.0.4 loudness-correction runtime and endpoint-binding behavior.
 - Improved dense filter editors and plots for small windows and large text, and added automated UI layout and regression checks.
+- Corrected circular-control direction and added relative vertical dragging with fine adjustment; added an explicit command that returns a floating analysis panel to the bottom dock.
+- Added an accessibility-aware response-curve transition and a confirmed one-time Auto preamp action that only reduces gain from a fresh, identity-bound current-file analysis. The action validates the exact root/Include bytes and automatic-volume endpoint snapshot, refuses unsupported dynamic/cross-channel/external processing, cannot widen a scoped edit, and always requires an explicit Save.
+- Hardened the restored VU Meter shared-state handoff, reset, multichannel-selector preservation, and sample-peak/ungated-estimate labeling, and improved cold-start/reload ownership for the experimental out-of-process VST host.
 - Made Device Test cancellation finish any fallback registration transaction and required Windows audio-service restart already in progress, avoiding a half-applied endpoint state.
+- Excluded third-party headphone-measurement catalogs and impulse-response audio from public history and installers until their exact downstream redistribution terms can be established; the corresponding loaders remain available for user-supplied data.
 
 ## 3.0.4
 

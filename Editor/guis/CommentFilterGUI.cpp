@@ -81,6 +81,11 @@ void CommentFilterGUI::storePreferences(QVariantMap& prefs)
 	child->storePreferences(prefs);
 }
 
+void CommentFilterGUI::prepareDelete()
+{
+	child->prepareDelete();
+}
+
 void CommentFilterGUI::on_actionPowerOn_toggled(bool checked)
 {
 	child->setEnabled(checked);
