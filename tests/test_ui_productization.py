@@ -40,31 +40,152 @@ FREQUENCY_PLOT_VIEW_HEADER = (
 class UiProductizationTests(unittest.TestCase):
     def test_saved_window_state_cannot_merge_the_workspace_toolbar(self) -> None:
         header = (ROOT / "Editor" / "MainWindow.h").read_text(encoding="utf-8")
-        self.assertIn("void normalizeToolbarLayout();", header)
+        self.assertIn("bool restoreWindowLayoutState(const QByteArray& state);", header)
+        self.assertIn("QByteArray saveWindowLayoutState() const;", header)
+        self.assertIn("static constexpr int WINDOW_LAYOUT_STATE_VERSION = 1;", MAIN_WINDOW)
 
-        normalizer = MAIN_WINDOW[
-            MAIN_WINDOW.index("void MainWindow::normalizeToolbarLayout") :
+        state_helpers = MAIN_WINDOW[
+            MAIN_WINDOW.index("bool MainWindow::restoreWindowLayoutState") :
             MAIN_WINDOW.index("void MainWindow::setupTrayIcon")
         ]
-        for token in (
-            "addToolBar(Qt::TopToolBarArea, ui->mainToolBar)",
-            "addToolBar(Qt::TopToolBarArea, workspaceToolBar)",
-            "removeToolBarBreak(workspaceToolBar)",
-            "insertToolBarBreak(workspaceToolBar)",
-            "ui->mainToolBar->setVisible(!toolbarHidden)",
-            "workspaceToolBar->setVisible(!toolbarHidden)",
-        ):
-            with self.subTest(toolbar_contract=token):
-                self.assertIn(token, normalizer)
+        self.assertIn("restoreState(state, WINDOW_LAYOUT_STATE_VERSION)", state_helpers)
+        self.assertIn("saveState(WINDOW_LAYOUT_STATE_VERSION)", state_helpers)
+        self.assertNotIn("normalizeToolbarLayout", MAIN_WINDOW)
 
         load_preferences = MAIN_WINDOW[
             MAIN_WINDOW.index("void MainWindow::loadPreferences") :
             MAIN_WINDOW.index("void MainWindow::savePreferences")
         ]
-        self.assertLess(
-            load_preferences.index("restoreState(stateValue.toByteArray())"),
-            load_preferences.index("normalizeToolbarLayout()"),
+        self.assertIn(
+            "restoreWindowLayoutState(stateValue.toByteArray())", load_preferences
         )
+
+        save_preferences = MAIN_WINDOW[
+            MAIN_WINDOW.index("void MainWindow::savePreferences") :
+            MAIN_WINDOW.index("void MainWindow::updateRecentFiles")
+        ]
+        self.assertIn('settings.setValue("windowState", saveWindowLayoutState())', save_preferences)
+
+        snapshot_scenario = MAIN_WINDOW[
+            MAIN_WINDOW.index("bool MainWindow::loadSnapshotScenario") :
+            MAIN_WINDOW.index("bool MainWindow::snapshotLayoutIsValid")
+        ]
+        for token in (
+            "const QByteArray currentWindowState = saveWindowLayoutState()",
+            "const QByteArray legacyMergedToolbarState = saveState(0)",
+            "restoreWindowLayoutState(currentWindowState)",
+            "restoreWindowLayoutState(legacyMergedToolbarState)",
+        ):
+            with self.subTest(toolbar_round_trip=token):
+                self.assertIn(token, snapshot_scenario)
+
+    def test_compact_reset_buttons_keep_stretch_space_and_titles_at_top(self) -> None:
+        cases = (
+            ("PreampFilterGUI", "preampResetButton", "label", 6, 5),
+            ("DelayFilterGUI", "delayResetButton", "delayLabel", 4, 3),
+        )
+        for gui_name, reset_name, title_name, reset_column, spacer_column in cases:
+            cpp = (ROOT / "Editor" / "guis" / f"{gui_name}.cpp").read_text(
+                encoding="utf-8"
+            )
+            ui = ET.parse(
+                ROOT / "Editor" / "guis" / f"{gui_name}.ui"
+            ).getroot()
+            layout = ui.find(".//layout[@name='gridLayout']")
+            self.assertIsNotNone(layout)
+
+            spacer_item = next(
+                item
+                for item in layout.findall("item")
+                if item.find("spacer[@name='horizontalSpacer']") is not None
+            )
+            title = ui.find(f".//widget[@name='{title_name}']")
+            self.assertIsNotNone(title)
+
+            with self.subTest(gui=gui_name):
+                self.assertEqual(int(spacer_item.attrib["column"]), spacer_column)
+                self.assertEqual(
+                    layout.attrib["columnstretch"].split(",")[spacer_column], "1"
+                )
+                self.assertIn(
+                    "Qt::AlignTop",
+                    title.findtext("property[@name='alignment']/set", ""),
+                )
+                self.assertIn(f'QStringLiteral("{reset_name}")', cpp)
+                self.assertIn(
+                    "setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed)", cpp
+                )
+                self.assertNotIn("removeItem(spacer)", cpp)
+                self.assertNotIn("delete spacer", cpp)
+                self.assertRegex(
+                    cpp,
+                    rf"addWidget\(\s*resetButton,\s*0,\s*{reset_column},\s*2,\s*1,"
+                    r"\s*Qt::AlignRight \| Qt::AlignVCenter\)",
+                )
+
+        copy_cpp = (
+            ROOT / "Editor" / "guis" / "CopyFilterGUI.cpp"
+        ).read_text(encoding="utf-8")
+        copy_ui = ET.parse(
+            ROOT / "Editor" / "guis" / "CopyFilterGUI.ui"
+        ).getroot()
+        copy_tab_item = next(
+            item
+            for item in copy_ui.findall(".//layout[@name='gridLayout']/item")
+            if item.find("widget[@name='tabWidget']") is not None
+        )
+        self.assertEqual(copy_tab_item.attrib.get("colspan"), "2")
+        self.assertIn('QStringLiteral("copyResetButton")', copy_cpp)
+        self.assertIn(
+            "setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed)", copy_cpp
+        )
+
+        snapshot_scenario = MAIN_WINDOW[
+            MAIN_WINDOW.index("bool MainWindow::loadSnapshotScenario") :
+            MAIN_WINDOW.index("bool MainWindow::snapshotLayoutIsValid")
+        ]
+        snapshot_validation = MAIN_WINDOW[
+            MAIN_WINDOW.index("bool MainWindow::snapshotLayoutIsValid") :
+            MAIN_WINDOW.index("void MainWindow::getDeviceAndChannelMask")
+        ]
+        self.assertIn('QStringLiteral("Delay: 250 ms")', snapshot_scenario)
+        self.assertIn('QStringLiteral("Copy: L=L R=R")', snapshot_scenario)
+        for token in (
+            'QStringLiteral("preampResetButton")',
+            'QStringLiteral("delayResetButton")',
+            'QStringLiteral("copyResetButton")',
+            "resetRect.intersects(editorRect)",
+            "resetRect.intersects(titleRect)",
+            "tabsRect.right() < resetRect.right()",
+            "title->alignment() & Qt::AlignTop",
+        ):
+            with self.subTest(runtime_geometry_contract=token):
+                self.assertIn(token, snapshot_validation)
+
+        compact_sources = {
+            "AudioToolFilterGUIFactory.cpp": (
+                'commandName + QStringLiteral("ResetButton")',
+                'QStringLiteral("VUMeterReadingResetButton")',
+            ),
+            "BiQuadFilterGUI.cpp": ('QStringLiteral("biQuadResetButton")',),
+            "ConvolutionFilterGUI.cpp": (
+                'QStringLiteral("convolutionResetButton")',
+            ),
+            "LoudnessCorrectionFilterGUI.cpp": (
+                'QStringLiteral("loudnessResetButton")',
+            ),
+        }
+        for file_name, object_names in compact_sources.items():
+            source = (ROOT / "Editor" / "guis" / file_name).read_text(
+                encoding="utf-8"
+            )
+            with self.subTest(compact_reset_source=file_name):
+                for object_name in object_names:
+                    self.assertIn(object_name, source)
+                self.assertIn(
+                    "setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed)",
+                    source,
+                )
 
         layout_contract = MAIN_WINDOW[
             MAIN_WINDOW.index("bool MainWindow::snapshotLayoutIsValid") :

@@ -231,7 +231,8 @@ private:
 
 	static const unsigned UPDATE_POLL_INTERVAL_MS = 50;
 	static const unsigned FALLBACK_POLL_INTERVAL_MS = 1000;
-	static constexpr double FILTER_Q = 3.0;
+	static constexpr double FILTER_Q = 2.2;
+	static constexpr double HIGH_SHELF_Q = 0.9;
 	static constexpr double PI = 3.1415926535897932384626433832795;
 	static constexpr double MAX_FILTER_GAIN_DB = 48.0;
 	static constexpr double HEADROOM_MARGIN_DB = 1.0;

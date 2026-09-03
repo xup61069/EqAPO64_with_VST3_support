@@ -25,6 +25,7 @@
 #include "ui_CopyFilterGUI.h"
 #include <cmath>
 #include <QPushButton>
+#include <QSizePolicy>
 
 namespace
 {
@@ -64,10 +65,13 @@ CopyFilterGUI::CopyFilterGUI(CopyFilter* filter, FilterTable* filterTable)
 	scene = new CopyFilterGUIScene;
 	ui->graphicsView->setScene(scene);
 	ui->graphicsView->setBackgroundRole(QPalette::Window);
+	ui->graphicsView->setFixedHeight(boundedScaledHeight(DEFAULT_HEIGHT));
 
 	ui->form->load(filter->getAssignments());
 
 	QPushButton* resetButton = new QPushButton(tr("Reset"), this);
+	resetButton->setObjectName(QStringLiteral("copyResetButton"));
+	resetButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 	ui->gridLayout->addWidget(resetButton, 0, 1);
 	connect(resetButton, &QPushButton::clicked, this, [this]() {
 		std::vector<Assignment> emptyAssignments;
@@ -84,7 +88,9 @@ CopyFilterGUI::CopyFilterGUI(CopyFilter* filter, FilterTable* filterTable)
 		return QSize(0, ui->scrollArea->height());
 	},
 			[this](QSize size) {
-		ui->scrollArea->setFixedHeight(boundedScaledHeight(size.height()));
+		const int scaledHeight = boundedScaledHeight(size.height());
+		ui->scrollArea->setFixedHeight(scaledHeight);
+		ui->graphicsView->setFixedHeight(scaledHeight);
 	}, this);
 	cornerWidget->setCursor(Qt::SizeVerCursor);
 	cornerWidget->setAutoFillBackground(true);
@@ -213,8 +219,9 @@ void CopyFilterGUI::loadPreferences(const QVariantMap& prefs)
 	double storedHeight = prefs.value("height", DEFAULT_HEIGHT).toDouble(&validHeight);
 	if (!validHeight || !std::isfinite(storedHeight))
 		storedHeight = DEFAULT_HEIGHT;
-	ui->scrollArea->setFixedHeight(
-		GUIHelper::scale(boundedLogicalHeight(storedHeight)));
+	const int scaledHeight = GUIHelper::scale(boundedLogicalHeight(storedHeight));
+	ui->scrollArea->setFixedHeight(scaledHeight);
+	ui->graphicsView->setFixedHeight(scaledHeight);
 	ui->tabWidget->setCurrentIndex(prefs.value("tabIndex", 0).toInt());
 }
 

@@ -20,7 +20,8 @@ GUI_FACTORY_PATH = ROOT / "Editor" / "guis" / "LoudnessCorrectionFilterGUIFactor
 LEGACY_GUI_PATH = ROOT / "Editor" / "guis" / "LegacyLoudnessCorrectionFilterGUI.cpp"
 PHON_LEVELS = tuple(range(0, 101, 10))
 REFERENCE_INDEX = 17
-FILTER_Q = 3.0
+FILTER_Q = 2.2
+HIGH_SHELF_Q = 0.9
 SAMPLE_RATE = 48_000.0
 SUBSONIC_CROSSOVER_HZ = 25.0
 CROSSOVER_BUTTERWORTH_ORDER = 14
@@ -128,8 +129,18 @@ def peaking_coefficients(
 ) -> tuple[float, float, float, float, float]:
 	omega0 = 2.0 * math.pi * center / sample_rate
 	a = 10.0 ** (max(-48.0, min(48.0, gain)) / 40.0)
-	alpha = math.sin(omega0) / (2.0 * FILTER_Q)
 	cosine = math.cos(omega0)
+	if center >= 12500.0:
+		alpha = math.sin(omega0) / (2.0 * HIGH_SHELF_Q)
+		beta = 2.0 * math.sqrt(a) * alpha
+		b0 = a * ((a + 1.0) + (a - 1.0) * cosine + beta)
+		b1 = -2.0 * a * ((a - 1.0) + (a + 1.0) * cosine)
+		b2 = a * ((a + 1.0) + (a - 1.0) * cosine - beta)
+		a0 = (a + 1.0) - (a - 1.0) * cosine + beta
+		a1 = 2.0 * ((a - 1.0) - (a + 1.0) * cosine)
+		a2 = (a + 1.0) - (a - 1.0) * cosine - beta
+		return b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0
+	alpha = math.sin(omega0) / (2.0 * FILTER_Q)
 	b0 = 1.0 + alpha * a
 	b1 = -2.0 * cosine
 	b2 = 1.0 - alpha * a

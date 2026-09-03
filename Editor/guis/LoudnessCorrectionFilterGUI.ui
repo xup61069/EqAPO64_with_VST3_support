@@ -17,7 +17,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string notr="true"/>
+   <string notr="true" />
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <property name="leftMargin">
@@ -49,32 +49,7 @@
         <string>Loudness correction:</string>
        </property>
        <property name="alignment">
-        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLabel" name="label_2">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
-         <horstretch>1</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="font">
-        <font>
-         <italic>true</italic>
-        </font>
-       </property>
-       <property name="text">
-        <string>contributed by
-Alexander Walch</string>
-       </property>
-       <property name="wordWrap">
-        <bool>true</bool>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
        </property>
       </widget>
      </item>
@@ -122,7 +97,7 @@ Alexander Walch</string>
          </property>
         </widget>
        </item>
-       <item alignment="Qt::AlignHCenter">
+       <item alignment="Qt::AlignLeft|Qt::AlignTop">
         <widget class="VerticalDragDial" name="refLevelDial">
          <property name="minimum">
           <number>1</number>
@@ -177,7 +152,7 @@ Alexander Walch</string>
          </property>
         </widget>
        </item>
-       <item alignment="Qt::AlignHCenter">
+       <item alignment="Qt::AlignLeft|Qt::AlignTop">
         <widget class="VerticalDragDial" name="refOffsetDial">
          <property name="minimum">
           <number>-100</number>
@@ -232,7 +207,7 @@ Alexander Walch</string>
          </property>
         </widget>
        </item>
-       <item alignment="Qt::AlignHCenter">
+       <item alignment="Qt::AlignLeft|Qt::AlignTop">
         <widget class="VerticalDragDial" name="attDial">
          <property name="minimum">
           <number>0</number>
@@ -416,35 +391,35 @@ Alexander Walch</string>
    <header>widgets/VerticalDragDial.h</header>
   </customwidget>
  </customwidgets>
- <resources/>
+ <resources />
  <connections>
   <connection>
    <sender>refLevelDial</sender>
    <signal>valueChanged(int)</signal>
    <receiver>refLevelSpinBox</receiver>
    <slot>setValue(int)</slot>
-   <hints/>
+   <hints />
   </connection>
   <connection>
    <sender>refLevelSpinBox</sender>
    <signal>valueChanged(int)</signal>
    <receiver>refLevelDial</receiver>
    <slot>setValue(int)</slot>
-   <hints/>
+   <hints />
   </connection>
   <connection>
    <sender>refOffsetDial</sender>
    <signal>valueChanged(int)</signal>
    <receiver>refOffsetSpinBox</receiver>
    <slot>setValue(int)</slot>
-   <hints/>
+   <hints />
   </connection>
   <connection>
    <sender>refOffsetSpinBox</sender>
    <signal>valueChanged(int)</signal>
    <receiver>refOffsetDial</receiver>
    <slot>setValue(int)</slot>
-   <hints/>
+   <hints />
   </connection>
  </connections>
  <slots>

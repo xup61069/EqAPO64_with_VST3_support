@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.0.7
+
+- Fixed the Configuration Editor startup crash that v3.0.6 could trigger while showing a window after restoring an older Qt toolbar layout.
+- Versioned the saved `QMainWindow` layout state so incompatible version-0 toolbar and analysis-panel placement is rejected without touching configuration files, audio settings, profiles, endpoint binding, or other editor preferences.
+- Smoothed low-frequency loudness response by optimizing filter quality factor (Q=2.2), eliminating ripples and oscillations between 20 Hz and 100 Hz.
+- Corrected high-frequency compensation above 12.5 kHz to follow the natural upward contour using a high-shelf biquad transition, preventing the abrupt cliff drop.
+- Fixed excessive vertical height in the Copy Channels editor by binding both tabs to a compact row height.
+- Removed the redundant contributor banner from the Loudness Correction panel header for a cleaner layout.
+- Kept Reset actions compact without displacing stretch space, restored full row width for the Copy editor, and aligned Preamp and Delay component titles to the top.
+
 ## 3.0.6
 
 - Fixed committed installer cleanup so its protected rename manifest remains open on a dedicated handle while old application-file identities are checked. This prevents the first identity check from corrupting the manifest handle or installation-path containment prefix and leaving a false interrupted-installation record.

@@ -20,8 +20,8 @@
 #include "Editor/helpers/GUIHelper.h"
 #include "DelayFilterGUI.h"
 #include "ui_DelayFilterGUI.h"
-#include <QLayoutItem>
 #include <QPushButton>
+#include <QSizePolicy>
 #include <QVariant>
 
 static const double dialSteps = 1000;
@@ -41,12 +41,10 @@ DelayFilterGUI::DelayFilterGUI(double delay, bool isMs)
 	ui->delayDial->setProperty("defaultTargetValue", 0.0);
 
 	QPushButton* resetButton = new QPushButton(tr("Reset"), this);
-	if (QLayoutItem* spacer = ui->gridLayout->itemAtPosition(0, 3))
-	{
-		ui->gridLayout->removeItem(spacer);
-		delete spacer;
-	}
-	ui->gridLayout->addWidget(resetButton, 0, 3, 2, 1);
+	resetButton->setObjectName(QStringLiteral("delayResetButton"));
+	resetButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+	ui->gridLayout->addWidget(
+		resetButton, 0, 4, 2, 1, Qt::AlignRight | Qt::AlignVCenter);
 	connect(resetButton, &QPushButton::clicked, this, [this]() {
 		ui->unitComboBox->setCurrentIndex(0);
 		ui->delaySpinBox->setValue(0.0);

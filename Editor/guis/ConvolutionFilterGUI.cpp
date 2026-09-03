@@ -21,6 +21,7 @@
 #include <QLabel>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QSizePolicy>
 #include <QMenu>
 #include <QToolButton>
 #include <QDirIterator>
@@ -272,6 +273,8 @@ ConvolutionFilterGUI::ConvolutionFilterGUI(const QString& configPath, unsigned d
 	connect(nextBundledIrButton, &QToolButton::clicked, this, [this]() { selectBundledImpulseAt(currentBundledImpulseIndex() + 1); });
 	connect(ui->pathLineEdit, &QLineEdit::textChanged, this, [this]() { updateFileInfo(); });
 	QPushButton* resetButton = new QPushButton(tr("Reset"), this);
+	resetButton->setObjectName(QStringLiteral("convolutionResetButton"));
+	resetButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 	ui->gridLayout->addWidget(resetButton, 0, 3);
 	connect(resetButton, &QPushButton::clicked, this, [this]() {
 		ui->pathLineEdit->clear();

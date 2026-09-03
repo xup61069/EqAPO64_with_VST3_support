@@ -76,6 +76,8 @@
 
 using namespace std;
 
+static constexpr int WINDOW_LAYOUT_STATE_VERSION = 1;
+
 static QString supportedLocaleName(const QLocale& locale)
 {
 	QString name = locale.name();
@@ -1090,22 +1092,14 @@ void MainWindow::setupWorkspaceTools()
 	});
 }
 
-void MainWindow::normalizeToolbarLayout()
+bool MainWindow::restoreWindowLayoutState(const QByteArray& state)
 {
-	if (workspaceToolBar == NULL)
-		return;
+	return restoreState(state, WINDOW_LAYOUT_STATE_VERSION);
+}
 
-	// Older saved QMainWindow state can merge the workspace toolbar back into
-	// the device toolbar and push search/comparison actions out of view. Keep
-	// dock state restoration, but make the two non-movable toolbar rows stable.
-	const bool toolbarHidden = ui->mainToolBar->isHidden();
-	addToolBar(Qt::TopToolBarArea, ui->mainToolBar);
-	addToolBar(Qt::TopToolBarArea, workspaceToolBar);
-	removeToolBarBreak(workspaceToolBar);
-	insertToolBarBreak(workspaceToolBar);
-	ui->mainToolBar->setVisible(!toolbarHidden);
-	workspaceToolBar->setVisible(!toolbarHidden);
-	ui->actionToolbar->setChecked(!toolbarHidden);
+QByteArray MainWindow::saveWindowLayoutState() const
+{
+	return saveState(WINDOW_LAYOUT_STATE_VERSION);
 }
 
 void MainWindow::setupTrayIcon()
@@ -3719,6 +3713,27 @@ bool MainWindow::loadSnapshotScenario(const QString& scenario)
 	if ((!denseScenario && !restoredToolsScenario) || !isEmpty())
 		return false;
 
+	if (restoredToolsScenario)
+	{
+		// Exercise the production state-version gate while the window is
+		// visible. A version-0 state can contain the merged toolbar layout used
+		// by earlier builds; version 1 must reject it without changing the
+		// current two-row layout.
+		const QByteArray currentWindowState = saveWindowLayoutState();
+		removeToolBarBreak(workspaceToolBar);
+		const QByteArray legacyMergedToolbarState = saveState(0);
+		if (toolBarBreak(workspaceToolBar))
+			return false;
+		if (!restoreWindowLayoutState(currentWindowState))
+			return false;
+		if (!toolBarBreak(workspaceToolBar))
+			return false;
+		if (restoreWindowLayoutState(legacyMergedToolbarState))
+			return false;
+		if (!toolBarBreak(workspaceToolBar))
+			return false;
+	}
+
 	// Keep this representative configuration entirely in memory. In
 	// particular, do not call FilterTable::setLines(), because that method
 	// intentionally restores the real user's per-file QSettings.
@@ -3743,6 +3758,8 @@ bool MainWindow::loadSnapshotScenario(const QString& scenario)
 		QStringLiteral("Include: snapshot-memory\\profiles\\another-deliberately-long-missing-profile-name-for-horizontal-overflow-regression.txt")
 	} : QList<QString>{
 		QStringLiteral("Preamp: -100 dB"),
+		QStringLiteral("Delay: 250 ms"),
+		QStringLiteral("Copy: L=L R=R"),
 		QStringLiteral("Preamp: 100 dB"),
 		QStringLiteral("Pan: Position 0 Width 100"),
 		QStringLiteral("Crossfeed: Algorithm Natural Preset \"Average Male\" Amount 35 % Circumference 57 cm HeadWidth 15 cm HeadLength 19 cm Angle 60 deg Cutoff 900 Hz Direct 100 %"),
@@ -3805,7 +3822,10 @@ bool MainWindow::loadSnapshotScenario(const QString& scenario)
 	}
 	else
 	{
-		complete = complete && objectCount(QStringLiteral("PreampFilterGUI")) == 2;
+		complete = complete
+			&& objectCount(QStringLiteral("PreampFilterGUI")) == 2
+			&& objectCount(QStringLiteral("DelayFilterGUI")) == 1
+			&& objectCount(QStringLiteral("CopyFilterGUI")) == 1;
 		const QStringList restoredGuiObjectNames = {
 			QStringLiteral("PanFilterGUI"),
 			QStringLiteral("CrossfeedFilterGUI"),
@@ -3913,6 +3933,8 @@ bool MainWindow::snapshotLayoutIsValid() const
 		QStringLiteral("elidingCommandLabel")
 	} : QStringList{
 		QStringLiteral("PreampFilterGUI"),
+		QStringLiteral("DelayFilterGUI"),
+		QStringLiteral("CopyFilterGUI"),
 		QStringLiteral("PanFilterGUI"),
 		QStringLiteral("CrossfeedFilterGUI"),
 		QStringLiteral("ChorusFilterGUI"),
@@ -3939,6 +3961,27 @@ bool MainWindow::snapshotLayoutIsValid() const
 				}
 			}
 		}
+	}
+	if (restoredToolsScenario)
+	{
+		QWidget* copyGui = findChild<QWidget*>(QStringLiteral("CopyFilterGUI"));
+		QWidget* copyReset = copyGui == NULL
+			? NULL
+			: copyGui->findChild<QWidget*>(QStringLiteral("copyResetButton"));
+		QWidget* copyTitle = copyGui == NULL
+			? NULL
+			: copyGui->findChild<QWidget*>(QStringLiteral("copyLabel"));
+		QWidget* copyTabs = copyGui == NULL
+			? NULL
+			: copyGui->findChild<QWidget*>(QStringLiteral("tabWidget"));
+		if (copyReset == NULL || copyTitle == NULL || copyTabs == NULL
+			|| copyReset->sizePolicy().horizontalPolicy() != QSizePolicy::Fixed)
+			return false;
+		const QRect resetRect(copyReset->mapTo(copyGui, QPoint(0, 0)), copyReset->size());
+		const QRect titleRect(copyTitle->mapTo(copyGui, QPoint(0, 0)), copyTitle->size());
+		const QRect tabsRect(copyTabs->mapTo(copyGui, QPoint(0, 0)), copyTabs->size());
+		if (resetRect.intersects(titleRect) || tabsRect.right() < resetRect.right())
+			return false;
 	}
 
 	if (restoredToolsScenario)
@@ -3967,6 +4010,45 @@ bool MainWindow::snapshotLayoutIsValid() const
 			for (QWidget* child : content->findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly))
 				if (child->isVisible() && !fitsInsideContainer(content, child))
 					return false;
+		}
+	}
+
+	// The compact reset controls in the two legacy two-row editors must not
+	// consume the stretch column or collide with their value editor. Their
+	// component titles stay pinned to the top edge of the row.
+	struct CompactResetCheck
+	{
+		QString guiObjectName;
+		QString resetObjectName;
+		QString editorObjectName;
+		QString titleObjectName;
+	};
+	const CompactResetCheck compactResetChecks[] = {
+		{QStringLiteral("PreampFilterGUI"), QStringLiteral("preampResetButton"),
+			QStringLiteral("doubleSpinBox"), QStringLiteral("label")},
+		{QStringLiteral("DelayFilterGUI"), QStringLiteral("delayResetButton"),
+			QStringLiteral("delaySpinBox"), QStringLiteral("delayLabel")}
+	};
+	for (const CompactResetCheck& check : compactResetChecks)
+	{
+		const QList<QWidget*> guis = findChildren<QWidget*>(check.guiObjectName);
+		if (denseScenario && check.guiObjectName == QStringLiteral("DelayFilterGUI"))
+			continue;
+		if (guis.isEmpty())
+			return false;
+		for (QWidget* gui : guis)
+		{
+			QWidget* reset = gui->findChild<QWidget*>(check.resetObjectName);
+			QWidget* editor = gui->findChild<QWidget*>(check.editorObjectName);
+			QLabel* title = gui->findChild<QLabel*>(check.titleObjectName);
+			if (reset == NULL || editor == NULL || title == NULL
+				|| reset->sizePolicy().horizontalPolicy() != QSizePolicy::Fixed
+				|| !(title->alignment() & Qt::AlignTop))
+				return false;
+			const QRect resetRect(reset->mapTo(gui, QPoint(0, 0)), reset->size());
+			const QRect editorRect(editor->mapTo(gui, QPoint(0, 0)), editor->size());
+			if (resetRect.intersects(editorRect))
+				return false;
 		}
 	}
 	return true;
@@ -4202,8 +4284,7 @@ void MainWindow::loadPreferences()
 	// load window state after initializing channels as it may trigger on_analysisDockWidget_visibilityChanged when analysis panel is detached
 	QVariant stateValue = settings.value("windowState");
 	if (stateValue.isValid())
-		restoreState(stateValue.toByteArray());
-	normalizeToolbarLayout();
+		restoreWindowLayoutState(stateValue.toByteArray());
 }
 
 void MainWindow::savePreferences()
@@ -4213,7 +4294,7 @@ void MainWindow::savePreferences()
 
 	QSettings settings(QString::fromWCharArray(EDITOR_REGPATH), QSettings::NativeFormat);
 	settings.setValue("geometry", saveGeometry());
-	settings.setValue("windowState", saveState());
+	settings.setValue("windowState", saveWindowLayoutState());
 	settings.setValue("instantMode", instantModeCheckBox->isChecked());
 	settings.setValue("closeToTray", closeToTray);
 	shared_ptr<AbstractAPOInfo> selectedDevice = deviceComboBox->currentData().value<shared_ptr<AbstractAPOInfo>>();

@@ -61,7 +61,7 @@ BiQuadFilterGUI::BiQuadFilterGUI(BiQuadFilter* filter)
 		QHBoxLayout* row = new QHBoxLayout;
 		row->setContentsMargins(0, 0, 0, 0);
 		row->setSpacing(compactSpacing);
-		row->addWidget(dial, 0, Qt::AlignTop);
+		row->addWidget(dial, 0, Qt::AlignLeft | Qt::AlignTop);
 
 		QVBoxLayout* values = new QVBoxLayout;
 		values->setContentsMargins(0, 0, 0, 0);
@@ -146,6 +146,8 @@ BiQuadFilterGUI::BiQuadFilterGUI(BiQuadFilter* filter)
 	ui->gainDial->setProperty("defaultTargetValue", defaultGain);
 
 	QPushButton* resetButton = new QPushButton(tr("Reset"), this);
+	resetButton->setObjectName(QStringLiteral("biQuadResetButton"));
+	resetButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 	ui->gridLayout->addWidget(resetButton, 2, 0, 1, 2, Qt::AlignRight);
 	connect(resetButton, &QPushButton::clicked, this, [this]() {
 		const int typeIndex = ui->typeComboBox->findData(defaultType);

@@ -5,7 +5,7 @@
 [![Build](https://github.com/xup61069/loudness-correction-apo/actions/workflows/build.yml/badge.svg)](https://github.com/xup61069/loudness-correction-apo/actions/workflows/build.yml)
 [![Latest release](https://img.shields.io/github/v/release/xup61069/loudness-correction-apo)](https://github.com/xup61069/loudness-correction-apo/releases/latest)
 
-**Current release: v3.0.6.** It retains the complete Mixomo `exp` feature set and v3.0.5 interface—including safe Auto preamp—while correcting committed installer cleanup. `ReferenceOffset`, Single/Global volume binding, and the protected 1–19 Hz path retain their verified behavior.
+**Current release: v3.0.7.** It fixes the Configuration Editor startup crash that v3.0.6 could trigger with an older saved toolbar layout, while retaining the complete Mixomo `exp` feature set, safe Auto preamp, compact interface, `ReferenceOffset`, Single/Global volume binding, and the protected 1–19 Hz path.
 
 This repository is a direct Windows x64 fork of [Mixomo/EqAPO64_with_VST3_support](https://github.com/Mixomo/EqAPO64_with_VST3_support). It retains the system-wide double-precision audio pipeline and x64 VST2/VST3 audio-effect workflow, and adds or maintains formula-based loudness correction, calibration tools, and a Traditional Chinese interface.
 
@@ -16,6 +16,15 @@ Versions v3.0.2 through v3.0.4 rebuilt the fork-specific changes directly on Mix
 The linked source repository name appears here only for attribution; it is not this project's product name. This repository is not the upstream Equalizer APO project or an official upstream build. The feature is presented only as loudness correction; no standards-conformance, certification, endorsement, affiliation, or approval claim is made.
 
 > This installer replaces an existing Equalizer APO installation in place. It uses the same default installation directory and registry locations and cannot be installed side by side with the upstream release. Back up `config` and any locally installed plug-ins before installing, upgrading, or downgrading.
+
+## What's new in v3.0.7
+
+- **Editor startup is repaired:** incompatible saved Qt window layouts are rejected through a versioned state gate instead of being modified in place before the first layout pass. The toolbar and analysis-panel placement reset once; configuration files, profiles, loudness settings, endpoint binding, and other editor preferences are preserved.
+- **Smoothed low-frequency loudness response:** optimized the quality factor (Q=2.2) of the one-third-octave filter cascade to eliminate response ripple and oscillations between 20 Hz and 100 Hz.
+- **Repaired high-frequency extension above 12.5 kHz:** replaced the top band with a smooth high-shelf transition so equal-loudness compensation continues naturally along the curve above 12.5 kHz rather than plummeting abruptly to the baseline.
+- **Compact Copy Channels and cleaner Loudness header:** constrained both Copy tabs to compact row height and removed the non-functional contributor label from the Loudness Correction header.
+- **The crash path has executable regression coverage:** the `restored-tools` scenario creates a legacy merged-toolbar state, restores the current format through the same production helpers, and proves the legacy state is rejected without changing the two-row toolbar layout across the Windows theme, DPI, and large-text snapshot matrix.
+- All v3.0.6 installer cleanup fixes and v3.0.5 features—including Auto preamp, response animation, vertical dial dragging, recoverable analysis docking, complete Mixomo tools, endpoint binding, and 1–19 Hz protection—remain included.
 
 ## What's new in v3.0.6
 
@@ -59,7 +68,7 @@ The pass-through VU Meter reports RMS, sample peak, clipping, and ungated loudne
 
 ## Download and verification
 
-> **Recommended: v3.0.6 or the latest newer release.** Download it only from this repository's [GitHub Releases](https://github.com/xup61069/loudness-correction-apo/releases/latest). Do not use v3.0.0; it has been superseded.
+> **Recommended: v3.0.7 or the latest newer release.** Version 3.0.6 is superseded because it can crash the Configuration Editor when an older toolbar layout is restored. Download only from this repository's [GitHub Releases](https://github.com/xup61069/loudness-correction-apo/releases/latest).
 
 If v3.0.2 says that an interrupted installation could not be recovered, leave its recovery files in place and run v3.0.3 or later. The newer installer safely retires the corrupted v3.0.2 cleanup manifest while preserving any ambiguous `.old` backups; manual registry or `ProgramData` cleanup is not required.
 

@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: "Release Tag (e.g. v3.0.6)"
+        description: "Release Tag (e.g. v3.0.7)"
         required: true
-        default: "v3.0.6"
+        default: "v3.0.7"
 
 # Building third-party code must never run with a repository write token.
 permissions:

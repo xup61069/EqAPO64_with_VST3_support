@@ -128,7 +128,8 @@ private:
 	void savePreferences();
 	void updateRecentFiles();
 	void setupWorkspaceTools();
-	void normalizeToolbarLayout();
+	bool restoreWindowLayoutState(const QByteArray& state);
+	QByteArray saveWindowLayoutState() const;
 	void setupTrayIcon();
 	void refreshProfiles();
 	void refreshProfileMenus();

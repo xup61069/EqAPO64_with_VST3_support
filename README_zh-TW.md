@@ -5,7 +5,7 @@
 [![建置](https://github.com/xup61069/loudness-correction-apo/actions/workflows/build.yml/badge.svg)](https://github.com/xup61069/loudness-correction-apo/actions/workflows/build.yml)
 [![最新版本](https://img.shields.io/github/v/release/xup61069/loudness-correction-apo)](https://github.com/xup61069/loudness-correction-apo/releases/latest)
 
-**目前版本：v3.0.6。** 本版保留完整的 Mixomo `exp` 功能及 v3.0.5 介面（包含安全的自動 Preamp），並修正已提交安裝的清理程序；`ReferenceOffset`、單一／全域音量綁定及受保護的 1–19 Hz 路徑均維持已驗證的行為。
+**目前版本：v3.0.7。** 本版修正 v3.0.6 在讀取舊工具列版面時可能發生的 Configuration Editor 啟動崩潰，同時保留完整 Mixomo `exp` 功能、安全自動 Preamp、緊湊介面、`ReferenceOffset`、單一／全域音量綁定及受保護的 1–19 Hz 路徑。
 
 本儲存庫是直接 fork 自 [Mixomo/EqAPO64_with_VST3_support](https://github.com/Mixomo/EqAPO64_with_VST3_support) 的 Windows x64 專案，沿用其系統層級雙精度音訊管線與 x64 VST2／VST3 音訊效果流程，並新增或維護公式響度校正、校準工具及繁體中文介面。
 
@@ -16,6 +16,15 @@ v3.0.2 至 v3.0.4 把本專案的專屬變更直接重建在 Mixomo 的 `main` �
 上面連結中的來源儲存庫名稱只用於歸屬說明，不是本專案名稱。本儲存庫不是 Equalizer APO 上游專案，也不是上游官方建置。本功能僅稱為「響度校正」，不主張符合任何標準、取得認證、受到背書、具有從屬關係或獲得核准。
 
 > 本安裝程式會原地取代既有 Equalizer APO，沿用相同的預設安裝目錄與登錄位置，不能和上游版本並存。安裝、升級或降級前，請先備份 `config` 與自行安裝的外掛。
+
+## v3.0.7 更新重點
+
+- **修復編輯器啟動：**不再於第一次版面配置前原地修改舊 Qt 視窗狀態；不相容的舊版面會由版本門檻拒絕。工具列與分析面板位置只會重設一次，設定檔、設定檔清單、響度參數、端點綁定及其他編輯器偏好都會保留。
+- **平滑化低頻響應與消除紋波：**最佳化 1/3 倍頻程濾波器品質因子（Q=2.2），消除 20 Hz 至 100 Hz 相鄰頻帶交疊處的凹陷與波浪顫抖，實現平滑單調過渡。
+- **修復 12.5 kHz 以上高頻驟降：**將最高頻帶改為平滑高架濾波器（High Shelf），使 12.5 kHz 以上的高頻響應順著等響度曲線自然延伸並維持在補償高度，不再產生斷崖跌落。
+- **修復複製聲道高度過大與版面緊湊化：**圖形視圖與指派表格雙頁簽均受限於緊湊高度；移除響度校正面板的冗餘貢獻者橫幅，重設按鈕維持緊湊不吃掉伸展空間，預放大與延遲標題靠上。
+- **崩潰路徑已有可執行回歸測試：**`restored-tools` 案例會真的建立舊版合併工具列狀態，以正式 helper 還原目前格式，並確認舊狀態遭拒後兩列工具列仍完整；此測試涵蓋 Windows 主題、DPI 與大字型快照矩陣。
+- v3.0.6 的安裝清理修正與 v3.0.5 的全部功能均保留，包括自動 Preamp、響應動畫、圓形控制上下拖曳、可重新停駐的分析面板、完整 Mixomo 工具、端點綁定與 1–19 Hz 保護。
 
 ## v3.0.6 更新重點
 
@@ -59,7 +68,7 @@ v3.0.5 使用功能完整的 Mixomo `exp` 歷史，不再採用功能縮減且�
 
 ## 下載與驗證
 
-> **建議安裝 v3.0.6 或其後的最新版本。** 只從本儲存庫的 [GitHub Releases](https://github.com/xup61069/loudness-correction-apo/releases/latest) 下載。請勿使用已被取代的 v3.0.0。
+> **建議安裝 v3.0.7 或其後的最新版本。** v3.0.6 在還原舊工具列版面時可能讓 Configuration Editor 崩潰，因此已被取代。請只從本儲存庫的 [GitHub Releases](https://github.com/xup61069/loudness-correction-apo/releases/latest) 下載。
 
 若 v3.0.2 顯示無法安全復原中斷的安裝，請保留現有復原檔案，直接執行 v3.0.3 或更新版本。新版安裝程式會安全停用損壞的 v3.0.2 清理清單、保留無法證明歸屬的 `.old` 備份；不需要手動刪除登錄檔或 `ProgramData` 內容。
 

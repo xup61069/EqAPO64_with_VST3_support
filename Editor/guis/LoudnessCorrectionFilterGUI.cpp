@@ -26,6 +26,7 @@
 #include <limits>
 #include <QMessageBox>
 #include <QSignalBlocker>
+#include <QSizePolicy>
 #include <QToolTip>
 #include <QPushButton>
 #include <QVariant>
@@ -76,6 +77,8 @@ LoudnessCorrectionFilterGUI::LoudnessCorrectionFilterGUI(
 	ui->attDial->setProperty("defaultTargetValue", 1.0);
 
 	QPushButton* resetButton = new QPushButton(tr("Reset"), this);
+	resetButton->setObjectName(QStringLiteral("loudnessResetButton"));
+	resetButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 	resetButton->setMinimumWidth(GUIHelper::scale(88));
 	ui->actionsLayout->insertWidget(1, resetButton);
 	connect(resetButton, &QPushButton::clicked, this, [this]() {

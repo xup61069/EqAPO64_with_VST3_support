@@ -17,6 +17,7 @@
 #include <QRegularExpression>
 #include <QScrollArea>
 #include <QSignalBlocker>
+#include <QSizePolicy>
 #include <QStringList>
 #include <QTimer>
 #include <QUuid>
@@ -655,6 +656,8 @@ QWidget* AudioToolFilterGUI::addSliderControl(QGridLayout* grid, const QString& 
 QPushButton* AudioToolFilterGUI::addModuleResetButton(QGridLayout* grid, int row, int column, int columnSpan)
 {
 	QPushButton* button = new QPushButton(tr("Reset module"), this);
+	button->setObjectName(commandName + QStringLiteral("ResetButton"));
+	button->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 	grid->addWidget(button, row, column, 1, columnSpan);
 	connect(button, &QPushButton::clicked, this, [this]() { resetModuleToDefaults(); });
 	return button;
@@ -911,6 +914,8 @@ AudioToolFilterGUI::AudioToolFilterGUI(const QString& command, const QString& pa
 		panelButton = new QPushButton(tr("Open panel"), this);
 		panelButton->setCheckable(true);
 		resetButton = new QPushButton(tr("Reset"), this);
+		resetButton->setObjectName(QStringLiteral("VUMeterReadingResetButton"));
+		resetButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 		rmsStandardComboBox = new QComboBox(this);
 		rmsStandardComboBox->addItems(QStringList() << "AES17" << "IEC 61606");
 		rmsStandardComboBox->setCurrentText(pairedTokenValue(parameters, "RMS", pairedTokenValue(parameters, "RMSStandard", "AES17")));

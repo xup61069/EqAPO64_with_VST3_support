@@ -709,9 +709,27 @@ void LoudnessCorrectionFilter::computeBiquadCoeffs(
 	double frequency = LoudnessProfile::LOUDNESS_PROFILE_TABLE[bandIndex].frequency;
 	double A = std::pow(10.0, gainDb / 40.0);
 	double omega = 2.0 * PI * frequency / _sampleRate;
-	double alpha = std::sin(omega) / (2.0 * FILTER_Q);
 	double cosine = std::cos(omega);
 
+	if (bandIndex + 1 == NUM_BANDS)
+	{
+		double alpha = std::sin(omega) / (2.0 * HIGH_SHELF_Q);
+		double beta = 2.0 * std::sqrt(A) * alpha;
+		double b0 = A * ((A + 1.0) + (A - 1.0) * cosine + beta);
+		double b1 = -2.0 * A * ((A - 1.0) + (A + 1.0) * cosine);
+		double b2 = A * ((A + 1.0) + (A - 1.0) * cosine - beta);
+		double a0 = (A + 1.0) - (A - 1.0) * cosine + beta;
+		double a1 = 2.0 * ((A - 1.0) - (A + 1.0) * cosine);
+		double a2 = (A + 1.0) - (A - 1.0) * cosine - beta;
+		coeffs.b0 = b0 / a0;
+		coeffs.b1 = b1 / a0;
+		coeffs.b2 = b2 / a0;
+		coeffs.a1 = a1 / a0;
+		coeffs.a2 = a2 / a0;
+		return;
+	}
+
+	double alpha = std::sin(omega) / (2.0 * FILTER_Q);
 	double b0 = 1.0 + alpha * A;
 	double b1 = -2.0 * cosine;
 	double b2 = 1.0 - alpha * A;
