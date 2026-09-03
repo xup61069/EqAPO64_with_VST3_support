@@ -1,9 +1,11 @@
-# Loudness Correction for Equalizer APO
+# Equalizer APO 響度校正更新
 
-[繁體中文](README_zh-TW.md)
+[繁體中文完整說明](README_zh-TW.md) · English documentation below
 
 [![Build](https://github.com/xup61069/loudness-correction-apo/actions/workflows/build.yml/badge.svg)](https://github.com/xup61069/loudness-correction-apo/actions/workflows/build.yml)
 [![Latest release](https://img.shields.io/github/v/release/xup61069/loudness-correction-apo)](https://github.com/xup61069/loudness-correction-apo/releases/latest)
+
+**Current release: v3.0.5.** It combines the verified v3.0.4 loudness-correction runtime with a new Windows-native interface. `ReferenceOffset`, Single/Global volume binding, recovery behavior, and the protected 1–19 Hz path retain their v3.0.4 behavior.
 
 This repository is a direct Windows x64 fork of [Mixomo/EqAPO64_with_VST3_support](https://github.com/Mixomo/EqAPO64_with_VST3_support). It retains the system-wide double-precision audio pipeline and x64 VST2/VST3 audio-effect workflow, and adds or maintains formula-based loudness correction, calibration tools, and a Traditional Chinese interface.
 
@@ -15,6 +17,14 @@ The linked source repository name appears here only for attribution; it is not t
 
 > This installer replaces an existing Equalizer APO installation in place. It uses the same default installation directory and registry locations and cannot be installed side by side with the upstream release. Back up `config` and any locally installed plug-ins before installing, upgrading, or downgrading.
 
+## What's new in v3.0.5
+
+- A responsive Windows-native interface now covers Configuration Editor, Device Selector, device testing, and Update Checker, including Windows display scaling, large-text layouts, keyboard access, screen-reader labels, and translated status feedback.
+- Configuration Editor now provides quick access for opening profiles, duplicate/rename/import/export commands, per-device editor links, filter search, audible A/B comparison, temporary whole-profile bypass, live workspace status, and optional notification-area controls. Profile access and device links only choose the file shown in the editor; the APO still starts at `config.txt`.
+- Audible A/B and bypass operations use a persistent recovery journal. Normal profile changes or exit restore the saved audio state; after interruption, the editor verifies the recorded file contents before offering recovery and does not silently overwrite unrelated external edits.
+- Device testing now presents clearer progress and results. If cancellation arrives after a fallback registration transaction has begun, the test finishes that transaction and its required Windows audio-service restart before returning control.
+- The audio engine remains the v3.0.4 implementation: saved `ReferenceOffset` values affect analysis and runtime output, `Binding Single` follows the actual APO playback endpoint, `Binding All` follows the Windows default Multimedia playback endpoint, and settled 1–19 Hz output is not pulled down by correction-branch headroom.
+
 ## Requirements
 
 - Windows 10 version 1809 or later, or Windows 11, on x64 hardware. The release does not include x86 or ARM64 installers. This minimum follows the bundled [Qt 6.10 Windows requirements](https://doc.qt.io/qt-6.10/supported-platforms.html).
@@ -25,7 +35,7 @@ The linked source repository name appears here only for attribution; it is not t
 
 ## Download and verification
 
-> **Do not use v3.0.0.** It has been superseded by v3.0.2 and later releases. Always install the [latest GitHub release](https://github.com/xup61069/loudness-correction-apo/releases/latest).
+> **Recommended: v3.0.5 or the latest newer release.** Download it only from this repository's [GitHub Releases](https://github.com/xup61069/loudness-correction-apo/releases/latest). Do not use v3.0.0; it has been superseded.
 
 If v3.0.2 says that an interrupted installation could not be recovered, leave its recovery files in place and run v3.0.3 or later. The newer installer safely retires the corrupted v3.0.2 cleanup manifest while preserving any ambiguous `.old` backups; manual registry or `ProgramData` cleanup is not required.
 
@@ -50,6 +60,8 @@ Normal upgrades preserve `config` and a non-empty `VSTPlugins` directory, but a 
 
 Setup keeps a persistent recovery journal outside the application directory while replacing program files. If setup is interrupted after the old application tree has been saved, rerun the same or a newer installer; it restores the saved tree before beginning a new transaction. Do not manually delete the recovery data while an installation is incomplete.
 
+After a successful commit, cleanup can remain deferred while Windows still has an old audio file loaded. A recovery record showing `Pending=1` with `Phase=committed` does not by itself mean installation failed; the same or a newer installer will continue the verified cleanup later. Do not delete that recovery state manually.
+
 ## Quick start
 
 1. Open **Equalizer APO Configuration Editor** and select the playback endpoint you intend to use.
@@ -61,6 +73,40 @@ Setup keeps a persistent recovery journal outside the application directory whil
 
 The filter compensates for changes in perceived tonal balance as listening level changes. It is not track loudness normalization, a room-correction system, a hearing test, an automatic microphone measurement, or a limiter.
 
+### Choose the volume source
+
+| Listening setup | Choose | What it follows |
+|---|---|---|
+| Ordinary output, or each APO endpoint must track its own Windows volume | **Single endpoint** / `Binding Single` | The playback endpoint on which that APO instance is actually running. |
+| Every correction instance intentionally shares one Windows volume control | **Global (Windows default)** / `Binding All` | The current Windows default `eRender`/`eMultimedia` endpoint's master volume. |
+| Application gain, an analog amplifier, a speaker knob, or another control after the Windows endpoint represents the real level | **Manual volume** | The explicit `Volume` value you maintain. |
+
+For **VB-Audio Matrix**, use `Binding All` only when the Windows default Multimedia endpoint's master volume is deliberately the shared listening-volume control. If the virtual default stays fixed or muted, use `Binding Single` when the actual APO endpoint volume represents listening level, or use manual volume. `Binding All` does **not** install or apply APO processing to every endpoint; Device Selector controls installation, while `Binding` controls only the volume source used by loudness correction.
+
+## v3.0.5 interface and workflow
+
+The Configuration Editor, Device Selector, device-test dialog, and Update Checker follow Windows light, dark, accent-color, and high-contrast settings. Layout regression tests cover 100–200% display scaling, 150% text scaling, and all three color modes. This is a tested compatibility range, not an accessibility-certification claim.
+
+### Configuration profiles and search
+
+- The **Profile** list shows readable top-level `.txt` files in the Equalizer APO `config` directory and refreshes when that directory changes. Opening an item only opens it for editing. The audio engine still starts at `config.txt`; another profile affects audio only when `config.txt` or its `Include` chain references that file.
+- The **Profiles** menu can duplicate, rename, import, or export one `.txt` file. Import/export does not bundle files referenced through `Include`, VST plug-ins, or convolution impulses. `config.txt` cannot be renamed, and renaming another profile does not update `Include` statements in other files.
+- Search the current filter list with `Ctrl+F`; use `F3` and `Shift+F3` for the next and previous match, and `Esc` to clear the search.
+- **Link current profile to selected device** stores an editor convenience for the current Windows user. Selecting that device later opens the linked file in Configuration Editor. It does not install the APO, change routing or `Device:` commands, alter `config.txt`, or change loudness `Binding Single`/`Binding All`.
+
+### Audible A/B and temporary bypass
+
+1. Save the current profile, choose **Capture A**, make the B changes, and save them.
+2. Choose **Compare A** / **Return to B** to switch the actual saved file between the captured A and current B contents. The A snapshot belongs only to that profile and editor session.
+3. Choose **Bypass** or press `Ctrl+Shift+B` to temporarily comment every active command in the current `.txt`; choose **Restore audio** to restore it. This bypasses the entire file, not only loudness correction.
+
+A/B and bypass require a saved profile with no unsaved edits, cannot run at the same time, and only become audible when that file is in the active `config.txt`/`Include` chain. They temporarily write the profile and therefore use a separate editor recovery journal, distinct from the installer's recovery journal. Normal return, profile changes, or real exit restores the original state. After an interruption, the editor verifies file contents before recovery; if another program changed the file, it asks whether to restore the saved profile or keep the external changes instead of silently overwriting them.
+
+### Notification area and device testing
+
+- Enable **Settings → Keep running in the notification area** if closing the window should hide the editor. Its menu can show the editor, open profiles for editing, toggle Instant mode, bypass or restore the current profile, and exit. A real exit first restores any temporary A/B or bypass state.
+- Device Test can restart Windows Audio and try alternative APO registration modes after an initial failure, so audio may be interrupted more than once. Cancelling is cooperative: if a fallback registration transaction has begun, the dialog finishes that transaction and its required Windows Audio restart rather than leaving a half-applied device state.
+
 ## Loudness-correction behavior
 
 The engine evaluates a 29-point formula parameter table from 20 Hz through 12.5 kHz and fits the representable points to up to 29 Q=3 peaking filters. At lower sample rates, center frequencies above 90% of Nyquist are omitted. A fixed 28th-order Linkwitz-Riley crossover forms the common uncorrected `A = L + H` domain, while the fitted correction is applied only to the high-pass contribution. In native extreme-case tests, the settled A-domain magnitude from 1-19 Hz remains within 0.01 dB of unity without inheriting the correction branch's headroom attenuation. The 0.01 dB figure is a settled-magnitude guarantee; the cold raw-to-A handoff may change phase and is governed instead by a one-sample output-step bound. On initialization, the filter outputs the raw input for at least 1.0 s while building crossover history. It then moves each channel into A only at a sampled raw/A crossing whose handoff step is no greater than the larger of the two signals' natural one-sample steps. There is deliberately no timeout: if a safe crossing does not occur, the affected channel remains uncorrected and correction is not enabled. After every channel has entered A, the correction bank warms silently for 250 ms and fades in over 100 ms. Later volume-driven coefficient changes reuse the live crossover history and crossfade between preallocated banks in the A domain over 100 ms.
@@ -71,7 +117,9 @@ The current estimated level is:
 clamp(ReferenceLevel + Volume - ReferenceOffset, 0, 100)
 ```
 
-`Volume` is either the selected Windows playback endpoint's current level in dB or the explicit manual value. The fitted response is relative to `ReferenceLevel`, so correction is neutral at the reference contour when `Volume` and `ReferenceOffset` are both zero.
+`Volume` is either the source chosen by `Binding` (`Single` = this APO instance's actual playback endpoint; `All` = the Windows default Multimedia playback endpoint) or the explicit manual value. The fitted response is relative to `ReferenceLevel`, so correction is neutral at the reference contour when `Volume` and `ReferenceOffset` are both zero.
+
+For example, with `ReferenceLevel 80` and `Volume -30`, `ReferenceOffset 0` estimates 50 phon. Changing the offset to `+10` estimates 40 phon and requests stronger low-level compensation; changing it to `-10` estimates 60 phon and requests less. The result is clamped to 0–100 phon. Since v3.0.4, saved offset changes appear immediately in offline analysis; an unavailable automatic volume source still fails closed and remains bypassed.
 
 ### Parameters
 
@@ -100,7 +148,7 @@ The UI permits a 1–100 phon reference and the runtime clamps the calculated cu
 Automatic mode has two explicit bindings:
 
 - **Single endpoint** (`Binding Single`) follows the actual playback endpoint on which that APO instance is running. It never falls back to the Windows default or another device. Use this for ordinary physical outputs and whenever each endpoint must follow its own volume.
-- **Global (Windows default)** (`Binding All`) makes every loudness-correction instance follow the master volume of the current Windows default `eRender`/`eMultimedia` endpoint. Use it for a Matrix-style routing graph only when that default master volume is the intended shared control. If the virtual default is muted, fixed at its minimum, or is not the control that represents listening level, use `Binding Single` or manual volume instead. The controller checks the default identity at least once every two seconds; after it detects a change, it discards the old endpoint before binding the new one. A failed rebind fails closed through the 10 ms behavior below instead of returning to the old endpoint.
+- **Global (Windows default)** (`Binding All`) makes every loudness-correction instance follow the master volume of the current Windows default `eRender`/`eMultimedia` endpoint. Use it for VB-Audio Matrix or another Matrix-style routing graph only when that default master volume is the intended shared control. If the virtual default is muted, fixed at its minimum, or is not the control that represents listening level, use `Binding Single` or manual volume instead. The controller checks the default identity at least once every two seconds; after it detects a change, it discards the old endpoint before binding the new one. A failed rebind fails closed through the 10 ms behavior below instead of returning to the old endpoint.
 
 If the required endpoint disappears, is replaced but cannot be rebound, or its volume cannot be read, automatic correction fails closed. Before the cold handoff, output remains raw. Once the A domain is active, only the correction residual is faded to the uncorrected `A = L + H` path over 10 ms. After the configured source recovers, the target bank warms silently for 250 ms and correction fades back in over 100 ms; if the cold handoff is still pending, recovery remains uncorrected until that handoff is safe. `Binding Single` remains bypassed when Windows cannot identify a playback APO context. `Binding All` preserves the original Mixomo behavior by reading the default `eRender`/`eMultimedia` endpoint directly, independently of the current APO's endpoint metadata.
 
@@ -138,7 +186,7 @@ Adding `Volume -38.0` selects manual mode:
 LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0
 ```
 
-For a Matrix-style graph whose Windows default Multimedia master volume is the shared control, use `Binding All` and omit `Volume`:
+For VB-Audio Matrix or another Matrix-style graph whose Windows default Multimedia master volume is the shared control, use `Binding All` and omit `Volume`:
 
 ```text
 LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding All State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0
@@ -183,6 +231,8 @@ Selecting automatic update checks during setup creates a scheduled task that run
 
 Running the installer again with the option left unchecked removes that scheduled task. You can also use the Start menu **Check for updates** shortcut for a manual check. Release changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
+The v3.0.5 Update Checker can retry a failed check, skip the offered version, or open this repository's GitHub download page. It still never downloads or installs software automatically.
+
 ## Uninstall
 
 Use Windows **Installed apps** or the Start menu **Uninstall** shortcut. The uninstaller attempts to remove the update task, endpoint APO registrations, application files, and shortcuts; a restart may be required.
@@ -194,9 +244,13 @@ Configuration files and registry backups are preserved unless **Remove configura
 | Symptom | Check |
 |---|---|
 | No audible processing | Confirm the endpoint is enabled in Device Selector, the command is not commented out, and it contains `State 1`. Restart the Windows audio service or reboot after device-registration changes. |
-| Loudness correction remains flat | Check that `Attenuation` is above zero and that the current level differs from the reference contour. |
+| Loudness correction remains flat, or `ReferenceOffset` seems ineffective | Confirm the saved command has `State 1`, `Attenuation` is above zero, and the estimated level differs from the reference contour without being pinned at the 0/100 clamp. An unavailable automatic source fails closed. v3.0.5 includes the v3.0.4 analysis fix, so a saved offset change should move the displayed curve immediately when the filter is available. |
 | Automatic volume is unavailable or stuck at the floor | For per-device tracking, use `Binding Single` on a readable, identified playback endpoint. Use `Binding All` only if the Windows default Multimedia master volume is the intended shared control; a muted or fixed Matrix endpoint requires `Binding Single` or manual volume. Global mode does not require metadata for the current APO endpoint. |
 | The wrong endpoint volume is followed | Use `Binding Single` to follow the APO's actual endpoint. Use `Binding All` only when every instance should deliberately share the Windows default Multimedia volume. |
+| A device-linked profile opens but does not affect audio | Device links only open files in Configuration Editor. Ensure `config.txt` or its `Include` chain references that profile; use Device Selector for APO installation and the loudness filter's `Binding` control for its volume source. |
+| A/B or bypass is unavailable | Save the profile first and clear unsaved edits. The profile must be in the active `config.txt`/`Include` chain for an audible result, and A/B and bypass cannot be active together. |
+| The editor offers temporary-state recovery | Another session ended while A/B or bypass had temporarily written a profile. Restore the saved profile only if it should replace the current file; otherwise keep the external changes. Do not delete the recovery record manually. |
+| Device Test takes time to close after cancellation | A fallback registration transaction may already be in progress. Let it finish the required registration and Windows Audio restart; force-closing it can leave the device state incomplete. |
 | Calibration is blocked | Make the selected endpoint the Windows default Console playback device and confirm its volume is readable. With `Binding All`, it must also be the default Multimedia device. Then reopen calibration. |
 | Calibration does not follow a hardware knob | Use manual volume and update it when the analog gain changes; Windows cannot observe that knob. |
 | A VST plug-in cannot load | Use an x64 audio-effect plug-in and ensure the audio service account can read the plug-in and its external files. |
@@ -218,6 +272,7 @@ Set-Location .\loudness-correction-apo
 python -m unittest discover -s .\tests -p "test_*.py" -v
 .\scripts\build-installer-x64.ps1 -Configuration Release
 .\scripts\test-runtime-loudness.ps1 -Configuration Release
+.\scripts\capture-ui-regression.ps1 -Configuration Release
 git diff --check
 ```
 

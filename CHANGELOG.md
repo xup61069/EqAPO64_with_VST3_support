@@ -3,8 +3,9 @@
 ## 3.0.5
 
 - Added a Windows-native, responsive desktop interface across Configuration Editor, Device Selector, device testing, and Update Checker, with improved high-DPI scaling, keyboard access, screen-reader labels, and translated status feedback.
-- Added profile switching, duplication, import/export, device links, temporary bypass, A/B comparison, and tray controls to Configuration Editor while retaining the v3.0.4 loudness-correction runtime and endpoint-binding behavior.
+- Added quick profile access, duplication, import/export, editor-only device links, temporary bypass, A/B comparison, and tray controls to Configuration Editor while retaining the v3.0.4 loudness-correction runtime and endpoint-binding behavior.
 - Improved dense filter editors and plots for small windows and large text, and added automated UI layout and regression checks.
+- Made Device Test cancellation finish any fallback registration transaction and required Windows audio-service restart already in progress, avoiding a half-applied endpoint state.
 
 ## 3.0.4
 
