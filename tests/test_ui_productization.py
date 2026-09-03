@@ -727,7 +727,23 @@ class UiProductizationTests(unittest.TestCase):
             worker.count(
                 'if (!ServiceHelper::restartService(L"AudioSrv", interruptionRequested))'
             ),
-            2,
+            1,
+        )
+        fallback_start = worker.index("if (!remainingDevices.isEmpty())")
+        fallback_guard = worker.rfind(
+            "if (isInterruptionRequested())", 0, fallback_start
+        )
+        fallback_end = worker.index("catch (ReceiveException", fallback_start)
+        fallback = worker[fallback_start:fallback_end]
+        self.assertGreater(fallback_guard, worker.index("thread.waitUntil(timeout)"))
+        self.assertLess(fallback_guard, fallback_start)
+        self.assertIn('ServiceHelper::restartService(L"AudioSrv");', fallback)
+        self.assertNotIn(
+            'restartService(L"AudioSrv", interruptionRequested)', fallback
+        )
+        self.assertLess(
+            fallback.index("testInfo->deviceInfo->reinstall();"),
+            fallback.index('ServiceHelper::restartService(L"AudioSrv");'),
         )
         self.assertIn("return isInterruptionRequested();", worker)
         self.assertGreaterEqual(

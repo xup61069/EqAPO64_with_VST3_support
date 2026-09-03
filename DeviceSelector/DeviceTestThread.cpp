@@ -171,6 +171,12 @@ void DeviceTestThread::run()
 				}
 			}
 
+			// Cancellation is still safe before changing any device registration.
+			// Once the fallback transaction starts, it must reach the audio-service
+			// restart below so a partial registration change is never left unapplied.
+			if (isInterruptionRequested())
+				return;
+
 			if (!remainingDevices.isEmpty())
 			{
 				emit logError(tr("Check failed for %n device(s).", nullptr, remainingDevices.size()));
@@ -232,8 +238,7 @@ void DeviceTestThread::run()
 				try
 				{
 					emit log(tr("Restarting audio service..."));
-					if (!ServiceHelper::restartService(L"AudioSrv", interruptionRequested))
-						return;
+					ServiceHelper::restartService(L"AudioSrv");
 				}
 				catch (ServiceException e)
 				{
