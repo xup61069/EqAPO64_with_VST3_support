@@ -20,6 +20,30 @@ def property_text(widget: ET.Element, name: str) -> str:
 
 
 class EditorSizeResilienceTests(unittest.TestCase):
+    def test_vst_row_omits_the_non_actionable_compatibility_wall(self) -> None:
+        source = (GUIS / "VSTPluginFilterGUI.cpp").read_text(encoding="utf-8")
+        ui = ET.parse(GUIS / "VSTPluginFilterGUI.ui").getroot()
+
+        self.assertNotIn(
+            "NOTE: The VST module is not universally compatible", source
+        )
+        self.assertNotIn("QLabel* note", source)
+        self.assertNotIn("grid->addWidget(note", source)
+        self.assertIn("updatePermissionWarning();", source)
+
+        permission_warning = source[
+            source.index("void VSTPluginFilterGUI::updatePermissionWarning") :
+        ]
+        self.assertIn("warningTextEdit->setPlainText", permission_warning)
+        self.assertIn("not readable by the audio service", permission_warning)
+
+        geometry_height = ui.findtext(
+            ".//widget[@name='VSTPluginFilterGUI']/property[@name='geometry']/rect/height"
+        )
+        self.assertIsNotNone(geometry_height)
+        self.assertLessEqual(int(geometry_height), 100)
+        self.assertIsNotNone(ui.find(".//widget[@name='warningTextEdit']"))
+
     def test_graphic_eq_clamps_persisted_and_dragged_table_width(self) -> None:
         header = (GUIS / "GraphicEQFilterGUI.h").read_text(encoding="utf-8")
         source = (GUIS / "GraphicEQFilterGUI.cpp").read_text(encoding="utf-8")
@@ -141,6 +165,29 @@ class EditorSizeResilienceTests(unittest.TestCase):
             property_text(channel_combo, "sizeAdjustPolicy"),
             "QComboBox::AdjustToMinimumContentsLengthWithIcon",
         )
+
+    def test_copy_panel_height_preferences_and_dragging_are_bounded(self) -> None:
+        source = (GUIS / "CopyFilterGUI.cpp").read_text(encoding="utf-8")
+
+        for token in (
+            "constexpr double DEFAULT_HEIGHT = 88.0",
+            "constexpr double MINIMUM_HEIGHT = 85.0",
+            "constexpr double MAXIMUM_HEIGHT = 360.0",
+            "double boundedLogicalHeight(double height)",
+            "std::isfinite(height)",
+            "toDouble(&validHeight)",
+            "!std::isfinite(storedHeight)",
+            "QSize(0, GUIHelper::scale(MAXIMUM_HEIGHT))",
+            "boundedScaledHeight(size.height())",
+            "boundedLogicalHeight(\n\t\tGUIHelper::invScale(ui->scrollArea->height()))",
+        ):
+            with self.subTest(height_contract=token):
+                self.assertIn(token, source)
+
+        self.assertIn(
+            "cornerWidget, 1, 1, Qt::AlignRight | Qt::AlignBottom", source
+        )
+        self.assertNotIn("ui->scrollArea->setCornerWidget(cornerWidget)", source)
 
 
 if __name__ == "__main__":

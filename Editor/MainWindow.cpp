@@ -23,6 +23,8 @@
 #include <limits>
 #include <QAction>
 #include <QAbstractScrollArea>
+#include <QAccessible>
+#include <QAccessibleWidget>
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDebug>
@@ -37,7 +39,6 @@
 #include <QMap>
 #include <QMenu>
 #include <QMimeData>
-#include <QProgressBar>
 #include <QPushButton>
 #include <QScopedValueRollback>
 #include <QSignalBlocker>
@@ -116,6 +117,64 @@ static void setStatusLevel(QLabel* label, const char* level)
 	label->style()->unpolish(label);
 	label->style()->polish(label);
 	label->update();
+}
+
+class AnalysisStatusAccessible : public QAccessibleWidget
+{
+public:
+	explicit AnalysisStatusAccessible(QWidget* widget)
+		: QAccessibleWidget(widget, QAccessible::StaticText)
+	{
+	}
+
+	QAccessible::State state() const override
+	{
+		QAccessible::State accessibleState = QAccessibleWidget::state();
+		QObject* target = object();
+		accessibleState.busy = target != NULL
+			&& target->property("analysisBusy").toBool();
+		return accessibleState;
+	}
+};
+
+static QAccessibleInterface* createAnalysisStatusAccessible(
+	const QString&, QObject* object)
+{
+	QLabel* label = qobject_cast<QLabel*>(object);
+	if (label == NULL
+		|| label->objectName() != QStringLiteral("analysisStateLabel"))
+		return NULL;
+	return new AnalysisStatusAccessible(label);
+}
+
+static void ensureAnalysisStatusAccessibility()
+{
+	static const bool installed = []() {
+		QAccessible::installFactory(createAnalysisStatusAccessible);
+		return true;
+	}();
+	Q_UNUSED(installed);
+}
+
+static void setAnalysisStatus(
+	QLabel* label, const QString& text, const char* level, bool busy)
+{
+	if (label == NULL)
+		return;
+
+	const bool busyChanged = label->property("analysisBusy").toBool() != busy;
+	label->setText(text);
+	label->setAccessibleDescription(text);
+	label->setProperty("analysisBusy", busy);
+	setStatusLevel(label, level);
+
+	if (busyChanged && QAccessible::isActive())
+	{
+		QAccessible::State changedState;
+		changedState.busy = true;
+		QAccessibleStateChangeEvent event(label, changedState);
+		QAccessible::updateAccessibility(&event);
+	}
 }
 
 static QByteArray serializeConfigurationLines(const QList<QString>& lines)
@@ -684,6 +743,8 @@ MainWindow::MainWindow(QDir configDir, QWidget* parent)
 		SLOT(resetView()));
 	resize(GUIHelper::scale(QSize(1024, 768)));
 	ui->mainToolBar->setIconSize(GUIHelper::scale(QSize(19, 19)));
+	ui->mainToolBar->setMovable(false);
+	ui->mainToolBar->setFloatable(false);
 	ui->tabWidget->setElideMode(Qt::ElideMiddle);
 	ui->gridLayout->setContentsMargins(
 		GUIHelper::scale(9),
@@ -811,16 +872,13 @@ MainWindow::MainWindow(QDir configDir, QWidget* parent)
 	headroomValueLabel = new QLabel(QStringLiteral("—"), ui->groupBox_2);
 	headroomValueLabel->setObjectName(QStringLiteral("headroomValueLabel"));
 	headroomValueLabel->setAccessibleName(tr("Estimated headroom"));
-	headroomMeter = new QProgressBar(ui->groupBox_2);
-	headroomMeter->setObjectName(QStringLiteral("headroomMeter"));
-	headroomMeter->setRange(0, 120);
-	headroomMeter->setValue(0);
-	headroomMeter->setTextVisible(false);
-	headroomMeter->setAccessibleName(tr("Estimated headroom meter"));
+	ensureAnalysisStatusAccessibility();
 	analysisStateLabel = new QLabel(tr("Waiting for analysis"), ui->groupBox_2);
 	analysisStateLabel->setObjectName(QStringLiteral("analysisStateLabel"));
 	analysisStateLabel->setWordWrap(true);
-	analysisStateLabel->setProperty("statusLevel", "normal");
+	analysisStateLabel->setAccessibleName(tr("Analysis status"));
+	setAnalysisStatus(
+		analysisStateLabel, analysisStateLabel->text(), "normal", false);
 	autoPreampButton = new QPushButton(
 		tr("Auto preamp (current ≤ 0 dB)"), ui->groupBox_2);
 	autoPreampButton->setObjectName(QStringLiteral("autoPreampButton"));
@@ -834,9 +892,8 @@ MainWindow::MainWindow(QDir configDir, QWidget* parent)
 		&MainWindow::lowerPreampToPreventClipping);
 	ui->gridLayout_4->addWidget(headroomLabel, 4, 0);
 	ui->gridLayout_4->addWidget(headroomValueLabel, 4, 1);
-	ui->gridLayout_4->addWidget(headroomMeter, 5, 0, 1, 2);
-	ui->gridLayout_4->addWidget(analysisStateLabel, 6, 0, 1, 2);
-	ui->gridLayout_4->addWidget(autoPreampButton, 7, 0, 1, 2);
+	ui->gridLayout_4->addWidget(analysisStateLabel, 5, 0, 1, 2);
+	ui->gridLayout_4->addWidget(autoPreampButton, 6, 0, 1, 2);
 
 	analysisThread = new AnalysisThread;
 	analysisThread->start();
@@ -1031,6 +1088,24 @@ void MainWindow::setupWorkspaceTools()
 	connect(profileWatcher, &QFileSystemWatcher::directoryChanged, this, [this](const QString&) {
 		refreshProfiles();
 	});
+}
+
+void MainWindow::normalizeToolbarLayout()
+{
+	if (workspaceToolBar == NULL)
+		return;
+
+	// Older saved QMainWindow state can merge the workspace toolbar back into
+	// the device toolbar and push search/comparison actions out of view. Keep
+	// dock state restoration, but make the two non-movable toolbar rows stable.
+	const bool toolbarHidden = ui->mainToolBar->isHidden();
+	addToolBar(Qt::TopToolBarArea, ui->mainToolBar);
+	addToolBar(Qt::TopToolBarArea, workspaceToolBar);
+	removeToolBarBreak(workspaceToolBar);
+	insertToolBarBreak(workspaceToolBar);
+	ui->mainToolBar->setVisible(!toolbarHidden);
+	workspaceToolBar->setVisible(!toolbarHidden);
+	ui->actionToolbar->setChecked(!toolbarHidden);
 }
 
 void MainWindow::setupTrayIcon()
@@ -3335,16 +3410,11 @@ void MainWindow::updateAnalysisPanel()
 		ui->latencyValueLabel->setText(QStringLiteral("—"));
 		ui->initTimeValueLabel->setText(QStringLiteral("—"));
 		ui->cpuUsageValueLabel->setText(QStringLiteral("—"));
-		if (analysisStateLabel != NULL)
-		{
-			analysisStateLabel->setText(tr("Analysis is unavailable for the selected device"));
-			setStatusLevel(analysisStateLabel, "warning");
-		}
-		if (headroomMeter != NULL)
-		{
-			headroomMeter->setRange(0, 120);
-			headroomMeter->setValue(0);
-		}
+		setAnalysisStatus(
+			analysisStateLabel,
+			tr("Analysis is unavailable for the selected device"),
+			"warning",
+			false);
 		if (headroomValueLabel != NULL)
 		{
 			headroomValueLabel->setText(QStringLiteral("—"));
@@ -3370,23 +3440,12 @@ void MainWindow::updateAnalysisPanel()
 			headroomValueLabel->setText(tr("%0 dB").arg(headroom, 0, 'f', 1));
 			setStatusLevel(headroomValueLabel, peakGain > 0 ? "danger" : "normal");
 		}
-		if (headroomMeter != NULL)
-		{
-			headroomMeter->setRange(0, 120);
-			headroomMeter->setValue(qBound(0, qRound(headroom * 10.0), 120));
-			headroomMeter->setAccessibleDescription(tr("%0 dB of estimated headroom").arg(headroom, 0, 'f', 1));
-		}
 	}
 	else
 	{
 		ui->peakGainValueLabel->setText(QStringLiteral("—"));
 		if (headroomValueLabel != NULL)
 			headroomValueLabel->setText(QStringLiteral("—"));
-		if (headroomMeter != NULL)
-		{
-			headroomMeter->setRange(0, 120);
-			headroomMeter->setValue(0);
-		}
 	}
 
 	ui->latencyValueLabel->setText(tr("%0 ms (%1 s.)").arg(latency * 1000.0 / sampleRate, 0, 'f', 1).arg(latency));
@@ -3407,20 +3466,23 @@ void MainWindow::updateAnalysisPanel()
 	{
 		ui->cpuUsageValueLabel->setText(QStringLiteral("—"));
 	}
-	if (analysisStateLabel != NULL)
+	if (!std::isfinite(peakGain))
 	{
-		if (!std::isfinite(peakGain))
-		{
-			analysisStateLabel->setText(tr("Analysis is unavailable for the selected device"));
-			setStatusLevel(analysisStateLabel, "warning");
-		}
-		else
-		{
-			analysisStateLabel->setText(peakGain > 0
+		setAnalysisStatus(
+			analysisStateLabel,
+			tr("Analysis is unavailable for the selected device"),
+			"warning",
+			false);
+	}
+	else
+	{
+		setAnalysisStatus(
+			analysisStateLabel,
+			peakGain > 0
 				? tr("Clipping risk detected · lower preamp gain")
-				: tr("Response analysis is up to date"));
-			setStatusLevel(analysisStateLabel, peakGain > 0 ? "danger" : "normal");
-		}
+				: tr("Response analysis is up to date"),
+			peakGain > 0 ? "danger" : "normal",
+			false);
 	}
 
 	analysisThread->endGetResult();
@@ -3776,6 +3838,11 @@ bool MainWindow::snapshotLayoutIsValid() const
 	const bool restoredToolsScenario = UiSnapshot::scenario() == QStringLiteral("restored-tools");
 	if (!denseScenario && !restoredToolsScenario)
 		return true;
+	if (workspaceToolBar == NULL
+		|| toolBarArea(ui->mainToolBar) != Qt::TopToolBarArea
+		|| toolBarArea(workspaceToolBar) != Qt::TopToolBarArea
+		|| !toolBarBreak(workspaceToolBar))
+		return false;
 
 	QScrollArea* scrollArea = qobject_cast<QScrollArea*>(
 		ui->tabWidget->currentWidget());
@@ -3986,13 +4053,11 @@ void MainWindow::startAnalysis()
 		return;
 	if (!ui->analysisDockWidget->isVisible())
 		return;
-	if (analysisStateLabel != NULL)
-	{
-		analysisStateLabel->setText(tr("Analyzing the current signal path…"));
-		setStatusLevel(analysisStateLabel, "normal");
-	}
-	if (headroomMeter != NULL)
-		headroomMeter->setRange(0, 0);
+	setAnalysisStatus(
+		analysisStateLabel,
+		tr("Analyzing the current signal path…"),
+		"normal",
+		true);
 
 	shared_ptr<AbstractAPOInfo> selectedDevice;
 
@@ -4043,16 +4108,11 @@ void MainWindow::startAnalysis()
 	}
 	else
 	{
-		if (analysisStateLabel != NULL)
-		{
-			analysisStateLabel->setText(tr("Select an installed playback device to run analysis"));
-			setStatusLevel(analysisStateLabel, "warning");
-		}
-		if (headroomMeter != NULL)
-		{
-			headroomMeter->setRange(0, 120);
-			headroomMeter->setValue(0);
-		}
+		setAnalysisStatus(
+			analysisStateLabel,
+			tr("Select an installed playback device to run analysis"),
+			"warning",
+			false);
 	}
 }
 
@@ -4143,6 +4203,7 @@ void MainWindow::loadPreferences()
 	QVariant stateValue = settings.value("windowState");
 	if (stateValue.isValid())
 		restoreState(stateValue.toByteArray());
+	normalizeToolbarLayout();
 }
 
 void MainWindow::savePreferences()

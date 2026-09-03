@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.0.6
+
+- Fixed committed installer cleanup so its protected rename manifest remains open on a dedicated handle while old application-file identities are checked. This prevents the first identity check from corrupting the manifest handle or installation-path containment prefix and leaving a false interrupted-installation record.
+- Added regression coverage for the handle lifetime and containment state used across multi-record cleanup. Existing committed v3.0.5 journals are resumed without rollback; ambiguous `.old` files remain untouched.
+- Restored the intended two-row editor toolbar after loading older saved window states, preventing profile controls from hiding search, comparison, and bypass actions.
+- Reduced dense filter-row height by removing the permanent VST compatibility notice, moving the repeated local IR/FIR notice into accessible help, showing manual FIR matching only when it is actionable, and bounding saved Copy-panel heights.
+- Replaced the analysis loading bar with a compact text status while retaining numeric headroom, busy-state accessibility, and Auto preamp availability feedback.
+- Includes the v3.0.5 Auto preamp command, which performs a fresh identity-bound analysis and can only reduce gain so the current estimated peak does not exceed 0 dB.
+
 ## 3.0.5
 
 - Ported the complete Mixomo `exp` feature code onto this fork rather than using its reduced, outdated `main` tree, retaining native audio tools, Parametric EQ, user-supplied headphone calibration and convolution/IR workflows, VST3 class selection, and the experimental out-of-process VST host.

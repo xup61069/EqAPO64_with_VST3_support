@@ -244,6 +244,10 @@ ConvolutionFilterGUI::ConvolutionFilterGUI(const QString& configPath, unsigned d
 	bundledIrButton = new QToolButton(this);
 	bundledIrButton->setText(tr("Local IR/FIR"));
 	bundledIrButton->setPopupMode(QToolButton::InstantPopup);
+	const QString bundledIrDescription = tr("Local IR/FIR files are loaded from the config/IRs folder. Use only files that you are licensed to use.");
+	bundledIrButton->setToolTip(bundledIrDescription);
+	bundledIrButton->setAccessibleName(tr("Local IR/FIR"));
+	bundledIrButton->setAccessibleDescription(bundledIrDescription);
 	ui->gridLayout->addWidget(new QLabel(tr("Local IR/FIR:"), this), 1, 0);
 
 	QWidget* bundledIrNavWidget = new QWidget(this);
@@ -261,10 +265,6 @@ ConvolutionFilterGUI::ConvolutionFilterGUI(const QString& configPath, unsigned d
 	bundledIrNavLayout->addWidget(nextBundledIrButton);
 	bundledIrNavLayout->addStretch(1);
 	ui->gridLayout->addWidget(bundledIrNavWidget, 1, 1, 1, 3);
-
-	QLabel* bundledIrCreditLabel = new QLabel(tr("Local IR/FIR files are loaded from the config/IRs folder. Use only files that you are licensed to use."), this);
-	bundledIrCreditLabel->setWordWrap(true);
-	ui->gridLayout->addWidget(bundledIrCreditLabel, 2, 0, 1, 4);
 	populateBundledImpulseResponses();
 
 	connect(ui->matchSampleRatePushButton, &QPushButton::clicked, this, [this]() { matchDeviceSampleRate(true); });
@@ -666,6 +666,7 @@ bool ConvolutionFilterGUI::matchDeviceSampleRate(bool interactive)
 void ConvolutionFilterGUI::updateFileInfo()
 {
 	bool labelsVisible = true;
+	bool matchedFirActionVisible = false;
 	QString error = "";
 	const unsigned currentDeviceSampleRate = refreshDeviceSampleRate();
 	if (currentDeviceSampleRate != 0)
@@ -718,16 +719,22 @@ void ConvolutionFilterGUI::updateFileInfo()
 				else
 				{
 					int sampleRate = info.samplerate;
-					double length = info.frames * 1000.0 / sampleRate;
-
-					ui->labelLengthValue->setText(tr("%0 ms (%1 samples)").arg(length).arg(info.frames));
-					ui->labelSampleRateValue->setText(tr("%0 Hz").arg(sampleRate));
 					sf_close(file);
 
-					if (sampleRate != deviceSampleRate)
+					if (sampleRate <= 0 || info.frames <= 0)
 					{
-						error = tr("The loaded IR/FIR sample rate does not match the current device sample rate (%0 Hz). Creating a matched, normalized FIR...").arg(deviceSampleRate);
-						if (!autoMatchingSampleRate)
+						error = tr("The IR/FIR file has invalid metadata.");
+						labelsVisible = false;
+					}
+					else
+					{
+						const double length = info.frames * 1000.0 / sampleRate;
+						ui->labelLengthValue->setText(tr("%0 ms (%1 samples)").arg(length).arg(info.frames));
+						ui->labelSampleRateValue->setText(tr("%0 Hz").arg(sampleRate));
+
+						const bool sampleRateMismatch = deviceSampleRate != 0
+							&& sampleRate != static_cast<int>(deviceSampleRate);
+						if (sampleRateMismatch && !autoMatchingSampleRate)
 						{
 							autoMatchingSampleRate = true;
 							const bool matched = matchDeviceSampleRate(false);
@@ -735,6 +742,11 @@ void ConvolutionFilterGUI::updateFileInfo()
 							if (matched)
 								return;
 							error = tr("The loaded IR/FIR sample rate does not match the current device sample rate (%0 Hz), and automatic matching failed. Export a native FIR from GraphicEQ or choose a matching IR/FIR.").arg(deviceSampleRate);
+							matchedFirActionVisible = true;
+						}
+						else if (deviceSampleRate == 0)
+						{
+							error = tr("Could not determine the current device sample rate. Automatic matching is unavailable.");
 						}
 					}
 				}
@@ -748,4 +760,6 @@ void ConvolutionFilterGUI::updateFileInfo()
 	ui->labelSampleRateValue->setVisible(labelsVisible);
 	ui->labelError->setVisible(error.length() > 0);
 	ui->labelError->setText(error);
+	ui->matchSampleRatePushButton->setVisible(matchedFirActionVisible);
+	ui->matchSampleRatePushButton->setEnabled(matchedFirActionVisible);
 }

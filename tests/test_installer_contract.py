@@ -365,9 +365,13 @@ class InstallerContractTests(unittest.TestCase):
         self.assertIn('${GetParent} "$RenameIdentityPath" $4', cleanup_body)
         self.assertIn('${GetFileName} "$RenameIdentityPath" $9', cleanup_body)
         self.assertIn('GetFullPathName $4 "$4"', cleanup_body)
-        self.assertIn('StrCpy $6 "$5\\"', cleanup_body)
+        self.assertIn(
+            'StrCpy $RenameCleanupInstallPrefix "$5\\"', cleanup_body
+        )
         self.assertIn('StrCpy $8 "$4" $7', cleanup_body)
-        self.assertIn('${If} $8 == "$6"', cleanup_body)
+        self.assertIn(
+            '${If} $8 == "$RenameCleanupInstallPrefix"', cleanup_body
+        )
         self.assertIn("ERROR_FILE_NOT_FOUND", cleanup_body)
         self.assertIn("ERROR_PATH_NOT_FOUND", cleanup_body)
         self.assertIn("Call DeleteRenameFileByIdentity", cleanup_body)
@@ -467,7 +471,7 @@ class InstallerContractTests(unittest.TestCase):
             "Call FlushRenameCleanupJournal", marker_readback
         )
         manifest_open = cleanup_body.index(
-            'FileOpen $0 "$RenameManifestPath" r', marker_flush
+            'FileOpen $RenameManifestHandle "$RenameManifestPath" r', marker_flush
         )
         identity_delete = cleanup_body.index(
             "Call DeleteRenameFileByIdentity", manifest_open
@@ -476,6 +480,28 @@ class InstallerContractTests(unittest.TestCase):
         self.assertLess(marker_readback, marker_flush)
         self.assertLess(marker_flush, manifest_open)
         self.assertLess(manifest_open, identity_delete)
+        self.assertIn(
+            'FileReadUTF16LE $RenameManifestHandle $1', cleanup_body
+        )
+        manifest_close = cleanup_body.index(
+            'Call CloseRenameManifest', identity_delete
+        )
+        self.assertLess(identity_delete, manifest_close)
+        self.assertNotIn('FileOpen $0 "$RenameManifestPath" r', cleanup_body)
+        self.assertNotIn('FileReadUTF16LE $0 $1', cleanup_body)
+        self.assertNotIn('FileClose $0', cleanup_body)
+        self.assertIn(
+            'StrCpy $RenameCleanupInstallPrefix "$5\\"', cleanup_body
+        )
+        self.assertIn(
+            'StrLen $7 "$RenameCleanupInstallPrefix"', cleanup_body
+        )
+        self.assertIn(
+            '${If} $8 == "$RenameCleanupInstallPrefix"', cleanup_body
+        )
+        self.assertNotIn('StrCpy $6 "$5\\"', cleanup_body)
+        self.assertNotIn('StrLen $7 "$6"', cleanup_body)
+        self.assertNotIn('${If} $8 == "$6"', cleanup_body)
 
     def test_legacy_v302_rename_manifest_is_retired_without_guessing_paths(self) -> None:
         self.assertIn("!define INSTALL_RECOVERY_JOURNAL_VERSION 2", SETUP_SOURCE)
@@ -550,7 +576,27 @@ class InstallerContractTests(unittest.TestCase):
         )
         self.assertIn("second-line-is-deliberately-longer", MANIFEST_HARNESS_SOURCE)
         self.assertIn("路徑-🔊-z", MANIFEST_HARNESS_SOURCE)
-        self.assertIn("FileReadUTF16LE $ReadHandle $ReadLine", MANIFEST_HARNESS_SOURCE)
+        self.assertIn(
+            "FileReadUTF16LE $RenameManifestHandle $ReadLine",
+            MANIFEST_HARNESS_SOURCE,
+        )
+        first_read = MANIFEST_HARNESS_SOURCE.index(
+            '!insertmacro ReadHarnessLine "first" 21'
+        )
+        clobber = MANIFEST_HARNESS_SOURCE.index(
+            "Call ClobberIdentityScratchRegisters", first_read
+        )
+        second_read = MANIFEST_HARNESS_SOURCE.index(
+            '!insertmacro ReadHarnessLine "second-line-is-deliberately-longer" 22',
+            clobber,
+        )
+        self.assertLess(first_read, clobber)
+        self.assertLess(clobber, second_read)
+        self.assertIn(
+            'StrCpy $RenameCleanupInstallPrefix "$PLUGINSDIR\\"',
+            MANIFEST_HARNESS_SOURCE,
+        )
+        self.assertIn('Delete "$ManifestPath"', MANIFEST_HARNESS_SOURCE)
 
         harness_call = INSTALLER_BUILD_SCRIPT.index(
             "scripts\\test-installer-recovery-manifest.ps1"
@@ -888,7 +934,9 @@ class InstallerContractTests(unittest.TestCase):
         parent = cleanup_body.index('${GetParent} "$RenameIdentityPath" $4')
         filename = cleanup_body.index('${GetFileName} "$RenameIdentityPath" $9', parent)
         canonical_entry = cleanup_body.index('GetFullPathName $4 "$4"', filename)
-        containment = cleanup_body.index('${If} $8 == "$6"', canonical_entry)
+        containment = cleanup_body.index(
+            '${If} $8 == "$RenameCleanupInstallPrefix"', canonical_entry
+        )
         deletion = cleanup_body.index("Call DeleteRenameFileByIdentity", containment)
         self.assertLess(parent, filename)
         self.assertLess(filename, canonical_entry)

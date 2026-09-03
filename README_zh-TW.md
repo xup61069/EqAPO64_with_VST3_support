@@ -5,7 +5,7 @@
 [![建置](https://github.com/xup61069/loudness-correction-apo/actions/workflows/build.yml/badge.svg)](https://github.com/xup61069/loudness-correction-apo/actions/workflows/build.yml)
 [![最新版本](https://img.shields.io/github/v/release/xup61069/loudness-correction-apo)](https://github.com/xup61069/loudness-correction-apo/releases/latest)
 
-**目前版本：v3.0.5。** 本版恢復完整的 Mixomo `exp` 功能，再整合已驗證的 v3.0.4 響度校正執行期與全新的 Windows 原生介面；`ReferenceOffset`、單一／全域音量綁定、復原機制及受保護的 1–19 Hz 路徑均維持 v3.0.4 行為。
+**目前版本：v3.0.6。** 本版保留完整的 Mixomo `exp` 功能及 v3.0.5 介面（包含安全的自動 Preamp），並修正已提交安裝的清理程序；`ReferenceOffset`、單一／全域音量綁定及受保護的 1–19 Hz 路徑均維持已驗證的行為。
 
 本儲存庫是直接 fork 自 [Mixomo/EqAPO64_with_VST3_support](https://github.com/Mixomo/EqAPO64_with_VST3_support) 的 Windows x64 專案，沿用其系統層級雙精度音訊管線與 x64 VST2／VST3 音訊效果流程，並新增或維護公式響度校正、校準工具及繁體中文介面。
 
@@ -16,6 +16,13 @@ v3.0.2 至 v3.0.4 把本專案的專屬變更直接重建在 Mixomo 的 `main` �
 上面連結中的來源儲存庫名稱只用於歸屬說明，不是本專案名稱。本儲存庫不是 Equalizer APO 上游專案，也不是上游官方建置。本功能僅稱為「響度校正」，不主張符合任何標準、取得認證、受到背書、具有從屬關係或獲得核准。
 
 > 本安裝程式會原地取代既有 Equalizer APO，沿用相同的預設安裝目錄與登錄位置，不能和上游版本並存。安裝、升級或降級前，請先備份 `config` 與自行安裝的外掛。
+
+## v3.0.6 更新重點
+
+- **包含自動 Preamp：**確認一次後會重新分析，只把 Preamp 往下調到目前估計峰值不超過 0 dB；不會自動增益，遇到不安全或已過期的分析拓撲會拒絕執行，且仍需明確按下儲存。
+- **修正升級清理：**受保護的多筆重新命名清單在逐檔核對身分時，改用專用檔案 handle 與安裝路徑範圍值。v3.0.5 已提交但尚未清完的紀錄會在不回滾的情況下完成清理；無法證明歸屬的 `.old` 檔仍會保留。
+- **編輯器更緊湊且升級後版面穩定：**舊視窗狀態不再把兩條工具列合併並藏起操作；移除常駐的 VST 相容性長文與分析 Loading 條；重複的 IR/FIR 說明改放在控制提示；異常的 Copy 面板高度會受到限制。
+- v3.0.5 恢復的 Mixomo 工具、新介面、響應曲線動畫、圓形控制上下拖曳、可返回的分析面板、端點音量綁定及 1–19 Hz 保護均保持不變。
 
 ## v3.0.5 更新重點
 
@@ -52,7 +59,7 @@ v3.0.5 使用功能完整的 Mixomo `exp` 歷史，不再採用功能縮減且�
 
 ## 下載與驗證
 
-> **建議安裝 v3.0.5 或其後的最新版本。** 只從本儲存庫的 [GitHub Releases](https://github.com/xup61069/loudness-correction-apo/releases/latest) 下載。請勿使用已被取代的 v3.0.0。
+> **建議安裝 v3.0.6 或其後的最新版本。** 只從本儲存庫的 [GitHub Releases](https://github.com/xup61069/loudness-correction-apo/releases/latest) 下載。請勿使用已被取代的 v3.0.0。
 
 若 v3.0.2 顯示無法安全復原中斷的安裝，請保留現有復原檔案，直接執行 v3.0.3 或更新版本。新版安裝程式會安全停用損壞的 v3.0.2 清理清單、保留無法證明歸屬的 `.old` 備份；不需要手動刪除登錄檔或 `ProgramData` 內容。
 

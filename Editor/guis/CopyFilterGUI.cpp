@@ -23,9 +23,30 @@
 #include "CopyFilterGUIForm.h"
 #include "CopyFilterGUI.h"
 #include "ui_CopyFilterGUI.h"
+#include <cmath>
 #include <QPushButton>
 
-static const double DEFAULT_HEIGHT = 88;
+namespace
+{
+	constexpr double DEFAULT_HEIGHT = 88.0;
+	constexpr double MINIMUM_HEIGHT = 85.0;
+	constexpr double MAXIMUM_HEIGHT = 360.0;
+
+	double boundedLogicalHeight(double height)
+	{
+		if (!std::isfinite(height))
+			return DEFAULT_HEIGHT;
+		return qBound(MINIMUM_HEIGHT, height, MAXIMUM_HEIGHT);
+	}
+
+	int boundedScaledHeight(int height)
+	{
+		return qBound(
+			GUIHelper::scale(MINIMUM_HEIGHT),
+			height,
+			GUIHelper::scale(MAXIMUM_HEIGHT));
+	}
+}
 
 using namespace std;
 
@@ -57,16 +78,19 @@ CopyFilterGUI::CopyFilterGUI(CopyFilter* filter, FilterTable* filterTable)
 	});
 
 	ResizeCorner* cornerWidget = new ResizeCorner(filterTable,
-			QSize(0, GUIHelper::scale(85)), QSize(0, INT_MAX),
+			QSize(0, GUIHelper::scale(MINIMUM_HEIGHT)),
+			QSize(0, GUIHelper::scale(MAXIMUM_HEIGHT)),
 			[this]() {
 		return QSize(0, ui->scrollArea->height());
 	},
 			[this](QSize size) {
-		ui->scrollArea->setFixedHeight(size.height());
-	}, ui->scrollArea);
+		ui->scrollArea->setFixedHeight(boundedScaledHeight(size.height()));
+	}, this);
 	cornerWidget->setCursor(Qt::SizeVerCursor);
 	cornerWidget->setAutoFillBackground(true);
-	ui->scrollArea->setCornerWidget(cornerWidget);
+	// Keep the resize grip reachable from both the graph and assignments tabs.
+	ui->gridLayout->addWidget(
+		cornerWidget, 1, 1, Qt::AlignRight | Qt::AlignBottom);
 
 	connect(scene, SIGNAL(updateModel()), this, SIGNAL(updateModel()));
 	connect(scene, SIGNAL(updateChannels()), this, SIGNAL(updateChannels()));
@@ -185,14 +209,21 @@ void CopyFilterGUI::store(QString& command, QString& parameters)
 
 void CopyFilterGUI::loadPreferences(const QVariantMap& prefs)
 {
-	ui->scrollArea->setFixedHeight(GUIHelper::scale(prefs.value("height", DEFAULT_HEIGHT).toDouble()));
+	bool validHeight = false;
+	double storedHeight = prefs.value("height", DEFAULT_HEIGHT).toDouble(&validHeight);
+	if (!validHeight || !std::isfinite(storedHeight))
+		storedHeight = DEFAULT_HEIGHT;
+	ui->scrollArea->setFixedHeight(
+		GUIHelper::scale(boundedLogicalHeight(storedHeight)));
 	ui->tabWidget->setCurrentIndex(prefs.value("tabIndex", 0).toInt());
 }
 
 void CopyFilterGUI::storePreferences(QVariantMap& prefs)
 {
-	if (GUIHelper::invScale(ui->scrollArea->height()) != DEFAULT_HEIGHT)
-		prefs.insert("height", GUIHelper::invScale(ui->scrollArea->height()));
+	const double storedHeight = boundedLogicalHeight(
+		GUIHelper::invScale(ui->scrollArea->height()));
+	if (storedHeight != DEFAULT_HEIGHT)
+		prefs.insert("height", storedHeight);
 	if (ui->tabWidget->currentIndex() != 0)
 		prefs.insert("tabIndex", ui->tabWidget->currentIndex());
 }

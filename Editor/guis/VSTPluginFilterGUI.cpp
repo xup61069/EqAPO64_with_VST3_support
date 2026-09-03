@@ -23,8 +23,6 @@
 #include <QDialog>
 #include <QDir>
 #include <QFile>
-#include <QGridLayout>
-#include <QLabel>
 #include <QMessageBox>
 #include <QProcess>
 #include <QSettings>
@@ -89,20 +87,6 @@ VSTPluginFilterGUI::VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library
 	if (outProcMode && this->hostId.isEmpty())
 		this->hostId = QUuid::createUuid().toString(QUuid::WithoutBraces);
 	ui->frame->setVisible(false);
-	if (QGridLayout* grid = qobject_cast<QGridLayout*>(layout()))
-	{
-		QLabel* note = new QLabel(tr("NOTE: The VST module is not universally compatible with all VSTs on the market.\n\n"
-			"If you experience:\n\n"
-			"- Audio popping\n"
-			"- Editor.exe crashes and closes\n"
-			"- Audio changes you've made in the VST GUI aren't applied\n"
-			"- The GUI doesn't open when you click the button\n"
-			"- Audio artifacts or delays when processing changes\n\n"
-			"Then the VST is partially or completely incompatible with APO's architecture and the technical limitations of the Windows audio engine.\n\n"
-			"Try different VST plug-ins with both the traditional loader and the out-of-process loader; some plug-ins work better in one mode than the other."), this);
-		note->setWordWrap(true);
-		grid->addWidget(note, 4, 0, 1, 5);
-	}
 	updatePermissionWarning();
 
 	QString absolutePath = QString::fromStdWString(library->getLibPath());

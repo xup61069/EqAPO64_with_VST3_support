@@ -5,7 +5,7 @@
 [![Build](https://github.com/xup61069/loudness-correction-apo/actions/workflows/build.yml/badge.svg)](https://github.com/xup61069/loudness-correction-apo/actions/workflows/build.yml)
 [![Latest release](https://img.shields.io/github/v/release/xup61069/loudness-correction-apo)](https://github.com/xup61069/loudness-correction-apo/releases/latest)
 
-**Current release: v3.0.5.** It restores the complete Mixomo `exp` feature set, combines it with the verified v3.0.4 loudness-correction runtime, and adds a new Windows-native interface. `ReferenceOffset`, Single/Global volume binding, recovery behavior, and the protected 1–19 Hz path retain their v3.0.4 behavior.
+**Current release: v3.0.6.** It retains the complete Mixomo `exp` feature set and v3.0.5 interface—including safe Auto preamp—while correcting committed installer cleanup. `ReferenceOffset`, Single/Global volume binding, and the protected 1–19 Hz path retain their verified behavior.
 
 This repository is a direct Windows x64 fork of [Mixomo/EqAPO64_with_VST3_support](https://github.com/Mixomo/EqAPO64_with_VST3_support). It retains the system-wide double-precision audio pipeline and x64 VST2/VST3 audio-effect workflow, and adds or maintains formula-based loudness correction, calibration tools, and a Traditional Chinese interface.
 
@@ -16,6 +16,13 @@ Versions v3.0.2 through v3.0.4 rebuilt the fork-specific changes directly on Mix
 The linked source repository name appears here only for attribution; it is not this project's product name. This repository is not the upstream Equalizer APO project or an official upstream build. The feature is presented only as loudness correction; no standards-conformance, certification, endorsement, affiliation, or approval claim is made.
 
 > This installer replaces an existing Equalizer APO installation in place. It uses the same default installation directory and registry locations and cannot be installed side by side with the upstream release. Back up `config` and any locally installed plug-ins before installing, upgrading, or downgrading.
+
+## What's new in v3.0.6
+
+- **Auto preamp is included:** one confirmed action performs a fresh analysis and only lowers Preamp enough to keep the current estimated peak at or below 0 dB. It never boosts, refuses unsafe or stale analysis topologies, and waits for an explicit Save.
+- **Upgrade cleanup is fixed:** the protected multi-record rename manifest now keeps a dedicated file handle and installation-path containment value across identity checks. A committed v3.0.5 cleanup journal is finished without rollback, while unprovable `.old` files remain untouched.
+- **The editor is denser and stable after upgrades:** saved window state can no longer merge the two toolbars and hide commands; the permanent VST compatibility wall and analysis loading bar are gone; repeated IR/FIR help is available from the control instead of consuming a row; abnormal Copy-panel heights are bounded.
+- The restored Mixomo tools, new interface, response animation, vertical dial dragging, recoverable analysis dock, endpoint binding, and 1–19 Hz protection from v3.0.5 are unchanged.
 
 ## What's new in v3.0.5
 
@@ -52,7 +59,7 @@ The pass-through VU Meter reports RMS, sample peak, clipping, and ungated loudne
 
 ## Download and verification
 
-> **Recommended: v3.0.5 or the latest newer release.** Download it only from this repository's [GitHub Releases](https://github.com/xup61069/loudness-correction-apo/releases/latest). Do not use v3.0.0; it has been superseded.
+> **Recommended: v3.0.6 or the latest newer release.** Download it only from this repository's [GitHub Releases](https://github.com/xup61069/loudness-correction-apo/releases/latest). Do not use v3.0.0; it has been superseded.
 
 If v3.0.2 says that an interrupted installation could not be recovered, leave its recovery files in place and run v3.0.3 or later. The newer installer safely retires the corrupted v3.0.2 cleanup manifest while preserving any ambiguous `.old` backups; manual registry or `ProgramData` cleanup is not required.
 

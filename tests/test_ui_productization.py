@@ -38,6 +38,42 @@ FREQUENCY_PLOT_VIEW_HEADER = (
 
 
 class UiProductizationTests(unittest.TestCase):
+    def test_saved_window_state_cannot_merge_the_workspace_toolbar(self) -> None:
+        header = (ROOT / "Editor" / "MainWindow.h").read_text(encoding="utf-8")
+        self.assertIn("void normalizeToolbarLayout();", header)
+
+        normalizer = MAIN_WINDOW[
+            MAIN_WINDOW.index("void MainWindow::normalizeToolbarLayout") :
+            MAIN_WINDOW.index("void MainWindow::setupTrayIcon")
+        ]
+        for token in (
+            "addToolBar(Qt::TopToolBarArea, ui->mainToolBar)",
+            "addToolBar(Qt::TopToolBarArea, workspaceToolBar)",
+            "removeToolBarBreak(workspaceToolBar)",
+            "insertToolBarBreak(workspaceToolBar)",
+            "ui->mainToolBar->setVisible(!toolbarHidden)",
+            "workspaceToolBar->setVisible(!toolbarHidden)",
+        ):
+            with self.subTest(toolbar_contract=token):
+                self.assertIn(token, normalizer)
+
+        load_preferences = MAIN_WINDOW[
+            MAIN_WINDOW.index("void MainWindow::loadPreferences") :
+            MAIN_WINDOW.index("void MainWindow::savePreferences")
+        ]
+        self.assertLess(
+            load_preferences.index("restoreState(stateValue.toByteArray())"),
+            load_preferences.index("normalizeToolbarLayout()"),
+        )
+
+        layout_contract = MAIN_WINDOW[
+            MAIN_WINDOW.index("bool MainWindow::snapshotLayoutIsValid") :
+            MAIN_WINDOW.index("void MainWindow::getDeviceAndChannelMask")
+        ]
+        self.assertIn("toolBarArea(ui->mainToolBar) != Qt::TopToolBarArea", layout_contract)
+        self.assertIn("toolBarArea(workspaceToolBar) != Qt::TopToolBarArea", layout_contract)
+        self.assertIn("!toolBarBreak(workspaceToolBar)", layout_contract)
+
     def test_all_qt_apps_install_the_shared_windows_theme(self) -> None:
         for relative_path in (
             "Editor/main.cpp",
@@ -518,7 +554,9 @@ class UiProductizationTests(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, MAIN_WINDOW)
         self.assertIn("findText", (ROOT / "Editor" / "FilterTable.cpp").read_text(encoding="utf-8"))
-        self.assertIn("Estimated headroom meter", MAIN_WINDOW)
+        self.assertIn("setAnalysisStatus", MAIN_WINDOW)
+        self.assertIn("QAccessibleStateChangeEvent", MAIN_WINDOW)
+        self.assertNotIn("Estimated headroom meter", MAIN_WINDOW)
 
     def test_temporary_audio_modes_preserve_dirty_and_external_edits(self) -> None:
         header = (ROOT / "Editor" / "MainWindow.h").read_text(encoding="utf-8")
@@ -671,6 +709,45 @@ class UiProductizationTests(unittest.TestCase):
         for reserved in ("CON", "PRN", "AUX", "NUL", "COM9", "LPT9"):
             with self.subTest(reserved=reserved):
                 self.assertIn(f'QStringLiteral("{reserved}")', MAIN_WINDOW)
+
+    def test_convolution_compacts_local_ir_controls_and_defers_manual_matching(self) -> None:
+        source = (ROOT / "Editor" / "guis" / "ConvolutionFilterGUI.cpp").read_text(
+            encoding="utf-8"
+        )
+        ui = ET.parse(ROOT / "Editor" / "guis" / "ConvolutionFilterGUI.ui").getroot()
+        update_file_info = source[
+            source.index("void ConvolutionFilterGUI::updateFileInfo()") :
+        ]
+
+        self.assertNotIn("bundledIrCreditLabel", source)
+        self.assertIn("bundledIrButton->setToolTip(bundledIrDescription);", source)
+        self.assertIn(
+            "bundledIrButton->setAccessibleDescription(bundledIrDescription);", source
+        )
+        self.assertIn("const bool sampleRateMismatch = deviceSampleRate != 0", update_file_info)
+        self.assertIn("sampleRate <= 0 || info.frames <= 0", update_file_info)
+        self.assertIn("if (sampleRateMismatch && !autoMatchingSampleRate)", update_file_info)
+        self.assertIn("const bool matched = matchDeviceSampleRate(false);", update_file_info)
+        self.assertLess(
+            update_file_info.index("const bool matched = matchDeviceSampleRate(false);"),
+            update_file_info.index("matchedFirActionVisible = true;"),
+        )
+        self.assertIn(
+            "ui->matchSampleRatePushButton->setVisible(matchedFirActionVisible);",
+            update_file_info,
+        )
+        self.assertIn(
+            "ui->matchSampleRatePushButton->setEnabled(matchedFirActionVisible);",
+            update_file_info,
+        )
+        match_button = ui.find(".//widget[@name='matchSampleRatePushButton']")
+        self.assertIsNotNone(match_button)
+        self.assertEqual(
+            match_button.findtext("property[@name='visible']/bool"), "false"
+        )
+        file_info_layout = ui.find(".//layout[@name='gridLayout_2']")
+        self.assertIsNotNone(file_info_layout)
+        self.assertEqual(file_info_layout.get("columnstretch"), "0,1")
 
     def test_calibration_exposes_safe_three_step_status_flow(self) -> None:
         dialog_source = (
