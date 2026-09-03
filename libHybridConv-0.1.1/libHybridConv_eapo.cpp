@@ -774,7 +774,7 @@ void hcInitSingle(HConvSingle * filter, double* h, int hlen, int flen, int steps
 
 	// Full-length segments
 	for (i = 0; i < filter->num_filterbuf - 1; i++) {
-		// dft_time[0:flen] = gain * h[i * flen + 0 : + flen]
+		memset(filter->dft_time, 0, sizeof(double) * 2 * flen);
 		mul_store_gain_double(filter->dft_time, h + (size_t)i * flen, flen, gain);
 
 		fftw_execute(filter->fft);
@@ -789,10 +789,8 @@ void hcInitSingle(HConvSingle * filter, double* h, int hlen, int flen, int steps
 	// Tail (possibly partial) segment
 	int last_segment_len = hlen - i * flen;
 	if (last_segment_len > 0) {
+		memset(filter->dft_time, 0, sizeof(double) * 2 * flen);
 		mul_store_gain_double(filter->dft_time, h + (size_t)i * flen, last_segment_len, gain);
-		// zero the remainder up to 2*flen
-		memset(&filter->dft_time[last_segment_len], 0,
-			sizeof(double) * (2 * (size_t)flen - (size_t)last_segment_len));
 	}
 	else {
 		// No tail data: ensure the time buffer is zeroed

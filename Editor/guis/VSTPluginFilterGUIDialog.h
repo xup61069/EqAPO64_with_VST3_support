@@ -51,9 +51,13 @@ private slots:
 
 private:
 	void startEditor();
+	void setEditorSize(int width, int height);
+	void constrainToAvailableScreen();
+	QRect availableScreenGeometry() const;
 
 	Ui::VSTPluginFilterGUIDialog* ui;
 	VSTPluginInstance* effect;
 	QTimer idleTimer;
 	bool editorStarted = false;
+	bool screenChangeConnected = false;
 };

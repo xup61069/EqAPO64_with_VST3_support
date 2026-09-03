@@ -55,7 +55,11 @@ void GraphicEQFilterGUIView::drawBackground(QPainter* painter, const QRectF& rec
 			path.lineTo(x, y);
 		}
 	}
-    bool dark = GUIHelper::isDarkMode();
-    painter->setPen(dark ? Qt::white : Qt::black);
+	painter->setPen(QPen(
+		palette().color(QPalette::Highlight),
+		GUIHelper::scale(2.0),
+		Qt::SolidLine,
+		Qt::RoundCap,
+		Qt::RoundJoin));
 	painter->drawPath(path);
 }

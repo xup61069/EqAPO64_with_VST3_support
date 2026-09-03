@@ -38,6 +38,7 @@ ConvolutionFilter::ConvolutionFilter(wstring filename)
 {
 	this->filename = filename;
 	filters = NULL;
+	filterFrameCount = 0;
 }
 
 ConvolutionFilter::~ConvolutionFilter()
@@ -51,10 +52,12 @@ vector<wstring> ConvolutionFilter::initialize(float sampleRate, unsigned maxFram
 
 	this->sampleRate = sampleRate;
 	this->maxFrameCount = maxFrameCount;
+	filterFrameCount = 0;
 	channelCount = (unsigned)channelNames.size();
-	beforeFirstProcess = true;
 
 	initializeFilters(maxFrameCount);
+	if (filters != NULL)
+		filterFrameCount = maxFrameCount;
 
 	return channelNames;
 }
@@ -62,18 +65,16 @@ vector<wstring> ConvolutionFilter::initialize(float sampleRate, unsigned maxFram
 #pragma AVRT_CODE_BEGIN
 void ConvolutionFilter::process(double** output, double** input, unsigned frameCount)
 {
-	if (filters == NULL)
+	if (frameCount == 0 || filters == NULL)
 		return;
 
-	if (beforeFirstProcess && frameCount != maxFrameCount)
+	if (frameCount != filterFrameCount)
 	{
-		// should hopefully not happen, but happens with merged Bluetooth devices on Windows 11
-		cleanup();
-		initializeFilters(frameCount);
+		for (unsigned i = 0; i < channelCount; i++)
+			if (output[i] != input[i])
+				memcpy(output[i], input[i], frameCount * sizeof(double));
+		return;
 	}
-
-	// only allow reinitialization before first process call
-	beforeFirstProcess = false;
 
 	for (unsigned i = 0; i < channelCount; i++)
 	{
@@ -97,36 +98,71 @@ void ConvolutionFilter::cleanup()
 
 		MemoryHelper::free(filters);
 		filters = NULL;
+		filterFrameCount = 0;
 	}
 }
 
 void ConvolutionFilter::initializeFilters(unsigned frameCount)
 {
-	SF_INFO info;
+	SF_INFO info = {};
 
 	SNDFILE* inFile = sf_wchar_open(filename.c_str(), SFM_READ, &info);
 	if (inFile == NULL)
 	{
 		LogF(L"Error while reading impulse response file: %S", sf_strerror(inFile));
 	}
-	else if (abs(sampleRate - info.samplerate) > 1.0)
-	{
-		LogF(L"Impulse response sample rate (%d Hz) does not match device sample rate (%f Hz)", info.samplerate, sampleRate);
-	}
 	else
 	{
 		TraceF(L"Convolving using impulse response file %s", filename.c_str());
 		unsigned fileChannelCount = info.channels;
 		unsigned fileFrameCount = (unsigned)info.frames;
+		const int targetSampleRate = static_cast<int>(sampleRate + 0.5f);
+
+		if (fileChannelCount == 0 || fileFrameCount == 0 || info.samplerate <= 0 || sampleRate <= 0.0f)
+		{
+			LogF(L"Invalid impulse response metadata for %s: %u channels, %u frames, source SR %d, target SR %f",
+				filename.c_str(), fileChannelCount, fileFrameCount, info.samplerate, sampleRate);
+			sf_close(inFile);
+			return;
+		}
+
+		TraceF(L"Impulse response metadata: source SR %d Hz, target SR %d Hz, %u channels, %u frames",
+			info.samplerate, targetSampleRate, fileChannelCount, fileFrameCount);
+
+		if (info.samplerate != targetSampleRate)
+		{
+			LogF(L"Impulse response sample rate (%d Hz) does not match device sample rate (%d Hz). Load or export an IR/FIR at the current device sample rate.",
+				info.samplerate, targetSampleRate);
+			sf_close(inFile);
+			return;
+		}
 
 		double* interleavedBuf = new double[fileFrameCount * fileChannelCount];
 
 		sf_count_t numRead = 0;
 		while (numRead < fileFrameCount)
-			numRead += sf_readf_double(inFile, interleavedBuf + numRead * fileChannelCount, fileFrameCount - numRead);
+		{
+			sf_count_t read = sf_readf_double(inFile, interleavedBuf + numRead * fileChannelCount, fileFrameCount - numRead);
+			if (read <= 0)
+				break;
+			numRead += read;
+		}
 
 		sf_close(inFile);
 		inFile = NULL;
+
+		if (numRead <= 0)
+		{
+			LogF(L"Could not read impulse response samples from %s", filename.c_str());
+			delete[] interleavedBuf;
+			return;
+		}
+		if (static_cast<unsigned>(numRead) != fileFrameCount)
+		{
+			LogF(L"Impulse response file %s was shorter than expected: read %ld of %u frames",
+				filename.c_str(), static_cast<long>(numRead), fileFrameCount);
+			fileFrameCount = static_cast<unsigned>(numRead);
+		}
 
 		double** bufs = new double* [fileChannelCount];
 		for (unsigned i = 0; i < fileChannelCount; i++)
@@ -149,12 +185,13 @@ void ConvolutionFilter::initializeFilters(unsigned frameCount)
 				hcInitSingle(&filters[i], bufs[i % fileChannelCount], fileFrameCount, frameCount, 1);
 			}
 		}
+		filterFrameCount = frameCount;
 
 		for (unsigned i = 0; i < fileChannelCount; i++)
 		{
 			delete[] bufs[i];
 		}
-		delete bufs;
-		delete interleavedBuf;
+		delete[] bufs;
+		delete[] interleavedBuf;
 	}
 }

@@ -19,7 +19,13 @@
 
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <QHBoxLayout>
+#include <QLayoutItem>
+#include <QSizePolicy>
+#include <QVBoxLayout>
+#include <QPushButton>
 #include <QStandardItemModel>
+#include <QVariant>
 
 #include "Editor/helpers/GUIHelper.h"
 #include "BiQuadFilterGUI.h"
@@ -37,9 +43,55 @@ BiQuadFilterGUI::BiQuadFilterGUI(BiQuadFilter* filter)
 {
 	ui->setupUi(this);
 
-	ui->freqDial->setFixedSize(GUIHelper::scale(QSize(100, 66)));
-	ui->gainDial->setFixedSize(GUIHelper::scale(QSize(100, 66)));
-	ui->qDial->setFixedSize(GUIHelper::scale(QSize(100, 66)));
+	// The original single-row form had a minimum width well above a narrow
+	// Editor viewport once translated text or Windows text scaling was active.
+	// Keep the same controls, but arrange them as a compact two-by-two grid.
+	while (QLayoutItem* item = ui->gridLayout->takeAt(0))
+		delete item;
+
+	const QSize compactDialSize = GUIHelper::scale(QSize(72, 66));
+	ui->freqDial->setFixedSize(compactDialSize);
+	ui->gainDial->setFixedSize(compactDialSize);
+	ui->qDial->setFixedSize(compactDialSize);
+
+	const int compactSpacing = GUIHelper::scale(8);
+	auto parameterLayout = [compactSpacing](
+		QWidget* dial, QWidget* labelOrCombo, QWidget* value)
+	{
+		QHBoxLayout* row = new QHBoxLayout;
+		row->setContentsMargins(0, 0, 0, 0);
+		row->setSpacing(compactSpacing);
+		row->addWidget(dial, 0, Qt::AlignTop);
+
+		QVBoxLayout* values = new QVBoxLayout;
+		values->setContentsMargins(0, 0, 0, 0);
+		values->setSpacing(GUIHelper::scale(4));
+		values->addWidget(labelOrCombo);
+		values->addWidget(value);
+		values->addStretch(1);
+		row->addLayout(values, 1);
+		return row;
+	};
+
+	QVBoxLayout* typeLayout = new QVBoxLayout;
+	typeLayout->setContentsMargins(0, 0, 0, 0);
+	typeLayout->addWidget(ui->typeComboBox);
+	typeLayout->addStretch(1);
+
+	ui->gridLayout->setContentsMargins(0, 0, 0, 0);
+	ui->gridLayout->setHorizontalSpacing(compactSpacing);
+	ui->gridLayout->setVerticalSpacing(GUIHelper::scale(6));
+	ui->gridLayout->addLayout(typeLayout, 0, 0);
+	ui->gridLayout->addLayout(parameterLayout(
+		ui->freqDial, ui->freqComboBox, ui->freqSpinBox), 0, 1);
+	ui->gridLayout->addLayout(parameterLayout(
+		ui->gainDial, ui->gainLabel, ui->gainSpinBox), 1, 0);
+	ui->gridLayout->addLayout(parameterLayout(
+		ui->qDial, ui->qComboBox, ui->qSpinBox), 1, 1);
+	ui->gridLayout->setColumnStretch(0, 1);
+	ui->gridLayout->setColumnStretch(1, 1);
+	setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+	setMinimumWidth(0);
 
 	ui->typeComboBox->addItem(tr("Peaking filter"), BiQuad::PEAKING);
 	ui->typeComboBox->addItem(tr("Low-pass filter"), BiQuad::LOW_PASS);
@@ -75,6 +127,40 @@ BiQuadFilterGUI::BiQuadFilterGUI(BiQuadFilter* filter)
 		ui->qSpinBox->setValue(filter->getBandwidthOrQOrS());
 
 	ui->gainSpinBox->setValue(filter->getDbGain());
+
+	defaultType = type;
+	defaultFreqMode = ui->freqComboBox->currentData().toChar();
+	defaultQMode = ui->qComboBox->currentData().toChar();
+	defaultFreq = ui->freqSpinBox->value();
+	defaultQ = ui->qSpinBox->value();
+	defaultGain = ui->gainSpinBox->value();
+
+	ui->freqSpinBox->setProperty("defaultValue", defaultFreq);
+	ui->qSpinBox->setProperty("defaultValue", defaultQ);
+	ui->gainSpinBox->setProperty("defaultValue", defaultGain);
+	ui->freqDial->setProperty("resetTarget", QVariant::fromValue(static_cast<QObject*>(ui->freqSpinBox)));
+	ui->freqDial->setProperty("defaultTargetValue", defaultFreq);
+	ui->qDial->setProperty("resetTarget", QVariant::fromValue(static_cast<QObject*>(ui->qSpinBox)));
+	ui->qDial->setProperty("defaultTargetValue", defaultQ);
+	ui->gainDial->setProperty("resetTarget", QVariant::fromValue(static_cast<QObject*>(ui->gainSpinBox)));
+	ui->gainDial->setProperty("defaultTargetValue", defaultGain);
+
+	QPushButton* resetButton = new QPushButton(tr("Reset"), this);
+	ui->gridLayout->addWidget(resetButton, 2, 0, 1, 2, Qt::AlignRight);
+	connect(resetButton, &QPushButton::clicked, this, [this]() {
+		const int typeIndex = ui->typeComboBox->findData(defaultType);
+		if (typeIndex != -1)
+			ui->typeComboBox->setCurrentIndex(typeIndex);
+		const int freqIndex = ui->freqComboBox->findData(defaultFreqMode);
+		if (freqIndex != -1)
+			ui->freqComboBox->setCurrentIndex(freqIndex);
+		const int qIndex = ui->qComboBox->findData(defaultQMode);
+		if (qIndex != -1)
+			ui->qComboBox->setCurrentIndex(qIndex);
+		ui->freqSpinBox->setValue(defaultFreq);
+		ui->gainSpinBox->setValue(defaultGain);
+		ui->qSpinBox->setValue(defaultQ);
+	});
 }
 
 BiQuadFilterGUI::~BiQuadFilterGUI()

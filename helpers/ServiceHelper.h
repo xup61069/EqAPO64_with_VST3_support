@@ -19,13 +19,17 @@
 
 #pragma once
 
+#include <functional>
 #include <string>
 #include <vector>
 
 class ServiceHelper
 {
 public:
-	static void restartService(const std::wstring& serviceName);
+	using CancellationCheck = std::function<bool()>;
+
+	static bool restartService(const std::wstring& serviceName,
+		const CancellationCheck& isCancellationRequested = CancellationCheck());
 };
 
 class Service

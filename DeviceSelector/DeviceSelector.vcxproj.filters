@@ -29,6 +29,10 @@
     <ClCompile Include="DeviceSelector.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="..\Editor\ModernTheme.cpp" />
+    <ClCompile Include="..\Editor\helpers\GUIHelper.cpp">
+      <Filter>helpers</Filter>
+    </ClCompile>
     <ClCompile Include="..\helpers\ServiceHelper.cpp">
       <Filter>helpers</Filter>
     </ClCompile>
@@ -44,6 +48,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="..\Editor\ModernTheme.h" />
+    <ClInclude Include="..\Editor\helpers\GUIHelper.h">
+      <Filter>helpers</Filter>
+    </ClInclude>
     <ClInclude Include="..\helpers\ServiceHelper.h">
       <Filter>helpers</Filter>
     </ClInclude>

@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <string>
 #include <vector>
 #include <unordered_set>
@@ -34,6 +35,13 @@ namespace mup {
 class ParserX;
 }
 
+struct LoadedConfigurationFile
+{
+	std::wstring path;
+	std::string contents;
+	bool readable = false;
+};
+
 #pragma AVRT_VTABLES_BEGIN
 class FilterEngine
 {
@@ -42,6 +50,8 @@ public:
 	~FilterEngine();
 
 	void setPreMix(bool preMix);
+	void setOfflineAnalysis(bool offlineAnalysis);
+	void clearDeviceInfo();
 	void setDeviceInfo(bool capture, bool postMixInstalled, const std::wstring& deviceName, const std::wstring& connectionName, const std::wstring& deviceGuid, const std::wstring& deviceString);
 	void initialize(float sampleRate, unsigned inputChannelCount, unsigned realChannelCount, unsigned outputChannelCount, unsigned channelMask, unsigned maxFrameCount, const std::wstring& customPath = L"");
 	void loadConfig(const std::wstring& customPath = L"");
@@ -53,6 +63,8 @@ public:
 	void process(double** output, double** input, unsigned frameCount);
 
 	bool isPreMix() const {return preMix;}
+	bool isAnalysisMode() const {return analysisMode;}
+	bool isDeviceInfoKnown() const {return deviceInfoKnown;}
 	bool isCapture() const {return capture;}
 	bool isPostMixInstalled() const {return postMixInstalled;}
 	std::wstring getDeviceName() const {return deviceName;}
@@ -66,20 +78,30 @@ public:
 	float getSampleRate() const {return sampleRate;}
 	unsigned getMaxFrameCount() const {return maxFrameCount;}
 	mup::ParserX* getParser() {return parser;}
+	const std::vector<LoadedConfigurationFile>& getLoadedConfigurationFiles() const {return loadedConfigurationFiles;}
+	const std::vector<FilterRuntimeVolumeObservation>& getRuntimeVolumeObservations() const {return runtimeVolumeObservations;}
 
 private:
 	void addFilters(std::vector<IFilter*> filters);
+	void commitCompletedTransition(FilterConfiguration* pending) noexcept;
 	void cleanupConfigurations();
+	static void destroyConfiguration(FilterConfiguration* configuration) noexcept;
+	void reclaimRetiredConfiguration() noexcept;
+	void stopNotificationThread() noexcept;
 	static unsigned long __stdcall notificationThread(void* parameter);
 	void resizeBuffers(unsigned frameCount);
 
 	std::vector<IFilterFactory*> factories;
 
 	std::vector<std::unique_ptr<double[]>> inputBuf2D, outputBuf2D;
+	std::vector<double*> inputBufPointers, outputBufPointers;
 	std::vector<double> inputBuf1D, outputBuf1D;
 	unsigned allocatedFrameCount;
 
 	bool preMix;
+	bool offlineAnalysis;
+	bool analysisMode;
+	bool deviceInfoKnown;
 	bool capture;
 	bool postMixInstalled;
 	std::wstring deviceName;
@@ -102,12 +124,17 @@ private:
 	std::vector<std::wstring> lastChannelNames;
 	std::vector<std::wstring> lastNewChannelNames;
 	std::vector<std::wstring> allChannelNames;
+	std::vector<LoadedConfigurationFile> loadedConfigurationFiles;
+	std::vector<FilterRuntimeVolumeObservation> runtimeVolumeObservations;
 	bool lastInPlace;
 	mup::ParserX* parser;
 
+	// The active configuration is published during initialize and thereafter
+	// belongs exclusively to the audio thread until processing has stopped.
 	FilterConfiguration* currentConfig;
-	FilterConfiguration* nextConfig;
-	FilterConfiguration* previousConfig;
+	std::atomic<FilterConfiguration*> pendingConfig;
+	std::atomic<FilterConfiguration*> retiredConfig;
+	bool hasInitialConfiguration;
 
 	unsigned transitionCounter;
 	unsigned transitionLength;

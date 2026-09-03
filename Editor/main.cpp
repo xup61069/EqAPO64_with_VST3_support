@@ -20,15 +20,29 @@
 #include <QTranslator>
 #include <QApplication>
 #include <QDir>
+#include <QFileInfo>
 #include <QCommandLineParser>
 #include <QSettings>
 #include <QStyleHints>
+#include <windows.h>
 #include "CustomStyle.h"
 #include "MainWindow.h"
+#include "ModernTheme.h"
 #include "helpers/RegistryHelper.h"
+#include "helpers/UiSnapshot.h"
 #include "Editor/helpers/GUIHelper.h"
 
 using namespace std;
+
+static QString getExecutableDir()
+{
+	wchar_t path[MAX_PATH] = {};
+	DWORD length = GetModuleFileNameW(NULL, path, MAX_PATH);
+	if (length == 0 || length >= MAX_PATH)
+		return QDir::currentPath();
+
+	return QFileInfo(QString::fromWCharArray(path, length)).absolutePath();
+}
 
 int main(int argc, char* argv[])
 {
@@ -38,21 +52,31 @@ int main(int argc, char* argv[])
 	// _CrtSetBreakAlloc(3318);
 #endif
 
-	QCoreApplication::addLibraryPath("qt");
-	qputenv("QT_ENABLE_HIGHDPI_SCALING", "0");
+	const QString executableDir = getExecutableDir();
+	const QString qtPluginDir = QDir(executableDir).filePath("qt");
+	QCoreApplication::addLibraryPath(qtPluginDir);
+	qputenv("QT_PLUGIN_PATH", QDir::toNativeSeparators(qtPluginDir).toLocal8Bit());
 
 	bool restart;
 	do
 	{
 		QApplication application(argc, argv);
-		if(GUIHelper::isDarkMode())
-			application.setStyle("fusion");
+		application.setStyle("fusion");
 		application.setStyle(new CustomStyle(application.style()));
+		ModernTheme::install(application);
 
-		QSettings settings(QString::fromWCharArray(EDITOR_REGPATH), QSettings::NativeFormat);
+		const bool snapshotMode = UiSnapshot::requested();
+		QVariant languageValue;
+		if (!snapshotMode)
+		{
+			QSettings settings(
+				QString::fromWCharArray(EDITOR_REGPATH), QSettings::NativeFormat);
+			languageValue = settings.value("language");
+		}
 
-		QVariant languageValue = settings.value("language");
-		if (languageValue.isValid())
+		if (snapshotMode)
+			QLocale::setDefault(QLocale(UiSnapshot::localeName()));
+		else if (languageValue.isValid())
 		{
 			QString localeName = languageValue.toString();
 			if (localeName == "zh")
@@ -75,33 +99,51 @@ int main(int argc, char* argv[])
 		if (editorTranslator.load(QLocale(), ":/translations/Editor", "_"))
 			application.installTranslator(&editorTranslator);
 
-		QString configPath = QDir::currentPath();
-		if (RegistryHelper::keyExists(APP_REGPATH) && RegistryHelper::valueExists(APP_REGPATH, L"ConfigPath"))
-			configPath = QString::fromStdWString(RegistryHelper::readValue(APP_REGPATH, L"ConfigPath"));
+		QString configPath = QStringLiteral(":/snapshot");
+		if (!snapshotMode)
+		{
+			configPath = QDir::currentPath();
+			if (RegistryHelper::keyExists(APP_REGPATH)
+				&& RegistryHelper::valueExists(APP_REGPATH, L"ConfigPath"))
+			{
+				configPath = QString::fromStdWString(
+					RegistryHelper::readValue(APP_REGPATH, L"ConfigPath"));
+			}
+
+			if (!RegistryHelper::keyExists(USER_REGPATH))
+				RegistryHelper::createKey(USER_REGPATH);
+			if (!RegistryHelper::keyExists(EDITOR_REGPATH))
+				RegistryHelper::createKey(EDITOR_REGPATH);
+			if (!RegistryHelper::keyExists(EDITOR_PER_FILE_REGPATH))
+				RegistryHelper::createKey(EDITOR_PER_FILE_REGPATH);
+		}
 		QDir configDir(configPath);
 
-		if (!RegistryHelper::keyExists(USER_REGPATH))
-			RegistryHelper::createKey(USER_REGPATH);
-
-		if (!RegistryHelper::keyExists(EDITOR_REGPATH))
-			RegistryHelper::createKey(EDITOR_REGPATH);
-
-		if (!RegistryHelper::keyExists(EDITOR_PER_FILE_REGPATH))
-			RegistryHelper::createKey(EDITOR_PER_FILE_REGPATH);
-
 		MainWindow w(configDir);
+		UiSnapshot::prepareForCapture(w);
 		w.show();
 
 		QCommandLineParser parser;
 		parser.process(application);
 		QStringList args = parser.positionalArguments();
-		if (args.isEmpty() && w.isEmpty())
+		if (args.isEmpty() && w.isEmpty() && !snapshotMode)
 			args = QStringList("config.txt");
 
 		for (const QString& arg : args)
 			w.load(configDir.absoluteFilePath(arg));
 
-		w.doChecks();
+		if (snapshotMode)
+		{
+			const QString scenario = UiSnapshot::scenario();
+			if (!scenario.isEmpty() && !w.loadSnapshotScenario(scenario))
+				return 87;
+			UiSnapshot::schedule(w, application, [&w]
+			{
+				return w.snapshotLayoutIsValid();
+			});
+		}
+		else
+			w.doChecks();
 
 		result = application.exec();
 

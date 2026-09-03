@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <QPainter>
 #include <QMouseEvent>
+#include <QVector>
 
 #include "Editor/helpers/GUIHelper.h"
 #include "FrequencyPlotView.h"
@@ -39,14 +40,53 @@ void FrequencyPlotHRuler::paintEvent(QPaintEvent*)
 	FrequencyPlotView* view = qobject_cast<FrequencyPlotView*>(parentWidget());
 	FrequencyPlotScene* s = view->scene();
 	QFontMetrics metrics = painter.fontMetrics();
-	bool dark = GUIHelper::isDarkMode();
-	painter.setPen(dark ? QColor(200, 200, 200) : QColor(50, 50, 50));
+	const auto clampTextCenter = [this, &metrics](qreal center, const QString& text, qreal extraMargin = 0.0)
+	{
+		const qreal halfTextWidth = metrics.boundingRect(text).width() / 2.0 + extraMargin;
+		const qreal maxTextCenter = qMax(halfTextWidth, static_cast<qreal>(width()) - halfTextWidth);
+		return qBound(halfTextWidth, center, maxTextCenter);
+	};
+	const QPalette rulerPalette = palette();
+	painter.setPen(rulerPalette.color(QPalette::WindowText));
 
 	QPointF topLeft = view->mapToScene(0, 0);
 	QPointF bottomRight = view->mapToScene(view->viewport()->width(), view->viewport()->height());
 	int offsetLeft = view->viewportMargins().left();
 	double fromHz = s->xToHz(topLeft.x());
 	double toHz = s->xToHz(bottomRight.x());
+	struct TickLabel
+	{
+		QString text;
+		qreal center;
+		QRectF occupiedRect;
+		bool draw = false;
+	};
+	QVector<TickLabel> labels;
+	const qreal labelGap = GUIHelper::scale(6);
+	const auto appendLabel = [&](double hz)
+	{
+		const double x = s->hzToX(hz);
+		if (x == -1)
+			return;
+
+		const QString text = hz < 1000
+			? QString("%0").arg(hz)
+			: QString("%0k").arg(hz / 1000);
+		const qreal center = clampTextCenter(
+			x - topLeft.x() + offsetLeft + 1,
+			text);
+		const qreal halfWidth = metrics.horizontalAdvance(text) / 2.0;
+		labels.append({
+			text,
+			center,
+			QRectF(
+				center - halfWidth - labelGap / 2.0,
+				0,
+				halfWidth * 2.0 + labelGap,
+				height())
+		});
+	};
+
 	const vector<double>& bands = s->getBands();
 	if (bands.empty())
 	{
@@ -57,17 +97,7 @@ void FrequencyPlotHRuler::paintEvent(QPaintEvent*)
 			hzBase *= 10;
 		for (double hz = fromHz; hz <= toHz;)
 		{
-			double x = s->hzToX(hz);
-			if (x != -1)
-			{
-				QString text;
-				if (hz < 1000)
-					text = QString("%0").arg(hz);
-				else
-					text = QString("%0k").arg(hz / 1000);
-				if (metrics.size(0, text).width() + 2 < s->hzToX(hz + hzBase) - x)
-					painter.drawText(x - topLeft.x() + offsetLeft + 1, 0, 0, height(), Qt::TextDontClip | Qt::AlignCenter, text);
-			}
+			appendLabel(hz);
 
 			hz += hzBase;
 			if (round(hz / hzBase) >= 10)
@@ -78,17 +108,47 @@ void FrequencyPlotHRuler::paintEvent(QPaintEvent*)
 	{
 		vector<double>::const_iterator it = lower_bound(bands.cbegin(), bands.cend(), fromHz);
 		for (; it != bands.cend() && *it < toHz; it++)
+			appendLabel(*it);
+	}
+
+	if (!labels.isEmpty())
+	{
+		// Keep the first visible tick and reserve the last visible tick when
+		// both fit. Fill the space between them without allowing adjacent
+		// label bounds (including a scaled readability gap) to overlap.
+		labels.first().draw = true;
+		qreal occupiedRight = labels.first().occupiedRect.right();
+		const qsizetype lastIndex = labels.size() - 1;
+		const bool reserveRightBoundary = lastIndex > 0
+			&& labels.last().occupiedRect.left() >= occupiedRight;
+		if (reserveRightBoundary)
+			labels.last().draw = true;
+		const qreal rightBoundary = reserveRightBoundary
+			? labels.last().occupiedRect.left()
+			: static_cast<qreal>(width()) + labelGap;
+
+		for (qsizetype index = 1; index < lastIndex; ++index)
 		{
-			double hz = *it;
-			double x = s->hzToX(hz);
-			if (x != -1)
+			TickLabel& candidate = labels[index];
+			if (candidate.occupiedRect.left() >= occupiedRight
+				&& candidate.occupiedRect.right() <= rightBoundary)
 			{
-				QString text;
-				if (hz < 1000)
-					text = QString("%0").arg(hz);
-				else
-					text = QString("%0k").arg(hz / 1000);
-				painter.drawText(x - topLeft.x() + offsetLeft + 1, 0, 0, height(), Qt::TextDontClip | Qt::AlignCenter, text);
+				candidate.draw = true;
+				occupiedRight = candidate.occupiedRect.right();
+			}
+		}
+
+		for (const TickLabel& label : labels)
+		{
+			if (label.draw)
+			{
+				painter.drawText(
+					qRound(label.center),
+					0,
+					0,
+					height(),
+					Qt::TextDontClip | Qt::AlignCenter,
+					label.text);
 			}
 		}
 	}
@@ -103,9 +163,8 @@ void FrequencyPlotHRuler::paintEvent(QPaintEvent*)
 		if (x != -1)
 		{
 			QString text = QString("%0").arg(hz, 0, 'f', 1);
-			QFontMetrics metrics = painter.fontMetrics();
 			QRectF rect = metrics.boundingRect(text);
-			float center = x - topLeft.x() + offsetLeft + 1;
+			const qreal center = clampTextCenter(x - topLeft.x() + offsetLeft + 1, text, 4.0);
 			rect = QRectF(center - ceil(rect.width() / 2) - 3 + 0.5, ceil(height() / 2) - ceil(rect.height() / 2) + 1.5, rect.width() + 5, rect.height() - 1);
 			QPainterPath path;
 			path.addRect(rect);
@@ -115,10 +174,10 @@ void FrequencyPlotHRuler::paintEvent(QPaintEvent*)
 			topTriangle.lineTo(QPoint(center, rect.top() - 3));
 			path = path.united(topTriangle);
 
-			painter.setPen(dark ? QColor(200,200,200) : Qt::black);
-			painter.setBrush(dark ? Qt::black : Qt::white);
+			painter.setPen(rulerPalette.color(QPalette::Mid));
+			painter.setBrush(rulerPalette.color(QPalette::ToolTipBase));
 			painter.drawPath(path);
-			painter.setPen(dark ? QColor(147,161,229) : Qt::blue);
+			painter.setPen(rulerPalette.color(QPalette::Highlight));
 			painter.drawText(center, 0, 0, height(), Qt::TextDontClip | Qt::AlignCenter, text);
 		}
 	}

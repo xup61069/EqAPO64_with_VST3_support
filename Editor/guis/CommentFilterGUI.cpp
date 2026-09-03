@@ -39,6 +39,7 @@ CommentFilterGUI::CommentFilterGUI(IFilterGUI* child, bool isComment)
 	ui->toolBar->setIconSize(GUIHelper::scale(QSize(24, 24)));
 	ui->toolBar->addAction(ui->actionPowerOn);
 	ui->toolBar->updateMaximumHeight();
+	ui->horizontalLayout->setAlignment(ui->toolBar, Qt::AlignTop);
 
 	child->setEnabled(!isComment);
 }
@@ -78,6 +79,11 @@ void CommentFilterGUI::loadPreferences(const QVariantMap& prefs)
 void CommentFilterGUI::storePreferences(QVariantMap& prefs)
 {
 	child->storePreferences(prefs);
+}
+
+void CommentFilterGUI::prepareDelete()
+{
+	child->prepareDelete();
 }
 
 void CommentFilterGUI::on_actionPowerOn_toggled(bool checked)

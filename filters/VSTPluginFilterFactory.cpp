@@ -19,6 +19,8 @@
 
 #include "stdafx.h"
 #include "helpers/StringHelper.h"
+#include "helpers/VSTDiagnostics.h"
+#include "helpers/VSTParameterParser.h"
 #include "helpers/VSTPluginLibrary.h"
 #include "helpers/LogHelper.h"
 #include "VSTPluginFilter.h"
@@ -34,10 +36,17 @@ vector<IFilter*> VSTPluginFilterFactory::createFilter(const wstring& configPath,
 	{
 		shared_ptr<VSTPluginLibrary> library;
 		wstring chunkData;
+		int vst3ClassIndex = 0;
 		unordered_map<wstring, float> paramMap;
 		vector<wstring> parts = StringHelper::splitQuoted(parameters, ' ');
-		for (unsigned i = 0; i + 1 < parts.size(); i += 2)
+		for (size_t i = 0; i < parts.size();)
 		{
+			if (i + 1 >= parts.size())
+			{
+				LogF(L"VSTPlugin: ignoring trailing token %s", parts[i].c_str());
+				break;
+			}
+
 			wstring key = parts[i];
 			wstring value = parts[i + 1];
 
@@ -60,30 +69,31 @@ vector<IFilter*> VSTPluginFilterFactory::createFilter(const wstring& configPath,
 					libPath = value;
 
 				library = VSTPluginLibrary::getInstance(libPath);
+				i += 2;
 			}
 			else if (key == L"ChunkData")
 			{
 				chunkData = value;
+				i += 2;
+			}
+			else if (key == L"ClassIndex")
+			{
+				vst3ClassIndex = _wtoi(value.c_str());
+				i += 2;
 			}
 			else if (key == L"Engine")
 			{
 				// Legacy configs may contain an Engine token from experimental hosts.
+				i += 2;
 			}
 			else
 			{
-				if (!isdigit(value.c_str()[0]))
+				if (!VSTConsumeParameter(parts, i, paramMap))
 				{
-					int x = i + 2;
-					if (x <= parts.size())
-					{
-						float f = wcstof(parts[x].c_str(), NULL);
-						paramMap[value.c_str()] = f;
-					}
-				}
-				else
-				{
-					float f = wcstof(value.c_str(), NULL);
-					paramMap[key] = f;
+					LogF(L"VSTPlugin: ignoring malformed parameter %s %s", key.c_str(), value.c_str());
+					// Advance one token so a valid field after an unknown or malformed
+					// token can become the next key instead of being skipped with it.
+					++i;
 				}
 			}
 		}
@@ -98,6 +108,7 @@ vector<IFilter*> VSTPluginFilterFactory::createFilter(const wstring& configPath,
 				int res = library->initialize();
 				if (res < 0)
 				{
+					VSTDiag(L"in-process VST load failed path=%s result=%d", library->getLibPath().c_str(), res);
 #ifdef _WIN64
 					int bitDepth = 64;
 #else
@@ -121,7 +132,7 @@ vector<IFilter*> VSTPluginFilterFactory::createFilter(const wstring& configPath,
 			if (create)
 			{
 				void* mem = MemoryHelper::alloc(sizeof(VSTPluginFilter));
-				filter = new(mem) VSTPluginFilter(library, chunkData, paramMap);
+				filter = new(mem) VSTPluginFilter(library, chunkData, paramMap, vst3ClassIndex);
 			}
 		}
 	}

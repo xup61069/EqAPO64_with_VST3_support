@@ -30,16 +30,19 @@ ChannelFilterGUIChannelItem::ChannelFilterGUIChannelItem(const QString& name)
 
 void ChannelFilterGUIChannelItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
 {
-	QColor color;
+	Q_UNUSED(option);
+	Q_UNUSED(widget);
+	const QPalette itemPalette = scene()->palette();
+	QColor color = itemPalette.color(QPalette::AlternateBase);
 
 	if (isSelected())
 	{
-		color = QColor(176, 229, 255);
+		color = itemPalette.color(QPalette::Highlight);
+		painter->setPen(color);
 	}
 	else
 	{
-		painter->setPen(QColor(156, 156, 156));
-		color = QColor(204, 204, 204);
+		painter->setPen(itemPalette.color(QPalette::Mid));
 	}
 
 	ChannelGraphItem::paint(painter, color);

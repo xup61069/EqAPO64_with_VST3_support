@@ -113,49 +113,12 @@
        </property>
        <property name="minimumSize">
         <size>
-         <width>50</width>
+         <width>150</width>
          <height>0</height>
         </size>
        </property>
-       <property name="palette">
-        <palette>
-         <active>
-          <colorrole role="Highlight">
-           <brush brushstyle="SolidPattern">
-            <color alpha="255">
-             <red>51</red>
-             <green>153</green>
-             <blue>255</blue>
-            </color>
-           </brush>
-          </colorrole>
-         </active>
-         <inactive>
-          <colorrole role="Highlight">
-           <brush brushstyle="SolidPattern">
-            <color alpha="255">
-             <red>122</red>
-             <green>189</green>
-             <blue>255</blue>
-            </color>
-           </brush>
-          </colorrole>
-         </inactive>
-         <disabled>
-          <colorrole role="Highlight">
-           <brush brushstyle="SolidPattern">
-            <color alpha="255">
-             <red>51</red>
-             <green>153</green>
-             <blue>255</blue>
-            </color>
-           </brush>
-          </colorrole>
-         </disabled>
-        </palette>
-       </property>
        <property name="sizeAdjustPolicy">
-        <enum>QAbstractScrollArea::SizeAdjustPolicy::AdjustToContents</enum>
+        <enum>QAbstractScrollArea::SizeAdjustPolicy::AdjustIgnored</enum>
        </property>
        <property name="horizontalScrollMode">
         <enum>QAbstractItemView::ScrollMode::ScrollPerPixel</enum>
@@ -203,19 +166,11 @@
    </item>
   </layout>
   <action name="actionImport">
-   <property name="icon">
-    <iconset resource="../Editor.qrc">
-     <normaloff>:/icons/document-open.ico</normaloff>:/icons/document-open.ico</iconset>
-   </property>
    <property name="text">
     <string>Import</string>
    </property>
   </action>
   <action name="actionExport">
-   <property name="icon">
-    <iconset resource="../Editor.qrc">
-     <normaloff>:/icons/document-save-as.ico</normaloff>:/icons/document-save-as.ico</iconset>
-   </property>
    <property name="text">
     <string>Export</string>
    </property>

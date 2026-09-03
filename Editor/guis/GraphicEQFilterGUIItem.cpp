@@ -18,6 +18,7 @@
 */
 
 #include <QPainter>
+#include <QApplication>
 
 #include "Editor/helpers/GUIHelper.h"
 #include "GraphicEQFilterGUIScene.h"
@@ -47,15 +48,22 @@ QPainterPath GraphicEQFilterGUIItem::shape() const
 
 void GraphicEQFilterGUIItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
 {
-    bool dark = GUIHelper::isDarkMode();
-    painter->setBrush(dark ? Qt::black : Qt::white);
-	if (isSelected())
-		painter->setBrush(QColor(38, 147, 255));
+	Q_UNUSED(option);
+	const QPalette itemPalette = widget ? widget->palette() : QApplication::palette();
+	const bool selected = isSelected();
+	painter->setRenderHint(QPainter::Antialiasing, true);
+	painter->setPen(QPen(
+		selected ? itemPalette.color(QPalette::Highlight) : itemPalette.color(QPalette::Mid),
+		GUIHelper::scale(selected ? 2.0 : 1.0)));
+	painter->setBrush(selected ?
+		itemPalette.color(QPalette::Highlight) :
+		itemPalette.color(QPalette::Base));
 	painter->drawPath(shape());
 	if (index < 99)
 	{
-		if (isSelected())
-            painter->setPen(Qt::white);
+		painter->setPen(selected ?
+			itemPalette.color(QPalette::HighlightedText) :
+			itemPalette.color(QPalette::Text));
 
 		QFont font;
 		font.setPixelSize(GUIHelper::scale(9));

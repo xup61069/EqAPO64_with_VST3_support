@@ -22,6 +22,9 @@ PHON_LEVELS = tuple(range(0, 101, 10))
 REFERENCE_INDEX = 17
 FILTER_Q = 3.0
 SAMPLE_RATE = 48_000.0
+SUBSONIC_CROSSOVER_HZ = 25.0
+CROSSOVER_BUTTERWORTH_ORDER = 14
+CROSSOVER_SECTION_COUNT = 14
 
 EXPECTED_PARAMETERS = [
 	(20.0, 0.635, -31.5, 78.1),
@@ -118,8 +121,12 @@ def contour_delta(
 	return current - baseline
 
 
-def peaking_response_db(center: float, gain: float, frequency: float) -> float:
-	omega0 = 2.0 * math.pi * center / SAMPLE_RATE
+def peaking_coefficients(
+	center: float,
+	gain: float,
+	sample_rate: float = SAMPLE_RATE,
+) -> tuple[float, float, float, float, float]:
+	omega0 = 2.0 * math.pi * center / sample_rate
 	a = 10.0 ** (max(-48.0, min(48.0, gain)) / 40.0)
 	alpha = math.sin(omega0) / (2.0 * FILTER_Q)
 	cosine = math.cos(omega0)
@@ -129,9 +136,174 @@ def peaking_response_db(center: float, gain: float, frequency: float) -> float:
 	a0 = 1.0 + alpha / a
 	a1 = -2.0 * cosine
 	a2 = 1.0 - alpha / a
-	z = cmath.exp(-2j * math.pi * frequency / SAMPLE_RATE)
-	response = (b0 + b1 * z + b2 * z * z) / (a0 + a1 * z + a2 * z * z)
+	return b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0
+
+
+def biquad_response(
+	coefficients: tuple[float, float, float, float, float],
+	frequency: float,
+	sample_rate: float,
+) -> complex:
+	b0, b1, b2, a1, a2 = coefficients
+	z = cmath.exp(-2j * math.pi * frequency / sample_rate)
+	return (b0 + b1 * z + b2 * z * z) / (1.0 + a1 * z + a2 * z * z)
+
+
+def peaking_response(
+	center: float,
+	gain: float,
+	frequency: float,
+	sample_rate: float = SAMPLE_RATE,
+) -> complex:
+	return biquad_response(
+		peaking_coefficients(center, gain, sample_rate),
+		frequency,
+		sample_rate,
+	)
+
+
+def peaking_response_db(
+	center: float,
+	gain: float,
+	frequency: float,
+	sample_rate: float = SAMPLE_RATE,
+) -> float:
+	response = peaking_response(center, gain, frequency, sample_rate)
 	return 20.0 * math.log10(max(abs(response), 1.0e-15))
+
+
+def crossover_coefficients(
+	high_pass: bool,
+	section: int,
+	sample_rate: float,
+) -> tuple[float, float, float, float, float]:
+	butterworth_section = section % (CROSSOVER_BUTTERWORTH_ORDER // 2)
+	q = 1.0 / (
+		2.0
+		* math.sin(
+			(2.0 * butterworth_section + 1.0)
+			* math.pi
+			/ (2.0 * CROSSOVER_BUTTERWORTH_ORDER)
+		)
+	)
+	omega = 2.0 * math.pi * SUBSONIC_CROSSOVER_HZ / sample_rate
+	alpha = math.sin(omega) / (2.0 * q)
+	cosine = math.cos(omega)
+	a0 = 1.0 + alpha
+	if high_pass:
+		b0 = math.cos(0.5 * omega) ** 2 / a0
+		b1 = -2.0 * b0
+	else:
+		b0 = math.sin(0.5 * omega) ** 2 / a0
+		b1 = 2.0 * b0
+	return b0, b1, b0, -2.0 * cosine / a0, (1.0 - alpha) / a0
+
+
+def crossover_response(
+	high_pass: bool,
+	frequency: float,
+	sample_rate: float,
+) -> complex:
+	response = 1.0 + 0.0j
+	for section in range(CROSSOVER_SECTION_COUNT):
+		response *= biquad_response(
+			crossover_coefficients(high_pass, section, sample_rate),
+			frequency,
+			sample_rate,
+		)
+	return response
+
+
+def fit_correction(
+	parameters: list[tuple[float, float, float, float]],
+	phon: float,
+	reference: float,
+	sample_rate: float,
+) -> tuple[list[float], list[float]]:
+	active = [row for row in parameters if row[0] <= 0.45 * sample_rate]
+	frequencies = [row[0] for row in active]
+	unit_response = [
+		[
+			peaking_response_db(center, 1.0, frequency, sample_rate)
+			for center in frequencies
+		]
+		for frequency in frequencies
+	]
+	response_inverse = invert(unit_response)
+	target = [
+		contour_delta(parameters, phon, reference, index)
+		for index in range(len(frequencies))
+	]
+	gains = multiply(response_inverse, target)
+	for _ in range(3):
+		actual = [
+			sum(
+				peaking_response_db(center, gain, frequency, sample_rate)
+				for center, gain in zip(frequencies, gains)
+			)
+			for frequency in frequencies
+		]
+		residual = [wanted - measured for wanted, measured in zip(target, actual)]
+		correction = multiply(response_inverse, residual)
+		gains = [
+			max(-48.0, min(48.0, gain + change))
+			for gain, change in zip(gains, correction)
+		]
+	return frequencies, gains
+
+
+def correction_response(
+	frequencies: list[float],
+	gains: list[float],
+	frequency: float,
+	sample_rate: float,
+) -> complex:
+	response = 1.0 + 0.0j
+	for center, gain in zip(frequencies, gains):
+		response *= peaking_response(center, gain, frequency, sample_rate)
+	return response
+
+
+def refined_maximum_response_db(
+	response_at_frequency,
+	sample_rate: float,
+) -> float:
+	point_count = 4097
+	log_minimum = math.log(1.0)
+	log_maximum = math.log(min(20_000.0, 0.499 * sample_rate))
+	log_step = (log_maximum - log_minimum) / (point_count - 1)
+	responses = [
+		response_at_frequency(math.exp(log_minimum + point * log_step))
+		for point in range(point_count)
+	]
+	maximum = max(0.0, max(responses))
+	golden = 0.6180339887498948482
+	for point in range(1, point_count - 1):
+		if responses[point] < responses[point - 1] or responses[point] < responses[point + 1]:
+			continue
+		if responses[point] == responses[point - 1] == responses[point + 1]:
+			continue
+		left = log_minimum + (point - 1) * log_step
+		right = log_minimum + (point + 1) * log_step
+		inner_left = right - golden * (right - left)
+		inner_right = left + golden * (right - left)
+		left_response = response_at_frequency(math.exp(inner_left))
+		right_response = response_at_frequency(math.exp(inner_right))
+		for _ in range(32):
+			if left_response < right_response:
+				left = inner_left
+				inner_left = inner_right
+				left_response = right_response
+				inner_right = left + golden * (right - left)
+				right_response = response_at_frequency(math.exp(inner_right))
+			else:
+				right = inner_right
+				inner_right = inner_left
+				right_response = left_response
+				inner_left = right - golden * (right - left)
+				left_response = response_at_frequency(math.exp(inner_left))
+		maximum = max(maximum, left_response, right_response)
+	return maximum
 
 
 def invert(matrix: list[list[float]]) -> list[list[float]]:
@@ -264,6 +436,96 @@ class LoudnessProfileTests(unittest.TestCase):
 
 		self.assertLessEqual(maximum_error, 0.02)
 
+	def test_lr28_coefficients_are_stable_and_complementary(self) -> None:
+		for sample_rate in (8_000.0, 44_100.0, 48_000.0, 96_000.0, 192_000.0, 384_000.0):
+			maximum_pole_radius = 0.0
+			for section in range(CROSSOVER_SECTION_COUNT):
+				low = crossover_coefficients(False, section, sample_rate)
+				high = crossover_coefficients(True, section, sample_rate)
+				for coefficients in (low, high):
+					self.assertTrue(all(math.isfinite(value) for value in coefficients))
+					_a0, _a1, _a2, denominator_a1, denominator_a2 = coefficients
+					discriminant = cmath.sqrt(
+						denominator_a1 * denominator_a1 - 4.0 * denominator_a2
+					)
+					poles = (
+						(-denominator_a1 + discriminant) / 2.0,
+						(-denominator_a1 - discriminant) / 2.0,
+					)
+					maximum_pole_radius = max(
+						maximum_pole_radius,
+						*(abs(pole) for pole in poles),
+					)
+			self.assertLess(maximum_pole_radius, 1.0)
+			for frequency in (1.0, 5.0, 10.0, 15.0, 19.0, 20.0, 25.0, 31.5, 100.0):
+				complement = crossover_response(False, frequency, sample_rate) + crossover_response(
+					True, frequency, sample_rate
+				)
+				self.assertLessEqual(abs(abs(complement) - 1.0), 1.0e-6)
+
+	def test_high_rate_raw_anchor_fit_is_unchanged(self) -> None:
+		for sample_rate in (48_000.0, 192_000.0):
+			frequencies, gains = fit_correction(
+				self.csv_parameters, 40.0, 80.0, sample_rate
+			)
+			maximum_error = 0.0
+			for index, frequency in enumerate(frequencies):
+				target = contour_delta(self.csv_parameters, 40.0, 80.0, index)
+				actual = 20.0 * math.log10(
+					max(
+						abs(correction_response(frequencies, gains, frequency, sample_rate)),
+						1.0e-15,
+					)
+				)
+				maximum_error = max(maximum_error, abs(actual - target))
+			self.assertLessEqual(maximum_error, 0.02)
+
+	def test_subsonic_guard_is_near_unity_and_full_transfer_has_headroom(self) -> None:
+		for sample_rate in (8_000.0, 48_000.0, 192_000.0, 384_000.0):
+			frequencies, gains = fit_correction(
+				self.csv_parameters, 0.0, 100.0, sample_rate
+			)
+
+			def raw_response_db(frequency: float, output_gain: float) -> float:
+				response = output_gain * correction_response(
+					frequencies, gains, frequency, sample_rate
+				)
+				return 20.0 * math.log10(max(abs(response), 1.0e-15))
+
+			raw_peak = refined_maximum_response_db(
+				lambda frequency: raw_response_db(frequency, 1.0),
+				sample_rate,
+			)
+			output_gain = (
+				1.0 if raw_peak <= 0.0 else 10.0 ** (-(raw_peak + 1.0) / 20.0)
+			)
+
+			def guarded_response_db(frequency: float, gain: float) -> float:
+				lowpass = crossover_response(False, frequency, sample_rate)
+				highpass = crossover_response(True, frequency, sample_rate)
+				correction = correction_response(
+					frequencies, gains, frequency, sample_rate
+				)
+				response = lowpass + highpass * gain * correction
+				return 20.0 * math.log10(max(abs(response), 1.0e-15))
+
+			full_peak = refined_maximum_response_db(
+				lambda frequency: guarded_response_db(frequency, output_gain),
+				sample_rate,
+			)
+
+			for frequency in (1.0, 5.0, 10.0, 15.0, 19.0):
+				self.assertLessEqual(
+					abs(guarded_response_db(frequency, output_gain)),
+					0.01,
+				)
+			self.assertLessEqual(full_peak, 1.0e-6)
+
+		filter_cpp = FILTER_CPP_PATH.read_text(encoding="utf-8")
+		self.assertIn("lowpass + highpass * correction", filter_cpp)
+		self.assertIn("sineHalf * sineHalf", filter_cpp)
+		self.assertIn("highpassIdentitySample * outputGainLinear", filter_cpp)
+
 	def test_headroom_uses_dense_refined_peak_search(self) -> None:
 		filter_header = FILTER_HEADER_PATH.read_text(encoding="utf-8")
 		filter_cpp = FILTER_CPP_PATH.read_text(encoding="utf-8")
@@ -273,15 +535,26 @@ class LoudnessProfileTests(unittest.TestCase):
 		self.assertIn("goldenRatioConjugate", filter_cpp)
 		self.assertIn("0.499 * static_cast<double>(_sampleRate)", filter_cpp)
 
+	@unittest.skipUnless(
+		GUI_FACTORY_PATH.is_file() and LEGACY_GUI_PATH.is_file(),
+		"editor migration slice has not been added yet",
+	)
 	def test_previous_release_requires_explicit_enabled_migration(self) -> None:
 		filter_header = FILTER_HEADER_PATH.read_text(encoding="utf-8")
 		factory = GUI_FACTORY_PATH.read_text(encoding="utf-8")
 		legacy_gui = LEGACY_GUI_PATH.read_text(encoding="utf-8")
 		self.assertNotIn("NeutralVolumeDb", filter_header)
 		self.assertIn("parseGenericV2Parameters", factory)
-		self.assertIn("if (!migrated)", legacy_gui)
+		self.assertIn("parseUnmarkedParameters", factory)
+		self.assertIn("output.referenceLevel - output.referenceOffset", factory)
+		self.assertIn("migration == Migration::None", legacy_gui)
 		self.assertIn("parameters = originalParameters", legacy_gui)
-		self.assertIn("State 1 ReferenceLevel 80 ReferenceOffset", legacy_gui)
+		self.assertIn("Migration::KeepFormula", legacy_gui)
+		self.assertIn("Migration::ConvertShelf", legacy_gui)
+		self.assertIn(
+			"Schema 1 Model FormulaLoudnessV1 Binding All State 1 ReferenceLevel 80 ReferenceOffset",
+			legacy_gui,
+		)
 
 
 if __name__ == "__main__":

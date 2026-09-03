@@ -17,8 +17,10 @@
 	51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+#include <QApplication>
 #include <QGraphicsScene>
 #include <QPainter>
+#include <QPalette>
 
 #include "Editor/helpers/GUIHelper.h"
 #include "ChannelGraphItem.h"
@@ -59,13 +61,23 @@ QString ChannelGraphItem::getName() const
 void ChannelGraphItem::paint(QPainter* painter, QColor color)
 {
 	QRectF rect = boundingRect();
-	QLinearGradient gradient(rect.topLeft(), rect.bottomLeft());
-	gradient.setColorAt(0, QColor(255, 255, 255));
-	gradient.setColorAt(1, color);
-	painter->setBrush(gradient);
-	// make sure that text is visible in dark mode
-	if(painter->pen().color() == Qt::white)
-		painter->setPen(Qt::black);
-	painter->drawRoundedRect(rect, GUIHelper::scale(margin), GUIHelper::scale(margin));
+	const QPalette itemPalette = scene() ? scene()->palette() : QApplication::palette();
+	const bool highContrast = qApp
+		&& qApp->property("eqapoModernThemeHighContrast").toBool();
+	if (highContrast)
+	{
+		painter->setBrush(color);
+	}
+	else
+	{
+		QLinearGradient gradient(rect.topLeft(), rect.bottomLeft());
+		gradient.setColorAt(0, itemPalette.color(QPalette::Base));
+		gradient.setColorAt(1, color);
+		painter->setBrush(gradient);
+	}
+	painter->drawRect(rect);
+	painter->setPen(color == itemPalette.color(QPalette::Highlight)
+		? itemPalette.color(QPalette::HighlightedText)
+		: itemPalette.color(QPalette::WindowText));
 	painter->drawText(rect.translated(1, -1), Qt::AlignCenter, name);
 }

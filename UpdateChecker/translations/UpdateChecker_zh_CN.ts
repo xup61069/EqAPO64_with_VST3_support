@@ -4,77 +4,234 @@
 <context>
     <name>UpdateChecker</name>
     <message>
-        <location filename="../main.cpp" line="138"/>
-        <source>Error installing Update Checker</source>
-        <translation>安装更新检查器时出错</translation>
-    </message>
-    <message>
-        <location filename="../main.cpp" line="151"/>
-        <source>Error uninstalling Update Checker</source>
-        <translation>卸载更新检查器时出错</translation>
-    </message>
-    <message>
-        <location filename="../main.cpp" line="202"/>
-        <source>Error while checking for update</source>
-        <translation>检查更新时出错</translation>
-    </message>
-    <message>
-        <location filename="../main.cpp" line="219"/>
+        <location filename="../main.cpp" line="166"/>
+        <location filename="../main.cpp" line="307"/>
         <source>The update service returned invalid release data.</source>
         <translation>更新服务返回了无效的版本数据。</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="233"/>
-        <source>No update available</source>
-        <translation>无可用更新</translation>
+        <location filename="../main.cpp" line="222"/>
+        <source>Error installing Update Checker</source>
+        <translation>安装更新检查器时出错</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="234"/>
-        <source>The installed version %0 of Equalizer APO is up to date.</source>
-        <translation>安装的 Equalizer APO %0 已是最新版本。</translation>
+        <location filename="../main.cpp" line="236"/>
+        <source>Error uninstalling Update Checker</source>
+        <translation>卸载更新检查器时出错</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="261"/>
-        <source>Don&apos;t show message for failed update check again</source>
-        <translation>不再显示更新检查失败的消息</translation>
+        <location filename="../main.cpp" line="288"/>
+        <source>Error while checking for update</source>
+        <translation>检查更新时出错</translation>
     </message>
     <message>
-        <source>The installed version %0 of Equalizer APO is up to date</source>
-        <translation type="vanished">安装的 Equalizer APO %0 已是最新版本。</translation>
+        <location filename="../UpdateChecker.cpp" line="32"/>
+        <source>Software update</source>
+        <translation>软件更新</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="210"/>
-        <location filename="../main.cpp" line="220"/>
-        <source>Error while reading response of update check</source>
-        <translation>读取更新检查响应时出错</translation>
-    </message>
-</context>
-<context>
-    <name>UpdateCheckerClass</name>
-    <message>
-        <location filename="../UpdateChecker.ui" line="14"/>
-        <source>Update available</source>
-        <translation>更新可用</translation>
+        <location filename="../UpdateChecker.cpp" line="33"/>
+        <source>Installed version</source>
+        <translation>已安装版本</translation>
     </message>
     <message>
-        <location filename="../UpdateChecker.ui" line="24"/>
-        <source>Remind me later</source>
-        <translation>稍后提醒我</translation>
+        <location filename="../UpdateChecker.cpp" line="34"/>
+        <source>Available version</source>
+        <translation>可用版本</translation>
     </message>
     <message>
-        <location filename="../UpdateChecker.ui" line="31"/>
-        <source>Go to website</source>
-        <translation>访问网站</translation>
+        <location filename="../UpdateChecker.cpp" line="35"/>
+        <source>What&apos;s new</source>
+        <translation>更新内容</translation>
     </message>
     <message>
-        <location filename="../UpdateChecker.ui" line="41"/>
+        <location filename="../UpdateChecker.cpp" line="36"/>
+        <location filename="../UpdateChecker.cpp" line="46"/>
         <source>Skip this version</source>
         <translation>跳过此版本</translation>
     </message>
     <message>
-        <location filename="../UpdateChecker.ui" line="54"/>
-        <source>A newer version of Equalizer APO is available:</source>
-        <translation>有一个新版本的 Equalizer APO 可用：</translation>
+        <location filename="../UpdateChecker.cpp" line="37"/>
+        <source>Try again</source>
+        <translation>重试</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="38"/>
+        <location filename="../UpdateChecker.cpp" line="40"/>
+        <source>Open download page</source>
+        <translation>打开下载页面</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="41"/>
+        <source>Opens the verified HTTPS release page in your default browser.</source>
+        <translation>在默认浏览器中打开已验证的 HTTPS 发布页面。</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="42"/>
+        <source>Retry update check</source>
+        <translation>重试更新检查</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="43"/>
+        <source>Checks GitHub Releases again.</source>
+        <translation>再次检查 GitHub Releases。</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="44"/>
+        <source>Close update checker</source>
+        <translation>关闭更新检查器</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="45"/>
+        <source>Closes the update checker without changing the skipped version.</source>
+        <translation>关闭更新检查器，不更改已跳过的版本。</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="47"/>
+        <source>Hides this release during future automatic checks.</source>
+        <translation>在之后的自动检查中隐藏此版本。</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="48"/>
+        <source>Release notes</source>
+        <translation>发布说明</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="49"/>
+        <source>Release notes for the available version.</source>
+        <translation>可用版本的发布说明。</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="50"/>
+        <source>Update check progress</source>
+        <translation>更新检查进度</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="88"/>
+        <source>The update service did not provide an error message.</source>
+        <translation>更新服务未提供错误信息。</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="121"/>
+        <location filename="../UpdateChecker.cpp" line="122"/>
+        <location filename="../UpdateChecker.cpp" line="253"/>
+        <source>Checking for updates</source>
+        <translation>正在检查更新</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="123"/>
+        <source>Connecting securely to GitHub Releases.</source>
+        <translation>正在安全连接到 GitHub Releases。</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="124"/>
+        <source>Checking…</source>
+        <translation>正在检查…</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="125"/>
+        <source>This usually takes only a few seconds.</source>
+        <translation>通常只需几秒钟。</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="126"/>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="132"/>
+        <location filename="../main.cpp" line="322"/>
+        <source>No update available</source>
+        <translation>无可用更新</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="133"/>
+        <source>You&apos;re up to date</source>
+        <translation>已是最新版本</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="134"/>
+        <source>Version %1 is the latest available release.</source>
+        <translation>版本 %1 是目前最新的发布版本。</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="136"/>
+        <source>No action is needed.</source>
+        <translation>无需进行任何操作。</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="137"/>
+        <location filename="../UpdateChecker.cpp" line="162"/>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="145"/>
+        <location filename="../UpdateChecker.cpp" line="255"/>
+        <source>Update available</source>
+        <translation>有可用更新</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="146"/>
+        <source>Version %1 is available</source>
+        <translation>版本 %1 可供更新</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="147"/>
+        <source>Review what changed, then open the secure download page.</source>
+        <translation>查看更改内容，然后打开安全下载页面。</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="149"/>
+        <source>Remind me later</source>
+        <translation>稍后提醒我</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="158"/>
+        <location filename="../UpdateChecker.cpp" line="256"/>
+        <source>Update check failed</source>
+        <translation>更新检查失败</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="159"/>
+        <source>We couldn&apos;t check for updates</source>
+        <translation>无法检查更新</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="160"/>
+        <source>Check your internet connection, then try again.</source>
+        <translation>请检查网络连接，然后重试。</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="161"/>
+        <source>Unavailable</source>
+        <translation>无法获取</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="204"/>
+        <source>No release notes were provided.</source>
+        <translation>未提供发布说明。</translation>
+    </message>
+    <message>
+        <location filename="../UpdateChecker.cpp" line="254"/>
+        <source>Up to date</source>
+        <translation>最新版本</translation>
+    </message>
+    <message>
+        <location filename="../main.cpp" line="323"/>
+        <source>The installed Loudness Correction for Equalizer APO version %0 is up to date.</source>
+        <translation>已安装的 Equalizer APO 响度校正 %0 是最新版本。</translation>
+    </message>
+    <message>
+        <location filename="../main.cpp" line="354"/>
+        <source>Don&apos;t show message for failed update check again</source>
+        <translation>不再显示更新检查失败的消息</translation>
+    </message>
+    <message>
+        <location filename="../main.cpp" line="297"/>
+        <location filename="../main.cpp" line="308"/>
+        <source>Error while reading response of update check</source>
+        <translation>读取更新检查响应时出错</translation>
     </message>
 </context>
 </TS>

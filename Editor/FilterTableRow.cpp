@@ -18,20 +18,108 @@
 */
 
 #include <QToolBar>
+#include <QApplication>
 #include <QLineEdit>
 #include <QPainter>
+#include <QPainterPath>
 #include <QScrollBar>
+#include <QStyle>
+#include <QStyleOption>
+#include <QFile>
+#include <QDir>
+#include <QTextStream>
+#include <algorithm>
 
 #include "Editor/helpers/GUIHelper.h"
 #include "FilterTableRow.h"
 #include "ui_FilterTableRow.h"
+
+namespace
+{
+	class ElidingCommandLabel final : public QLabel
+	{
+	public:
+		explicit ElidingCommandLabel(const QString& command, QWidget* parent = nullptr)
+			: QLabel(command, parent)
+		{
+			setObjectName(QStringLiteral("elidingCommandLabel"));
+			setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+			setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+			setMinimumWidth(0);
+			setToolTip(command);
+			setAccessibleName(command);
+		}
+
+		QSize sizeHint() const override
+		{
+			QSize size = QLabel::sizeHint();
+			const int preferredWidth = fontMetrics().horizontalAdvance(QLatin1Char('M')) * 48;
+			size.setWidth((std::min)(size.width(), preferredWidth));
+			return size;
+		}
+
+		QSize minimumSizeHint() const override
+		{
+			QSize size = QLabel::minimumSizeHint();
+			size.setWidth(0);
+			return size;
+		}
+
+	protected:
+		void paintEvent(QPaintEvent*) override
+		{
+			QPainter painter(this);
+			QStyleOption option;
+			option.initFrom(this);
+			style()->drawPrimitive(QStyle::PE_Widget, &option, &painter, this);
+
+			QRect textRect = rect().marginsRemoved(contentsMargins());
+			const int labelMargin = margin();
+			textRect.adjust(labelMargin, labelMargin, -labelMargin, -labelMargin);
+			const QString displayText = fontMetrics().elidedText(
+				text(), Qt::ElideMiddle, (std::max)(0, textRect.width()));
+			style()->drawItemText(
+				&painter,
+				textRect,
+				alignment(),
+				palette(),
+				isEnabled(),
+				displayText,
+				foregroundRole());
+		}
+	};
+
+	void appendFilterRowDebugLog(const QString& message)
+	{
+		QFile file(QDir::temp().absoluteFilePath("EqApoOutProcHost-debug.log"));
+		if (file.open(QIODevice::Append | QIODevice::Text))
+		{
+			QTextStream stream(&file);
+			stream << "[row] " << message << "\n";
+		}
+	}
+}
 
 FilterTableRow::FilterTableRow(FilterTable* table, int number, FilterTable::Item* item, IFilterGUI* gui)
 	: QWidget(table),
 	ui(new Ui::FilterTableRow)
 {
 	ui->setupUi(this);
-	ui->labelNumber->setMinimumWidth(GUIHelper::scale(25));
+	ui->actionAdd->setIcon(GUIHelper::createAccentAddIcon());
+	ui->actionCloneAbove->setIcon(GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::Duplicate));
+	ui->actionCloneBelow->setIcon(GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::Duplicate));
+	ui->actionRemove->setIcon(GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::Remove));
+	ui->actionEditText->setIcon(GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::Edit));
+	setAttribute(Qt::WA_StyledBackground, false);
+	ui->labelNumber->setMinimumWidth(GUIHelper::scale(38));
+	ui->horizontalLayout->setContentsMargins(
+		0,
+		GUIHelper::scale(1),
+		GUIHelper::scale(6),
+		0);
+	QFont numberFont = font();
+	numberFont.setWeight(QFont::DemiBold);
+	ui->labelNumber->setFont(numberFont);
 
 	this->table = table;
 	this->item = item;
@@ -40,11 +128,19 @@ FilterTableRow::FilterTableRow(FilterTable* table, int number, FilterTable::Item
 	ui->labelNumber->setText(QString("%0").arg(number));
 
 	ui->toolBar->addAction(ui->actionAdd);
+	ui->toolBar->addAction(ui->actionCloneAbove);
+	ui->toolBar->addAction(ui->actionCloneBelow);
 	ui->toolBar->addAction(ui->actionRemove);
 	ui->toolBar->addAction(ui->actionEditText);
+	ui->toolBar->setOrientation(Qt::Horizontal);
 	ui->toolBar->updateMaximumHeight();
+	ui->horizontalLayout->setAlignment(ui->toolBar, Qt::AlignTop);
 
-	ui->stackedWidget->setContentsMargins(0, 5, 0, 5);
+	ui->stackedWidget->setContentsMargins(
+		GUIHelper::scale(4),
+		GUIHelper::scale(4),
+		GUIHelper::scale(2),
+		GUIHelper::scale(4));
 
 	if (gui != NULL)
 	{
@@ -53,7 +149,7 @@ FilterTableRow::FilterTableRow(FilterTable* table, int number, FilterTable::Item
 	}
 	else
 	{
-		ui->stackedWidget->addWidget(new QLabel(item->text));
+		ui->stackedWidget->addWidget(new ElidingCommandLabel(item->text, ui->stackedWidget));
 	}
 	ui->stackedWidget->setCurrentIndex(1);
 }
@@ -78,10 +174,28 @@ void FilterTableRow::editText()
 
 QSize FilterTableRow::sizeHint() const
 {
+	QSize size = QWidget::sizeHint().expandedTo(minimumSizeHint());
+	// The grid owns the available row width. Do not let a plug-in panel's
+	// preferred width force the outer editor back to horizontal scrolling.
+	size.setWidth(0);
+	return size;
+}
+
+QSize FilterTableRow::minimumSizeHint() const
+{
 	QSize size = QWidget::minimumSizeHint();
-	int preferredWidth = table->getPreferredWidth();
-	if (size.width() < preferredWidth)
-		size = QSize(preferredWidth, size.height());
+	// Rows must remain viewport-compressible. Wide plug-in names and the
+	// experimental tool panels may have a large preferred width, but must not
+	// recreate the outer horizontal scrollbar that the modern UI removed.
+	size.setWidth(0);
+	QWidget* current = ui->stackedWidget->currentWidget();
+	if (current != nullptr)
+	{
+		QSize childSize = current->minimumSizeHint().expandedTo(current->sizeHint()).expandedTo(current->minimumSize());
+		QMargins margins = ui->horizontalLayout->contentsMargins() + ui->stackedWidget->contentsMargins();
+		childSize.rheight() += margins.top() + margins.bottom() + GUIHelper::scale(10);
+		size.setHeight(std::max(size.height(), std::max(childSize.height(), ui->toolBar->maximumHeight() + GUIHelper::scale(10))));
+	}
 	return size;
 }
 
@@ -94,44 +208,69 @@ void FilterTableRow::mouseDoubleClickEvent(QMouseEvent*)
 void FilterTableRow::paintEvent(QPaintEvent*)
 {
 	QPainter painter(this);
-	painter.setRenderHint(QPainter::Antialiasing);
+	painter.setRenderHint(QPainter::Antialiasing, true);
 
-	QRectF r = rect();
-	r = r.marginsAdded(QMarginsF(-1.5, -1.5, -1.5, -0.5));
+	const qreal inset = GUIHelper::scale(1.0);
+	const QRectF card = QRectF(rect()).adjusted(
+		inset,
+		inset,
+		-inset,
+		-inset);
+	const bool selected = table->getSelectedItems().contains(item);
+	const bool focused = table->getFocusedItem() == item;
+	const QPalette rowPalette = palette();
+	const QColor surface = rowPalette.color(QPalette::Base);
+	QColor accent = rowPalette.color(QPalette::Highlight);
+	QColor border = rowPalette.color(QPalette::Mid);
+	const bool highContrast = qApp
+		&& qApp->property("eqapoModernThemeHighContrast").toBool();
 
-	bool dark = GUIHelper::isDarkMode();
+	painter.setPen(Qt::NoPen);
+	painter.setBrush(surface);
+	painter.drawRect(card);
 
-	QColor color;
-	if (table->getSelectedItems().contains(item))
+	if ((selected || focused) && !highContrast)
 	{
-		if (table->getFocusedItem() == item)
-			color = dark ? QColor(44, 111, 222) : QColor(64, 136, 255);
-		else
-			color = dark ? QColor(34, 86, 171) : QColor(97, 143, 219);
+		QColor overlay = selected ? accent : rowPalette.color(QPalette::AlternateBase);
+		overlay.setAlpha(selected ? 38 : 90);
+		painter.setBrush(overlay);
+		painter.drawRect(card);
 	}
-	else
+
+	QPainterPath clip;
+	clip.addRect(card);
+	painter.save();
+	painter.setClipPath(clip);
+	QRectF rail = card;
+	rail.setRight(ui->labelNumber->geometry().right() + GUIHelper::scale(3));
+	if (!highContrast)
 	{
-		if (table->getFocusedItem() == item)
-			color = dark ? QColor(100, 100, 100) : QColor(160, 160, 160);
-		else
-			color = dark ? QColor(80, 80, 80) : QColor(180, 180, 180);
+		QColor railColor = accent;
+		railColor.setAlpha(selected ? 72 : 27);
+		painter.fillRect(rail, railColor);
 	}
-	painter.setPen(color);
+	QColor railEdge = accent;
+	if (!highContrast)
+		railEdge.setAlpha(selected ? 220 : 90);
+	painter.setPen(QPen(railEdge, GUIHelper::scale(selected ? 2.0 : 1.0)));
+	painter.drawLine(
+		QPointF(rail.right(), rail.top()),
+		QPointF(rail.right(), rail.bottom()));
+	painter.restore();
 
-	QLinearGradient gradient(r.topLeft(), r.bottomLeft());
-	gradient.setColorAt(0, dark ? QColor(70,70,70) : QColor(255, 255, 255));
-	gradient.setColorAt(1, dark ? QColor(45,45,45) : QColor(230, 230, 230));
-	painter.setBrush(gradient);
-	painter.drawRoundedRect(r, 5, 5);
-
-	QRectF r2 = r;
-	r2.setRight(ui->labelNumber->geometry().right() - 0.5);
-
-	QLinearGradient gradient2(r2.topLeft(), r2.bottomLeft());
-	gradient2.setColorAt(0, dark ? color.darker(170) : color.darker(110));
-	gradient2.setColorAt(1, dark ? color.darker(220) : color.darker(150));
-	painter.setBrush(gradient2);
-	painter.drawRoundedRect(r2, 5, 5);
+	if (selected)
+		border = accent;
+	else if (focused)
+	{
+		border = rowPalette.color(QPalette::WindowText);
+		if (!highContrast)
+			border.setAlpha(105);
+	}
+	painter.setBrush(Qt::NoBrush);
+	painter.setPen(QPen(
+		border,
+		GUIHelper::scale(selected && focused ? 2.0 : 1.0)));
+	painter.drawRect(card);
 }
 
 void FilterTableRow::updateModel()
@@ -160,10 +299,24 @@ void FilterTableRow::on_actionAdd_triggered()
 		table->addLine(line, item);
 		table->updateGuis();
 	}
+	delete menu;
+}
+
+void FilterTableRow::on_actionCloneAbove_triggered()
+{
+	table->cloneItem(item, false);
+	table->updateGuis();
+}
+
+void FilterTableRow::on_actionCloneBelow_triggered()
+{
+	table->cloneItem(item, true);
+	table->updateGuis();
 }
 
 void FilterTableRow::on_actionRemove_triggered()
 {
+	appendFilterRowDebugLog("remove clicked itemText=" + item->text + " gui=" + QString(gui != NULL ? "true" : "false"));
 	table->removeItem(item);
 	table->updateGuis();
 }

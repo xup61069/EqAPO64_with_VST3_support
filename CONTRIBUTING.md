@@ -14,8 +14,9 @@ Thank you for improving this Equalizer APO fork. Bug fixes, tested device-compat
 Use 64-bit Windows with Git, Python 3, CMake, and Visual Studio's Desktop development with C++ workload.
 
 ```powershell
-python .\tests\test_loudness_profile.py
+python -m unittest discover -s .\tests -p "test_*.py" -v
 .\scripts\build-installer-x64.ps1 -Configuration Release
+.\scripts\test-runtime-loudness.ps1 -Configuration Release
 git diff --check
 ```
 

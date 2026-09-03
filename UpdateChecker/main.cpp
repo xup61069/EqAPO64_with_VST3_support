@@ -23,20 +23,37 @@
 #include <QCommandLineParser>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QPointer>
 #include <QRegularExpression>
 #include <QVersionNumber>
 #include <QtWidgets/QApplication>
+#include <utility>
 #include <helpers/TaskSchedulerHelper.h>
 #include "UpdateChecker.h"
+#include "Editor/ModernTheme.h"
+#include "helpers/UiSnapshot.h"
 #include "version.h"
 
 using namespace std::chrono_literals;
 
-void showFailureMessage(QString message, QString title);
+void showFailureMessage(QString message, QString title, bool silentMode);
 
 namespace
 {
 	const QUrl releaseApiUrl("https://api.github.com/repos/xup61069/loudness-correction-apo/releases/latest");
+
+	QNetworkRequest createReleaseRequest(const QString& installedVersion)
+	{
+		QNetworkRequest request(releaseApiUrl);
+		request.setHeader(QNetworkRequest::UserAgentHeader,
+			QString("loudness-correction-apo-UpdateChecker/%0").arg(installedVersion));
+		request.setRawHeader("Accept", "application/vnd.github+json");
+		request.setRawHeader("X-GitHub-Api-Version", "2022-11-28");
+		request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+			QNetworkRequest::NoLessSafeRedirectPolicy);
+		request.setTransferTimeout(10s);
+		return request;
+	}
 
 	bool isTransientNetworkError(QNetworkReply::NetworkError error)
 	{
@@ -98,6 +115,71 @@ namespace
 		updateDocument = QJsonDocument(updateObject);
 		return true;
 	}
+
+	class ManualUpdateSession final : public QObject
+	{
+	public:
+		ManualUpdateSession(UpdateChecker* dialog, QString installedVersion)
+			: dialog(dialog), installedVersion(std::move(installedVersion))
+		{
+			connect(dialog, &UpdateChecker::retryRequested, this, [this] { start(); });
+		}
+
+		void start()
+		{
+			if (reply != nullptr)
+				return;
+
+			dialog->showChecking();
+			reply = manager.get(createReleaseRequest(installedVersion));
+			connect(reply, &QNetworkReply::finished, this, [this] { finish(); });
+		}
+
+	private:
+		void finish()
+		{
+			QNetworkReply* finishedReply = reply;
+			reply = nullptr;
+			if (finishedReply == nullptr)
+				return;
+
+			if (finishedReply->error() != QNetworkReply::NoError)
+			{
+				dialog->showFailure(finishedReply->errorString());
+				finishedReply->deleteLater();
+				return;
+			}
+
+			QJsonParseError error;
+			const QJsonDocument githubDocument = QJsonDocument::fromJson(finishedReply->readAll(), &error);
+			finishedReply->deleteLater();
+			if (error.error != QJsonParseError::NoError)
+			{
+				dialog->showFailure(error.errorString());
+				return;
+			}
+
+			QJsonDocument updateDocument;
+			QVersionNumber availableVersion;
+			QString availableVersionText;
+			if (!createUpdateDocument(githubDocument, updateDocument, availableVersion, availableVersionText))
+			{
+				dialog->showFailure(UpdateChecker::tr("The update service returned invalid release data."));
+				return;
+			}
+
+			const QVersionNumber currentVersion = QVersionNumber::fromString(installedVersion);
+			if (QVersionNumber::compare(availableVersion, currentVersion) > 0)
+				dialog->showUpdateAvailable(updateDocument);
+			else
+				dialog->showUpToDate(availableVersionText);
+		}
+
+		QPointer<UpdateChecker> dialog;
+		QString installedVersion;
+		QNetworkAccessManager manager;
+		QNetworkReply* reply = nullptr;
+	};
 }
 
 int main(int argc, char* argv[])
@@ -105,10 +187,11 @@ int main(int argc, char* argv[])
 	QCoreApplication::addLibraryPath("qt");
 
 	QApplication app(argc, argv);
-	if (QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark)
-		app.setStyle("fusion");
+	app.setStyle("fusion");
+	ModernTheme::install(app);
 
-	QLocale::setDefault(QLocale::system());
+	QLocale::setDefault(UiSnapshot::requested()
+		? QLocale(QStringLiteral("en")) : QLocale::system());
 
 	QTranslator qtTranslator;
 	if (qtTranslator.load(QLocale(), ":/translations/qtbase", "_"))
@@ -172,18 +255,28 @@ int main(int argc, char* argv[])
 		skipVersion = settings.value("skipVersion").toString();
 	}
 
+	if (!autoMode && !silentMode)
+	{
+		UpdateChecker dialog(nullptr, version);
+		ManualUpdateSession session(&dialog, version);
+		UiSnapshot::prepareForCapture(dialog);
+		dialog.show();
+		if (UiSnapshot::requested())
+			UiSnapshot::schedule(dialog, app, [&dialog]
+			{
+				return dialog.snapshotLayoutIsValid();
+			});
+		else
+			QTimer::singleShot(0, &session, [&session] { session.start(); });
+		return app.exec();
+	}
+
 	QNetworkAccessManager manager;
 	QNetworkReply* reply = nullptr;
 	int tries = autoMode ? 10 : 1;
 	while (tries-- > 0)
 	{
-		QNetworkRequest request(releaseApiUrl);
-		request.setHeader(QNetworkRequest::UserAgentHeader, QString("loudness-correction-apo-UpdateChecker/%0").arg(version));
-		request.setRawHeader("Accept", "application/vnd.github+json");
-		request.setRawHeader("X-GitHub-Api-Version", "2022-11-28");
-		request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-		request.setTransferTimeout(10s);
-		reply = manager.get(request);
+		reply = manager.get(createReleaseRequest(version));
 		QEventLoop loop;
 		QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 		loop.exec();
@@ -201,7 +294,8 @@ int main(int argc, char* argv[])
 	{
 		if (reply->error() != QNetworkReply::NoError)
 		{
-			showFailureMessage(reply->errorString(), UpdateChecker::tr("Error while checking for update"));
+			showFailureMessage(reply->errorString(), UpdateChecker::tr("Error while checking for update"), silentMode);
+			result = 2;
 		}
 		else
 		{
@@ -209,7 +303,8 @@ int main(int argc, char* argv[])
 			QJsonDocument githubDocument = QJsonDocument::fromJson(reply->readAll(), &error);
 			if (error.error != QJsonParseError::NoError)
 			{
-				showFailureMessage(error.errorString(), UpdateChecker::tr("Error while reading response of update check"));
+				showFailureMessage(error.errorString(), UpdateChecker::tr("Error while reading response of update check"), silentMode);
+				result = 2;
 			}
 			else
 			{
@@ -219,7 +314,8 @@ int main(int argc, char* argv[])
 				if (!createUpdateDocument(githubDocument, updateDocument, availableVersion, availableVersionText))
 				{
 					showFailureMessage(UpdateChecker::tr("The update service returned invalid release data."),
-						UpdateChecker::tr("Error while reading response of update check"));
+						UpdateChecker::tr("Error while reading response of update check"), silentMode);
+					result = 2;
 				}
 				else
 				{
@@ -231,15 +327,19 @@ int main(int argc, char* argv[])
 					bool skipped = autoMode && skipVersion == availableVersionText;
 					if (!updateAvailable || skipped)
 					{
-						if (!autoMode)
+						if (!autoMode && !silentMode)
 							QMessageBox::information(nullptr, UpdateChecker::tr("No update available"),
-								UpdateChecker::tr("The installed version %0 of Equalizer APO is up to date.").arg(version));
+								UpdateChecker::tr("The installed Loudness Correction for Equalizer APO version %0 is up to date.").arg(version));
 					}
 					else
 					{
-						UpdateChecker dialog(nullptr, updateDocument);
-						dialog.show();
-						result = app.exec();
+						if (!silentMode)
+						{
+							UpdateChecker dialog(nullptr, version);
+							dialog.showUpdateAvailable(updateDocument);
+							dialog.show();
+							result = app.exec();
+						}
 					}
 				}
 			}
@@ -250,8 +350,11 @@ int main(int argc, char* argv[])
 	return result;
 }
 
-void showFailureMessage(QString message, QString title)
+void showFailureMessage(QString message, QString title, bool silentMode)
 {
+	if (silentMode)
+		return;
+
 	QSettings settings(QString::fromWCharArray(UPDATE_CHECKER_REGPATH), QSettings::NativeFormat);
 	bool hideFailureMessage = settings.value("hideFailureMessage").toBool();
 	if (!hideFailureMessage)

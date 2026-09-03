@@ -58,14 +58,17 @@ DeviceTestThread::DeviceTestThread(QObject* parent, const QVector<std::shared_pt
 
 void DeviceTestThread::run()
 {
-	SCOPE_EXIT{emit finished(); };
-
 	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 	SCOPE_EXIT{CoUninitialize(); };
+	const ServiceHelper::CancellationCheck interruptionRequested = [this]()
+	{
+		return isInterruptionRequested();
+	};
 	try
 	{
 		emit log(tr("Restarting audio service..."));
-		ServiceHelper::restartService(L"AudioSrv");
+		if (!ServiceHelper::restartService(L"AudioSrv", interruptionRequested))
+			return;
 	}
 	catch (ServiceException e)
 	{
@@ -92,6 +95,9 @@ void DeviceTestThread::run()
 
 		for (QString deviceGuid : remainingDevices)
 		{
+			if (isInterruptionRequested())
+				return;
+
 			auto testInfo = infoMap.find(deviceGuid);
 			try
 			{
@@ -164,6 +170,12 @@ void DeviceTestThread::run()
 						break;
 				}
 			}
+
+			// Cancellation is still safe before changing any device registration.
+			// Once the fallback transaction starts, it must reach the audio-service
+			// restart below so a partial registration change is never left unapplied.
+			if (isInterruptionRequested())
+				return;
 
 			if (!remainingDevices.isEmpty())
 			{
@@ -243,8 +255,17 @@ void DeviceTestThread::run()
 		}
 	}
 
+	if (isInterruptionRequested())
+		return;
+
 	if (nonWorkingDevices == 0)
+	{
+		emit completed(false);
 		emit log("<b>" + tr("Checks done. No problems were detected.") + "</b>");
+	}
 	else
+	{
+		emit completed(true);
 		emit logError("<b>" + tr("Checks done. Problems were detected for %n device(s).", nullptr, nonWorkingDevices) + "</b>");
+	}
 }

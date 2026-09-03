@@ -21,13 +21,49 @@
 
 #pragma once
 
+class QIcon;
+
 class GUIHelper
 {
 public:
+	enum class ThemeIcon
+	{
+		Add,
+		Remove,
+		NewDocument,
+		OpenFolder,
+		Save,
+		SaveAs,
+		Cut,
+		Copy,
+		Paste,
+		Delete,
+		SelectAll,
+		Search,
+		FindNext,
+		Profile,
+		Duplicate,
+		Rename,
+		Import,
+		Export,
+		Compare,
+		Snapshot,
+		Bypass,
+		Restore,
+		Link,
+		ArrowRight,
+		Up,
+		Edit,
+		Route,
+		Channel
+	};
+
 	static QSize scale(QSize size);
 	static int scale(double pixel);
 	static double scaleZoom(double zoom);
 	static double invScale(int pixel);
 	static double invScaleZoom(double zoom);
-    static bool isDarkMode();
+	static bool isDarkMode();
+	static QIcon createThemeIcon(ThemeIcon icon, bool accent = false);
+	static QIcon createAccentAddIcon();
 };

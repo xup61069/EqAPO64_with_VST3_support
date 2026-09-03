@@ -214,6 +214,22 @@
           </item>
          </widget>
         </item>
+        <item row="4" column="0" colspan="2">
+         <widget class="QToolButton" name="resetAnalysisViewButton">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="focusPolicy">
+           <enum>Qt::StrongFocus</enum>
+          </property>
+          <property name="toolButtonStyle">
+           <enum>Qt::ToolButtonTextBesideIcon</enum>
+          </property>
+         </widget>
+        </item>
        </layout>
       </widget>
      </item>
@@ -249,124 +265,6 @@
         </item>
         <item row="3" column="1">
          <widget class="QLabel" name="cpuUsageValueLabel">
-          <property name="palette">
-           <palette>
-            <active>
-             <colorrole role="Midlight">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>255</red>
-                <green>127</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-             <colorrole role="Dark">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>255</red>
-                <green>0</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-             <colorrole role="Text">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>0</red>
-                <green>0</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-             <colorrole role="ButtonText">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>0</red>
-                <green>0</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-            </active>
-            <inactive>
-             <colorrole role="Midlight">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>255</red>
-                <green>127</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-             <colorrole role="Dark">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>255</red>
-                <green>0</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-             <colorrole role="Text">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>0</red>
-                <green>0</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-             <colorrole role="ButtonText">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>0</red>
-                <green>0</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-            </inactive>
-            <disabled>
-             <colorrole role="Midlight">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>255</red>
-                <green>127</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-             <colorrole role="Dark">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>255</red>
-                <green>0</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-             <colorrole role="Text">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>255</red>
-                <green>0</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-             <colorrole role="ButtonText">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>255</red>
-                <green>0</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-            </disabled>
-           </palette>
-          </property>
           <property name="text">
            <string notr="true"/>
           </property>
@@ -395,97 +293,6 @@
         </item>
         <item row="0" column="1">
          <widget class="QLabel" name="peakGainValueLabel">
-          <property name="palette">
-           <palette>
-            <active>
-             <colorrole role="Dark">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>255</red>
-                <green>0</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-             <colorrole role="Text">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>0</red>
-                <green>0</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-             <colorrole role="ButtonText">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>0</red>
-                <green>0</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-            </active>
-            <inactive>
-             <colorrole role="Dark">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>255</red>
-                <green>0</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-             <colorrole role="Text">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>0</red>
-                <green>0</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-             <colorrole role="ButtonText">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>0</red>
-                <green>0</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-            </inactive>
-            <disabled>
-             <colorrole role="Dark">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>255</red>
-                <green>0</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-             <colorrole role="Text">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>255</red>
-                <green>0</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-             <colorrole role="ButtonText">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>255</red>
-                <green>0</green>
-                <blue>0</blue>
-               </color>
-              </brush>
-             </colorrole>
-            </disabled>
-           </palette>
-          </property>
           <property name="text">
            <string notr="true"/>
           </property>
@@ -508,10 +315,6 @@
    </widget>
   </widget>
   <action name="actionNew">
-   <property name="icon">
-    <iconset resource="Editor.qrc">
-     <normaloff>:/icons/document-new.ico</normaloff>:/icons/document-new.ico</iconset>
-   </property>
    <property name="text">
     <string>New</string>
    </property>
@@ -520,10 +323,6 @@
    </property>
   </action>
   <action name="actionOpen">
-   <property name="icon">
-    <iconset resource="Editor.qrc">
-     <normaloff>:/icons/document-open.ico</normaloff>:/icons/document-open.ico</iconset>
-   </property>
    <property name="text">
     <string>Open</string>
    </property>
@@ -535,10 +334,6 @@
    </property>
   </action>
   <action name="actionSave">
-   <property name="icon">
-    <iconset resource="Editor.qrc">
-     <normaloff>:/icons/document-save.ico</normaloff>:/icons/document-save.ico</iconset>
-   </property>
    <property name="text">
     <string>Save</string>
    </property>
@@ -550,10 +345,6 @@
    </property>
   </action>
   <action name="actionSaveAs">
-   <property name="icon">
-    <iconset resource="Editor.qrc">
-     <normaloff>:/icons/document-save-as.ico</normaloff>:/icons/document-save-as.ico</iconset>
-   </property>
    <property name="text">
     <string>Save as...</string>
    </property>
@@ -573,10 +364,6 @@
    </property>
   </action>
   <action name="actionCut">
-   <property name="icon">
-    <iconset resource="Editor.qrc">
-     <normaloff>:/icons/edit-cut.ico</normaloff>:/icons/edit-cut.ico</iconset>
-   </property>
    <property name="text">
     <string>Cut</string>
    </property>
@@ -585,10 +372,6 @@
    </property>
   </action>
   <action name="actionCopy">
-   <property name="icon">
-    <iconset resource="Editor.qrc">
-     <normaloff>:/icons/edit-copy.ico</normaloff>:/icons/edit-copy.ico</iconset>
-   </property>
    <property name="text">
     <string>Copy</string>
    </property>
@@ -597,10 +380,6 @@
    </property>
   </action>
   <action name="actionPaste">
-   <property name="icon">
-    <iconset resource="Editor.qrc">
-     <normaloff>:/icons/edit-paste.ico</normaloff>:/icons/edit-paste.ico</iconset>
-   </property>
    <property name="text">
     <string>Paste</string>
    </property>
@@ -609,10 +388,6 @@
    </property>
   </action>
   <action name="actionDelete">
-   <property name="icon">
-    <iconset resource="Editor.qrc">
-     <normaloff>:/icons/edit-delete.ico</normaloff>:/icons/edit-delete.ico</iconset>
-   </property>
    <property name="text">
     <string>Delete</string>
    </property>
@@ -636,6 +411,20 @@
     <string>Analysis panel</string>
    </property>
   </action>
+  <action name="actionResetAnalysisView">
+   <property name="text">
+    <string>Reset view</string>
+   </property>
+   <property name="toolTip">
+    <string>Reset analysis zoom and position</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+0</string>
+   </property>
+   <property name="shortcutContext">
+    <enum>Qt::WindowShortcut</enum>
+   </property>
+  </action>
   <action name="actionResetAllGlobalPreferences">
    <property name="text">
     <string>Reset all global preferences</string>
@@ -647,10 +436,6 @@
    </property>
   </action>
   <action name="actionSelectAll">
-   <property name="icon">
-    <iconset resource="Editor.qrc">
-     <normaloff>:/icons/edit-select-all.ico</normaloff>:/icons/edit-select-all.ico</iconset>
-   </property>
    <property name="text">
     <string>Select all</string>
    </property>

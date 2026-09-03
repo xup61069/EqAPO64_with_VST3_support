@@ -2,84 +2,204 @@
 <ui version="4.0">
  <class>UpdateCheckerClass</class>
  <widget class="QDialog" name="UpdateCheckerClass">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>339</width>
-    <height>288</height>
-   </rect>
+  <property name="geometry"><rect><x>0</x><y>0</y><width>640</width><height>530</height></rect></property>
+  <property name="minimumSize"><size><width>520</width><height>340</height></size></property>
+  <property name="windowTitle"><string notr="true">Checking for updates</string></property>
+  <property name="windowIcon"><iconset resource="UpdateChecker.qrc"><normaloff>:/icons/software-update-available.ico</normaloff>:/icons/software-update-available.ico</iconset></property>
+  <property name="styleSheet">
+   <string notr="true">QDialog#UpdateCheckerClass {
+ background: palette(window);
+ color: palette(window-text);
+}
+QFrame#headerPanel, QFrame#contentPanel {
+ background: palette(alternate-base);
+ border: 1px solid palette(mid);
+}
+QLabel#sectionLabel {
+ color: palette(highlight);
+ font-weight: 600;
+}
+QLabel#titleLabel {
+ font-size: 22px;
+ font-weight: 700;
+}
+QLabel#summaryLabel, QLabel[caption="true"] {
+ color: palette(placeholder-text);
+}
+QLabel#installedVersionLabel, QLabel#availableVersionLabel {
+ font-family: "Cascadia Mono", "Consolas";
+ font-weight: 600;
+}
+QTextEdit#versionBrowser {
+ background: palette(base);
+ color: palette(text);
+ border: 1px solid palette(mid);
+ selection-background-color: palette(highlight);
+ selection-color: palette(highlighted-text);
+}
+</string>
   </property>
-  <property name="windowTitle">
-   <string>Update available</string>
-  </property>
-  <property name="windowIcon">
-   <iconset resource="UpdateChecker.qrc">
-    <normaloff>:/icons/software-update-available.ico</normaloff>:/icons/software-update-available.ico</iconset>
-  </property>
-  <layout class="QGridLayout" name="gridLayout">
-   <item row="2" column="1">
-    <widget class="QPushButton" name="laterButton">
-     <property name="text">
-      <string>Remind me later</string>
-     </property>
+  <layout class="QVBoxLayout" name="rootLayout">
+   <property name="spacing"><number>16</number></property>
+   <property name="leftMargin"><number>24</number></property>
+   <property name="topMargin"><number>24</number></property>
+   <property name="rightMargin"><number>24</number></property>
+   <property name="bottomMargin"><number>20</number></property>
+   <item>
+    <widget class="QFrame" name="headerPanel">
+     <property name="frameShape"><enum>QFrame::Shape::NoFrame</enum></property>
+     <layout class="QHBoxLayout" name="headerLayout">
+      <property name="spacing"><number>16</number></property>
+      <property name="leftMargin"><number>18</number></property>
+      <property name="topMargin"><number>18</number></property>
+      <property name="rightMargin"><number>20</number></property>
+      <property name="bottomMargin"><number>20</number></property>
+      <item alignment="Qt::AlignmentFlag::AlignTop">
+       <widget class="QLabel" name="statusIconLabel">
+        <property name="minimumSize"><size><width>44</width><height>44</height></size></property>
+        <property name="maximumSize"><size><width>44</width><height>44</height></size></property>
+        <property name="text"><string/></property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="headerTextLayout">
+        <property name="spacing"><number>4</number></property>
+        <item><widget class="QLabel" name="sectionLabel"><property name="text"><string notr="true">Loudness Correction for Equalizer APO</string></property></widget></item>
+        <item>
+         <widget class="QLabel" name="titleLabel">
+          <property name="text"><string notr="true">Checking for updates</string></property>
+          <property name="textInteractionFlags"><set>Qt::TextInteractionFlag::TextSelectableByMouse</set></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="summaryLabel">
+          <property name="text"><string notr="true">Connecting securely to GitHub Releases.</string></property>
+          <property name="wordWrap"><bool>true</bool></property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
     </widget>
    </item>
-   <item row="2" column="0">
-    <widget class="QPushButton" name="goButton">
-     <property name="text">
-      <string>Go to website</string>
-     </property>
-     <property name="default">
-      <bool>true</bool>
-     </property>
+   <item>
+    <widget class="QFrame" name="contentPanel">
+     <property name="frameShape"><enum>QFrame::Shape::NoFrame</enum></property>
+     <layout class="QVBoxLayout" name="contentLayout">
+      <property name="spacing"><number>12</number></property>
+      <property name="leftMargin"><number>18</number></property>
+      <property name="topMargin"><number>16</number></property>
+      <property name="rightMargin"><number>18</number></property>
+      <property name="bottomMargin"><number>18</number></property>
+      <item>
+       <layout class="QGridLayout" name="versionGridLayout">
+        <property name="horizontalSpacing"><number>18</number></property>
+        <property name="verticalSpacing"><number>6</number></property>
+        <item row="0" column="0">
+         <widget class="QLabel" name="installedCaptionLabel">
+          <property name="caption" stdset="0"><bool>true</bool></property>
+          <property name="text"><string notr="true">Installed version</string></property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QLabel" name="availableCaptionLabel">
+          <property name="caption" stdset="0"><bool>true</bool></property>
+          <property name="text"><string notr="true">Available version</string></property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="installedVersionLabel">
+          <property name="text"><string notr="true">0.0.0</string></property>
+          <property name="textInteractionFlags"><set>Qt::TextInteractionFlag::TextSelectableByMouse</set></property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QLabel" name="availableVersionLabel">
+          <property name="text"><string notr="true">Checking…</string></property>
+          <property name="textInteractionFlags"><set>Qt::TextInteractionFlag::TextSelectableByMouse</set></property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QProgressBar" name="statusProgressBar">
+        <property name="accessibleName"><string notr="true">Update check progress</string></property>
+        <property name="value"><number>0</number></property>
+        <property name="textVisible"><bool>false</bool></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="statusMessageLabel">
+        <property name="text"><string notr="true">This usually takes only a few seconds.</string></property>
+        <property name="wordWrap"><bool>true</bool></property>
+        <property name="textInteractionFlags"><set>Qt::TextInteractionFlag::TextSelectableByMouse</set></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="releaseNotesLabel">
+        <property name="font"><font><bold>true</bold></font></property>
+        <property name="text"><string notr="true">What's new</string></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="AutoSizeTextEdit" name="versionBrowser">
+        <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"><horstretch>0</horstretch><verstretch>1</verstretch></sizepolicy></property>
+        <property name="minimumSize"><size><width>0</width><height>150</height></size></property>
+        <property name="accessibleName"><string notr="true">Release notes</string></property>
+        <property name="readOnly"><bool>true</bool></property>
+        <property name="tabChangesFocus"><bool>true</bool></property>
+        <property name="textInteractionFlags"><set>Qt::TextInteractionFlag::LinksAccessibleByKeyboard|Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextBrowserInteraction|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set></property>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </item>
-   <item row="2" column="2">
-    <widget class="QPushButton" name="skipButton">
-     <property name="text">
-      <string>Skip this version</string>
-     </property>
-    </widget>
-   </item>
-   <item row="0" column="0" colspan="3">
-    <widget class="QLabel" name="label">
-     <property name="font">
-      <font>
-       <pointsize>11</pointsize>
-       <bold>true</bold>
-      </font>
-     </property>
-     <property name="text">
-      <string>A newer version of Equalizer APO is available:</string>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="0" colspan="3">
-    <widget class="AutoSizeTextEdit" name="versionBrowser">
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
-     <property name="readOnly">
-      <bool>true</bool>
-     </property>
-    </widget>
+   <item>
+    <layout class="QHBoxLayout" name="actionLayout">
+     <property name="spacing"><number>8</number></property>
+     <item>
+      <widget class="QPushButton" name="skipButton">
+       <property name="accessibleName"><string notr="true">Skip this version</string></property>
+       <property name="text"><string notr="true">Skip this version</string></property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="actionSpacer"><property name="orientation"><enum>Qt::Orientation::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="laterButton">
+       <property name="accessibleName"><string notr="true">Close update checker</string></property>
+       <property name="text"><string notr="true">Cancel</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="retryButton">
+       <property name="accessibleName"><string notr="true">Retry update check</string></property>
+       <property name="text"><string notr="true">Try again</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="goButton">
+       <property name="accessibleName"><string notr="true">Open download page</string></property>
+       <property name="text"><string notr="true">Open download page</string></property>
+       <property name="default"><bool>true</bool></property>
+      </widget>
+     </item>
+    </layout>
    </item>
   </layout>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
+ <tabstops>
+  <tabstop>versionBrowser</tabstop>
+  <tabstop>skipButton</tabstop>
+  <tabstop>laterButton</tabstop>
+  <tabstop>retryButton</tabstop>
+  <tabstop>goButton</tabstop>
+ </tabstops>
  <customwidgets>
-  <customwidget>
-   <class>AutoSizeTextEdit</class>
-   <extends>QTextEdit</extends>
-   <header>AutoSizeTextEdit.h</header>
-  </customwidget>
+  <customwidget><class>AutoSizeTextEdit</class><extends>QTextEdit</extends><header>AutoSizeTextEdit.h</header></customwidget>
  </customwidgets>
- <resources>
-  <include location="UpdateChecker.qrc"/>
- </resources>
+ <resources><include location="UpdateChecker.qrc"/></resources>
  <connections/>
 </ui>

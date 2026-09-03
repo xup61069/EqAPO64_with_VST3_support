@@ -189,12 +189,14 @@ __pycache__/
 .codex-tools/
 _deps/
 _build/
+complementary context/
 third_party/**/.git/
 third_party/vcpkg/
 third_party/vcpkg_installed/
 third_party/Qt/
 third_party/nsis-*/
 third_party/python/
+third_party/build/
 third_party/**/build/
 third_party/**/cmake-build*/
 third_party/**/install/
@@ -265,3 +267,17 @@ paket-files/
 # JetBrains Rider
 .idea/
 *.sln.iml
+
+# Playground files
+playground/
+
+# Finder metadata can appear in bundled cross-platform assets.
+.DS_Store
+
+# Optional user-supplied calibration data and impulse responses. Public builds
+# intentionally do not redistribute third-party datasets with unclear or
+# restrictive downstream terms; only the usage notes are tracked.
+/IRs/*
+!/IRs/README.md
+/resources/HeadphoneCalibrations/*
+!/resources/HeadphoneCalibrations/README.md

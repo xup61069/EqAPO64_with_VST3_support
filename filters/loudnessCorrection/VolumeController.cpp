@@ -260,16 +260,16 @@ bool VolumeController::initEndpoint()
 	return true;
 }
 
-void VolumeController::refreshEndpointIfChanged()
+bool VolumeController::refreshEndpointIfChanged()
 {
 	// A runtime filter is bound to one APO endpoint. It must never follow the
 	// system default when that default changes.
 	if (!_requestedEndpointId.empty())
-		return;
+		return true;
 
 	ULONGLONG now = GetTickCount64();
 	if (now < _nextEndpointCheck)
-		return;
+		return _endpointVolume != NULL;
 	_nextEndpointCheck = now + 2000;
 
 	IMMDeviceEnumerator* deviceEnumerator = NULL;
@@ -280,29 +280,48 @@ void VolumeController::refreshEndpointIfChanged()
 		__uuidof(IMMDeviceEnumerator),
 		reinterpret_cast<LPVOID*>(&deviceEnumerator));
 	if (FAILED(hr) || !deviceEnumerator)
-		return;
+	{
+		cleanup();
+		return false;
+	}
 
 	IMMDevice* defaultDevice = NULL;
 	hr = deviceEnumerator->GetDefaultAudioEndpoint(eRender, eMultimedia, &defaultDevice);
 	deviceEnumerator->Release();
 	if (FAILED(hr) || !defaultDevice)
-		return;
+	{
+		cleanup();
+		return false;
+	}
 
 	LPWSTR endpointId = NULL;
 	hr = defaultDevice->GetId(&endpointId);
 	defaultDevice->Release();
 	if (FAILED(hr) || !endpointId)
-		return;
+	{
+		cleanup();
+		return false;
+	}
 
 	bool changed = _endpointId != endpointId;
 	CoTaskMemFree(endpointId);
 	if (changed)
-		initEndpoint();
+	{
+		// Never keep reading the previous Windows default after a failed
+		// rebind. Clearing it first makes the caller fail closed to bypass.
+		cleanup();
+		return initEndpoint();
+	}
+	return _endpointVolume != NULL;
 }
 
 HRESULT VolumeController::getVolume(double& currentVolume)
 {
-	refreshEndpointIfChanged();
+	if (!refreshEndpointIfChanged())
+	{
+		currentVolume = _lastVolume;
+		return E_FAIL;
+	}
 	if (!_endpointVolume)
 	{
 		if (!initEndpoint())
@@ -314,8 +333,14 @@ HRESULT VolumeController::getVolume(double& currentVolume)
 
 	float vol = 0.0f;
 	HRESULT res = _endpointVolume->GetMasterVolumeLevel(&vol);
-	if (FAILED(res) && initEndpoint())
-		res = _endpointVolume->GetMasterVolumeLevel(&vol);
+	if (FAILED(res))
+	{
+		cleanup();
+		if (initEndpoint())
+			res = _endpointVolume->GetMasterVolumeLevel(&vol);
+		if (FAILED(res))
+			cleanup();
+	}
 	if (SUCCEEDED(res))
 	{
 		currentVolume = vol;
@@ -329,7 +354,8 @@ HRESULT VolumeController::getVolume(double& currentVolume)
 
 HRESULT VolumeController::setVolume(double volume)
 {
-	refreshEndpointIfChanged();
+	if (!refreshEndpointIfChanged())
+		return E_FAIL;
 	if (!_endpointVolume)
 	{
 		if (!initEndpoint())
@@ -339,7 +365,10 @@ HRESULT VolumeController::setVolume(double volume)
 	}
 	volume = (std::min)(volume, static_cast<double>(_maxVol));
 	volume = (std::max)(volume, static_cast<double>(_minVol));
-	return _endpointVolume->SetMasterVolumeLevel((float)volume, NULL);
+	HRESULT result = _endpointVolume->SetMasterVolumeLevel((float)volume, NULL);
+	if (FAILED(result))
+		cleanup();
+	return result;
 }
 
 bool VolumeController::hasVolumeChanged()

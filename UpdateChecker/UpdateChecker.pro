@@ -23,6 +23,8 @@ SOURCES += \
 	main.cpp \
 	UpdateChecker.cpp \
 	AutoSizeTextEdit.cpp \
+	../Editor/ModernTheme.cpp \
+	../Editor/helpers/GUIHelper.cpp \
 	../helpers/StringHelper.cpp \
 	../helpers/TaskSchedulerHelper.cpp \
 	stdafx.cpp
@@ -30,6 +32,8 @@ SOURCES += \
 HEADERS += \
 	UpdateChecker.h \
 	AutoSizeTextEdit.h \
+	../Editor/ModernTheme.h \
+	../Editor/helpers/GUIHelper.h \
 	../helpers/StringHelper.h \
 	../helpers/TaskSchedulerHelper.h \
 	../helpers/RegistryHelper.h \

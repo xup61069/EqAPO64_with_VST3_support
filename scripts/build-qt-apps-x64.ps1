@@ -1,7 +1,9 @@
 param(
 	[string]$Configuration = "Release",
 	[string]$VisualStudioEdition = "",
-	[string]$QtRoot = ""
+	[string]$QtRoot = "",
+	[switch]$EnableUiSnapshots,
+	[string]$OutputDirectory = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -46,7 +48,7 @@ $paths = @{
 	FFTW_INCLUDE = Join-Path $thirdParty "vcpkg_installed\$triplet\include"
 	FFTW_LIB = Join-Path $thirdParty "vcpkg_installed\$triplet\$vcpkgLibSubdirectory"
 	MUPARSERX_INCLUDE = Join-Path $thirdParty "muparserx\parser"
-	MUPARSERX_LIB = Join-Path $thirdParty "muparserx\build\x64\$Configuration"
+	MUPARSERX_LIB = Join-Path $thirdParty "build\muparserx-$triplet\$Configuration"
 }
 
 foreach ($path in $paths.GetEnumerator()) {
@@ -63,7 +65,11 @@ $apps = @(
 	@{ Name = "UpdateChecker"; Project = Join-Path $root "UpdateChecker\UpdateChecker.pro" }
 )
 
-$outDir = Join-Path $root "x64\$Configuration"
+$outDir = if ($OutputDirectory -ne "") {
+	[System.IO.Path]::GetFullPath($OutputDirectory)
+} else {
+	Join-Path $root "x64\$Configuration"
+}
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
 foreach ($app in $apps) {
@@ -79,8 +85,14 @@ foreach ($app in $apps) {
 	# Keep Debug and Release intermediates isolated. qmake's `nmake clean`
 	# otherwise walks both configurations in a shared tree, which can collide
 	# with a PCH still being held by another build.
-	$buildDir = Join-Path $root "_build\$($app.Name)-x64-$Configuration"
+	$buildLabel = if ($EnableUiSnapshots) { "$Configuration-UiSnapshot" } else { $Configuration }
+	$buildDir = Join-Path $root "_build\$($app.Name)-x64-$buildLabel"
 	New-Item -ItemType Directory -Force -Path $buildDir | Out-Null
+	$snapshotDefine = if ($EnableUiSnapshots) {
+		" DEFINES+=EQAPO_ENABLE_UI_SNAPSHOTS"
+	} else {
+		""
+	}
 
 	$cmdParts = @(
 		"call `"$vsDevCmd`" -arch=x64 -host_arch=x64",
@@ -93,7 +105,7 @@ foreach ($app in $apps) {
 		"set `"MUPARSERX_INCLUDE=$($paths.MUPARSERX_INCLUDE)`"",
 		"set `"MUPARSERX_LIB=$($paths.MUPARSERX_LIB)`"",
 		"cd /d `"$buildDir`"",
-		"`"$qmake`" `"$($app.Project)`" -spec win32-msvc CONFIG+=$qmakeConfiguration CONFIG-=$oppositeQmakeConfiguration QMAKE_CXXFLAGS_WARN_ON+=/WX",
+		"`"$qmake`" `"$($app.Project)`" -spec win32-msvc CONFIG+=$qmakeConfiguration CONFIG-=$oppositeQmakeConfiguration QMAKE_CXXFLAGS_WARN_ON+=/WX$snapshotDefine",
 		"nmake clean",
 		"nmake"
 	)

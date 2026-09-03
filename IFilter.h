@@ -24,10 +24,24 @@
 
 #include "helpers/MemoryHelper.h"
 
+struct FilterRuntimeVolumeObservation
+{
+	std::wstring requestedEndpointId;
+	std::wstring resolvedEndpointId;
+	double volumeDb = 0.0;
+	bool available = false;
+};
+
 struct FilterRuntimeContext
 {
+	bool flowKnown = false;
 	bool isCapture = false;
+	bool offlineAnalysis = false;
 	std::wstring endpointId;
+	// Offline analysis owns this optional sink. Automatic loudness filters
+	// record the exact Windows endpoint and volume used to build their
+	// coefficients so a later destructive editor action can reject stale data.
+	std::vector<FilterRuntimeVolumeObservation>* volumeObservations = nullptr;
 };
 
 #pragma AVRT_VTABLES_BEGIN

@@ -28,7 +28,8 @@ enum class ItemStatusType
 	waiting,
 	success,
 	warning,
-	error
+	error,
+	unavailable
 };
 
 Q_DECLARE_METATYPE(ItemStatusType)
@@ -46,7 +47,7 @@ signals:
 	void showErrorDialog(const QString& message);
 	void abort(const QString& message, int code);
 	void setItemStatus(const QString& guid, bool postMix, ItemStatusType statusType);
-	void finished();
+	void completed(bool hasProblems);
 
 protected:
 	__override void run();

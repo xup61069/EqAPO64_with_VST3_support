@@ -17,7 +17,13 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+#include <algorithm>
 #include <string>
+#include <QFontMetrics>
+#include <QHeaderView>
+#include <QStyle>
+
+#include "Editor/helpers/GUIHelper.h"
 #include "DeviceFilterGUI.h"
 #include "DeviceFilterGUIDialog.h"
 #include <filters/DeviceFilterFactory.h>
@@ -31,6 +37,16 @@ DeviceFilterGUI::DeviceFilterGUI(DeviceFilterGUIFactory* factory)
 {
 	ui->setupUi(this);
 	this->factory = factory;
+
+	ui->treeWidget->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+	ui->treeWidget->setTextElideMode(Qt::ElideMiddle);
+	ui->treeWidget->setUniformRowHeights(true);
+	QHeaderView* header = ui->treeWidget->header();
+	header->setStretchLastSection(false);
+	header->setSectionResizeMode(0, QHeaderView::Fixed);
+	header->setSectionResizeMode(1, QHeaderView::Fixed);
+	header->setSectionResizeMode(2, QHeaderView::Stretch);
+	header->setSectionResizeMode(3, QHeaderView::Fixed);
 }
 
 DeviceFilterGUI::~DeviceFilterGUI()
@@ -43,6 +59,7 @@ void DeviceFilterGUI::load(const QString& parameters)
 	pattern = parameters;
 
 	ui->treeWidget->clear();
+	ui->treeWidget->setAccessibleDescription(QString());
 
 	QStringList labels;
 	labels.append(tr("Type"));
@@ -52,15 +69,27 @@ void DeviceFilterGUI::load(const QString& parameters)
 	ui->treeWidget->setHeaderLabels(labels);
 
 	QTreeWidgetItem* lastItem = NULL;
+	bool missingDevice = false;
+	const auto addItem = [this](const QStringList& values)
+	{
+		QTreeWidgetItem* item = new QTreeWidgetItem(ui->treeWidget, values);
+		for (int column = 0; column < values.size(); ++column)
+		{
+			if (!values[column].isEmpty())
+				item->setToolTip(column, values[column]);
+		}
+		return item;
+	};
 
 	if (parameters.trimmed() == "all")
 	{
 		QStringList values;
 		values.append("");
+		values.append("");
 		values.append(tr("All devices"));
 		values.append("");
 
-		lastItem = new QTreeWidgetItem(ui->treeWidget, values);
+		lastItem = addItem(values);
 	}
 	else
 	{
@@ -98,31 +127,97 @@ void DeviceFilterGUI::load(const QString& parameters)
 				if (voicemeeterInfo != NULL && !voicemeeterInfo->isVoicemeeterInstalled())
 					state += ", " + tr("Voicemeeter was uninstalled");
 				values.append(state);
-				lastItem = new QTreeWidgetItem(ui->treeWidget, values);
+				lastItem = addItem(values);
 			}
 		}
 
 		if (ui->treeWidget->topLevelItemCount() == 0)
 		{
+			missingDevice = true;
+			const QString message = tr("No device matched")
+				+ " \"" + pattern.trimmed() + "\"";
 			QStringList values;
+			values.append(message);
 			values.append("");
-			values.append(tr("No device matched") + " \"" + pattern.trimmed() + "\"");
+			values.append("");
 			values.append("");
 
-			QTreeWidgetItem* item = new QTreeWidgetItem(ui->treeWidget, values);
-			item->setForeground(1, QBrush(Qt::red));
+			QTreeWidgetItem* item = addItem(values);
+			item->setData(0, Qt::AccessibleTextRole, message);
+			item->setIcon(0, style()->standardIcon(QStyle::SP_MessageBoxWarning));
+			item->setFirstColumnSpanned(true);
+			ui->treeWidget->setAccessibleDescription(message);
 			lastItem = item;
 		}
 	}
 
-	for (int i = 0; i < ui->treeWidget->columnCount(); i++)
-		ui->treeWidget->resizeColumnToContents(i);
+	ui->treeWidget->setProperty(
+		"deviceMatchState", missingDevice ? "missing" : "normal");
+	ui->treeWidget->style()->unpolish(ui->treeWidget);
+	ui->treeWidget->style()->polish(ui->treeWidget);
+	updateColumnWidths();
 
 	int headerHeight = ui->treeWidget->header()->height();
 	int itemAreaHeight = 0;
-	if (lastItem != NULL)
+	const int visibleRows = (std::min)(4, ui->treeWidget->topLevelItemCount());
+	if (visibleRows > 0)
+	{
+		QTreeWidgetItem* lastVisibleItem =
+			ui->treeWidget->topLevelItem(visibleRows - 1);
+		itemAreaHeight =
+			ui->treeWidget->visualItemRect(lastVisibleItem).bottom() + 1;
+	}
+	else if (lastItem != NULL)
+	{
 		itemAreaHeight = ui->treeWidget->visualItemRect(lastItem).bottom() + 1;
-	ui->treeWidget->setFixedHeight(headerHeight + itemAreaHeight + 3);
+	}
+	ui->treeWidget->setFixedHeight(
+		headerHeight + itemAreaHeight + ui->treeWidget->frameWidth() * 2 + 1);
+}
+
+void DeviceFilterGUI::resizeEvent(QResizeEvent* event)
+{
+	QWidget::resizeEvent(event);
+	updateColumnWidths();
+}
+
+void DeviceFilterGUI::updateColumnWidths()
+{
+	QHeaderView* header = ui->treeWidget->header();
+	const int availableWidth = (std::max)(
+		1, ui->treeWidget->viewport()->width());
+	const auto contentWidth = [this](int column)
+	{
+		int width = ui->treeWidget->header()->fontMetrics().horizontalAdvance(
+			ui->treeWidget->headerItem()->text(column));
+		for (int row = 0; row < ui->treeWidget->topLevelItemCount(); ++row)
+		{
+			QTreeWidgetItem* item = ui->treeWidget->topLevelItem(row);
+			int itemWidth =
+				ui->treeWidget->fontMetrics().horizontalAdvance(item->text(column));
+			if (!item->icon(column).isNull())
+				itemWidth += ui->treeWidget->iconSize().width() + GUIHelper::scale(4);
+			width = (std::max)(
+				width,
+				itemWidth);
+		}
+		return width + GUIHelper::scale(28);
+	};
+	const auto cappedWidth = [this, availableWidth, &contentWidth](
+		int column, int minimum, int maximum, int percent)
+	{
+		const int minimumWidth = GUIHelper::scale(minimum);
+		const int maximumWidth = (std::max)(
+			minimumWidth,
+			(std::min)(GUIHelper::scale(maximum), availableWidth * percent / 100));
+		return (std::max)(
+			minimumWidth,
+			(std::min)(contentWidth(column), maximumWidth));
+	};
+
+	header->resizeSection(0, cappedWidth(0, 64, 140, 18));
+	header->resizeSection(1, cappedWidth(1, 96, 220, 25));
+	header->resizeSection(3, cappedWidth(3, 96, 200, 25));
 }
 
 void DeviceFilterGUI::store(QString& command, QString& parameters)

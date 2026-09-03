@@ -38,6 +38,7 @@ public:
 
 	virtual void loadPreferences(const QVariantMap& prefs) {}
 	virtual void storePreferences(QVariantMap& prefs) {}
+	virtual void prepareDelete() {}
 
 signals:
 	void updateModel();

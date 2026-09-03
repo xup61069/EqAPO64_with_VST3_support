@@ -107,7 +107,7 @@ void CopyFilterGUIScene::load(const vector<wstring>& channelNames, vector<Assign
 	}
 
 	QToolButton* addButton = new QToolButton;
-	addButton->setIcon(QIcon(":/icons/list-add-green.ico"));
+	addButton->setIcon(GUIHelper::createAccentAddIcon());
 	connect(addButton, SIGNAL(clicked()), this, SLOT(addOutputChannel()));
 	addProxyItem = addWidget(addButton);
 	addProxyItem->setPos(getNextChannelPoint(lastOutputItem, true));

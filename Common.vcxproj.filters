@@ -11,6 +11,12 @@
     <ClInclude Include="filters\BiQuadFilterFactory.h">
       <Filter>filters</Filter>
     </ClInclude>
+    <ClInclude Include="filters\ParametricEQFilter.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\ParametricEQFilterFactory.h">
+      <Filter>filters</Filter>
+    </ClInclude>
     <ClInclude Include="filters\ChannelFilter.h">
       <Filter>filters</Filter>
     </ClInclude>
@@ -74,6 +80,84 @@
     <ClInclude Include="filters\VSTPluginFilterFactory.h">
       <Filter>filters</Filter>
     </ClInclude>
+    <ClInclude Include="filters\HeadphoneCalibrationFilter.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\HeadphoneCalibrationFilterFactory.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\OutProcBiquadFilter.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\OutProcBiquadFilterFactory.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\OutProcGainFilter.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\OutProcGainFilterFactory.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\OutProcVSTPluginFilter.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\OutProcVSTPluginFilterFactory.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\OutputGuardFilter.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\OutputGuardFilterFactory.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\AudioToolsHelper.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\PanFilter.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\PanFilterFactory.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\CrossfeedFilter.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\CrossfeedFilterFactory.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\ChorusFilter.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\ChorusFilterFactory.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\ReverbFilter.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\ReverbFilterFactory.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\ToneGeneratorFilter.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\ToneGeneratorFilterFactory.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\VUMeterProtocol.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\VUMeterFilter.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\VUMeterFilterFactory.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="outproc\OutProcAudioProtocol.h">
+      <Filter>outproc</Filter>
+    </ClInclude>
+    <ClInclude Include="outproc\OutProcVSTConfig.h">
+      <Filter>outproc</Filter>
+    </ClInclude>
     <ClInclude Include="helpers\AbstractLibrary.h">
       <Filter>helpers</Filter>
     </ClInclude>
@@ -102,6 +186,12 @@
       <Filter>helpers</Filter>
     </ClInclude>
     <ClInclude Include="helpers\UncaughtExceptions.h">
+      <Filter>helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="helpers\VSTDiagnostics.h">
+      <Filter>helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="helpers\VSTParameterParser.h">
       <Filter>helpers</Filter>
     </ClInclude>
     <ClInclude Include="helpers\VSTPluginInstance.h">
@@ -157,6 +247,12 @@
       <Filter>filters</Filter>
     </ClCompile>
     <ClCompile Include="filters\BiQuadFilterFactory.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\ParametricEQFilter.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\ParametricEQFilterFactory.cpp">
       <Filter>filters</Filter>
     </ClCompile>
     <ClCompile Include="filters\ChannelFilter.cpp">
@@ -222,6 +318,72 @@
     <ClCompile Include="filters\VSTPluginFilterFactory.cpp">
       <Filter>filters</Filter>
     </ClCompile>
+    <ClCompile Include="filters\HeadphoneCalibrationFilter.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\HeadphoneCalibrationFilterFactory.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\OutProcBiquadFilter.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\OutProcBiquadFilterFactory.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\OutProcGainFilter.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\OutProcGainFilterFactory.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\OutProcVSTPluginFilter.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\OutProcVSTPluginFilterFactory.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\OutputGuardFilter.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\OutputGuardFilterFactory.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\PanFilter.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\PanFilterFactory.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\CrossfeedFilter.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\CrossfeedFilterFactory.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\ChorusFilter.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\ChorusFilterFactory.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\ReverbFilter.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\ReverbFilterFactory.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\ToneGeneratorFilter.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\ToneGeneratorFilterFactory.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\VUMeterFilter.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\VUMeterFilterFactory.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
     <ClCompile Include="helpers\AbstractLibrary.cpp">
       <Filter>helpers</Filter>
     </ClCompile>
@@ -243,10 +405,25 @@
     <ClCompile Include="helpers\VST3PluginIIDs.cpp">
       <Filter>helpers</Filter>
     </ClCompile>
+    <ClCompile Include="helpers\VSTDiagnostics.cpp">
+      <Filter>helpers</Filter>
+    </ClCompile>
     <ClCompile Include="helpers\VSTPluginInstance.cpp">
       <Filter>helpers</Filter>
     </ClCompile>
     <ClCompile Include="helpers\VSTPluginLibrary.cpp">
+      <Filter>helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\vst3sdk\public.sdk\source\common\threadchecker_win32.cpp">
+      <Filter>helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\vst3sdk\pluginterfaces\base\funknown.cpp">
+      <Filter>helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\vst3sdk\public.sdk\source\vst\hosting\connectionproxy.cpp">
+      <Filter>helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\vst3sdk\public.sdk\source\vst\hosting\parameterchanges.cpp">
       <Filter>helpers</Filter>
     </ClCompile>
     <ClCompile Include="libHybridConv-0.1.1\libHybridConv_eapo.cpp">
@@ -295,6 +472,9 @@
     </Filter>
     <Filter Include="filters\loudnessCorrection">
       <UniqueIdentifier>{c473f978-6002-42aa-adf5-3b5f10868d2d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="outproc">
+      <UniqueIdentifier>{0d55b16d-2319-44d7-94b0-81834a4d47fe}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

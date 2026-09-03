@@ -27,6 +27,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="..\Editor\ModernTheme.h" />
+    <ClInclude Include="..\Editor\helpers\GUIHelper.h">
+      <Filter>helpers</Filter>
+    </ClInclude>
     <ClInclude Include="..\helpers\RegistryHelper.h">
       <Filter>helpers</Filter>
     </ClInclude>
@@ -44,6 +48,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="..\Editor\ModernTheme.cpp" />
+    <ClCompile Include="..\Editor\helpers\GUIHelper.cpp">
+      <Filter>helpers</Filter>
+    </ClCompile>
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="UpdateChecker.cpp" />
     <ClCompile Include="AutoSizeTextEdit.cpp" />
@@ -62,6 +70,9 @@
       <Filter>Translation Files</Filter>
     </QtTranslation>
     <QtTranslation Include="translations\UpdateChecker_fr.ts">
+      <Filter>Translation Files</Filter>
+    </QtTranslation>
+    <QtTranslation Include="translations\UpdateChecker_zh_TW.ts">
       <Filter>Translation Files</Filter>
     </QtTranslation>
   </ItemGroup>

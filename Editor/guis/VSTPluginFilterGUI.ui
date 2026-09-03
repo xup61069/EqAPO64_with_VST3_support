@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>542</width>
-    <height>166</height>
+    <height>190</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -42,6 +42,29 @@
      </property>
      <property name="text">
       <string>Open panel</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="3">
+    <widget class="QPushButton" name="reloadButton">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="toolTip">
+      <string>Reload the current plugin while preserving its saved state</string>
+     </property>
+     <property name="text">
+      <string>Reload plugin</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="3">
+    <widget class="QComboBox" name="vst3ClassComboBox">
+     <property name="toolTip">
+      <string>Select the VST3 plug-in class inside this bundle</string>
      </property>
     </widget>
    </item>
@@ -83,10 +106,6 @@
      <property name="text">
       <string notr="true"/>
      </property>
-     <property name="icon">
-      <iconset resource="../Editor.qrc">
-       <normaloff>:/icons/document-open.ico</normaloff>:/icons/document-open.ico</iconset>
-     </property>
     </widget>
    </item>
    <item row="2" column="0" colspan="4">
@@ -102,50 +121,34 @@
    <item row="3" column="0" colspan="4">
     <widget class="QPlainTextEdit" name="warningTextEdit">
      <property name="sizePolicy">
-      <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+      <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
        <horstretch>0</horstretch>
        <verstretch>0</verstretch>
       </sizepolicy>
      </property>
-     <property name="palette">
-      <palette>
-       <active>
-        <colorrole role="Base">
-         <brush brushstyle="SolidPattern">
-          <color alpha="255">
-           <red>255</red>
-           <green>255</green>
-           <blue>127</blue>
-          </color>
-         </brush>
-        </colorrole>
-       </active>
-       <inactive>
-        <colorrole role="Base">
-         <brush brushstyle="SolidPattern">
-          <color alpha="255">
-           <red>255</red>
-           <green>255</green>
-           <blue>127</blue>
-          </color>
-         </brush>
-        </colorrole>
-       </inactive>
-       <disabled>
-        <colorrole role="Base">
-         <brush brushstyle="SolidPattern">
-          <color alpha="255">
-           <red>240</red>
-           <green>240</green>
-           <blue>240</blue>
-          </color>
-         </brush>
-        </colorrole>
-       </disabled>
-      </palette>
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>72</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>150</height>
+      </size>
      </property>
      <property name="sizeAdjustPolicy">
-      <enum>QAbstractScrollArea::AdjustToContents</enum>
+      <enum>QAbstractScrollArea::AdjustIgnored</enum>
+     </property>
+     <property name="horizontalScrollBarPolicy">
+      <enum>Qt::ScrollBarAlwaysOff</enum>
+     </property>
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+     <property name="lineWrapMode">
+      <enum>QPlainTextEdit::WidgetWidth</enum>
      </property>
     </widget>
    </item>

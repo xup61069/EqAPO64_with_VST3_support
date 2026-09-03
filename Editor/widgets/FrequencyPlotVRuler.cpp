@@ -39,6 +39,13 @@ void FrequencyPlotVRuler::paintEvent(QPaintEvent*)
 	QPointF topLeft = view->mapToScene(0, 0);
 	QPointF bottomRight = view->mapToScene(view->viewport()->width(), view->viewport()->height());
 	double dbStep = abs(s->yToDb(0) - s->yToDb(GUIHelper::scale(30)));
+	// TextDontClip does not escape the QWidget paint device, so large labels need an in-bounds center.
+	const qreal halfTextHeight = painter.fontMetrics().height() / 2.0;
+	const qreal maxTextCenter = qMax(halfTextHeight, static_cast<qreal>(height()) - halfTextHeight);
+	const auto clampTextCenter = [halfTextHeight, maxTextCenter](qreal center)
+	{
+		return qBound(halfTextHeight, center, maxTextCenter);
+	};
 
 	double dbBase = pow(10, floor(log10(dbStep)));
 	if (dbStep >= 5 * dbBase)
@@ -51,15 +58,18 @@ void FrequencyPlotVRuler::paintEvent(QPaintEvent*)
 	double fromDb = floor(s->yToDb(topLeft.y()) / dbStep) * dbStep;
 	double toDb = ceil(s->yToDb(bottomRight.y()) / dbStep) * dbStep;
 
-	bool dark = GUIHelper::isDarkMode();
-	painter.setPen(dark ? QColor(200, 200, 200) : QColor(50, 50, 50));
+	const QPalette rulerPalette = palette();
+	painter.setPen(rulerPalette.color(QPalette::WindowText));
 	for (double db = toDb; db <= fromDb; db += dbStep)
 	{
 		if (abs(db) < 1e-6)
 			db = 0;
 		double y = s->dbToY(db);
 		if (y != -1)
-			painter.drawText(0, y - topLeft.y() - 1, width(), 0, Qt::TextDontClip | Qt::AlignCenter, QString("%0").arg(db));
+		{
+			const qreal center = clampTextCenter(y - topLeft.y() - 1);
+			painter.drawText(0, qRound(center), width(), 0, Qt::TextDontClip | Qt::AlignCenter, QString("%0").arg(db));
+		}
 	}
 
 	QPoint mousePos = view->getLastMousePos();
@@ -74,7 +84,7 @@ void FrequencyPlotVRuler::paintEvent(QPaintEvent*)
 			QString text = QString("%0").arg(db, 0, 'f', 1);
 			QFontMetrics metrics = painter.fontMetrics();
 			QRectF rect = metrics.boundingRect(text);
-			float center = y - topLeft.y() - 1;
+			const qreal center = clampTextCenter(y - topLeft.y() - 1);
 			rect = QRectF(ceil(width() / 2) - ceil(rect.width() / 2) - 2.5, center - ceil(rect.height() / 2) + 1.5, rect.width() + 3, rect.height() - 1);
 			QPainterPath path;
 			path.addRect(rect);
@@ -84,10 +94,10 @@ void FrequencyPlotVRuler::paintEvent(QPaintEvent*)
 			rightTriangle.lineTo(QPoint(rect.right() + 4, center + 1));
 			path = path.united(rightTriangle);
 
-			painter.setPen(dark ? QColor(200,200,200) : Qt::black);
-			painter.setBrush(dark ? Qt::black : Qt::white);
+			painter.setPen(rulerPalette.color(QPalette::Mid));
+			painter.setBrush(rulerPalette.color(QPalette::ToolTipBase));
 			painter.drawPath(path);
-			painter.setPen(dark ? QColor(147,161,229) : Qt::blue);
+			painter.setPen(rulerPalette.color(QPalette::Highlight));
 			painter.drawText(0, center, width() - 2, 0, Qt::TextDontClip | Qt::AlignCenter, text);
 		}
 	}

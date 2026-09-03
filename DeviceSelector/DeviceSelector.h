@@ -31,7 +31,15 @@ public:
 	DeviceSelector(QWidget* parent = nullptr);
 	void addDevices(std::vector<std::shared_ptr<AbstractAPOInfo>>& devices, QTreeWidgetItem* parentNode);
 
+protected:
+	__override void changeEvent(QEvent* event);
+
 private:
+	void loadDevices();
+	void configureDeviceTree();
+	void updateThemeAssets();
+	void updateTypography();
+	void updateDeviceAppearance(QTreeWidgetItem* item);
 	void onDeviceSelectionChanged();
 	void onDeviceToggled(QTreeWidgetItem* item);
 	void onDeviceContextMenuRequested(const QPoint& pos);

@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui
+QT       += core gui network
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -50,12 +50,31 @@ SOURCES += main.cpp\
 	../filters/BiQuadFilter.cpp \
 	../filters/BiQuadFilterFactory.cpp \
 	guis/BiQuadFilterGUIFactory.cpp \
+	../filters/ParametricEQFilter.cpp \
+	../filters/ParametricEQFilterFactory.cpp \
+	guis/ParametricEQFilterGUIFactory.cpp \
 	guis/CopyFilterGUIFactory.cpp \
 	guis/CopyFilterGUI.cpp \
 	guis/CopyFilterGUIConnectionItem.cpp \
 	guis/CopyFilterGUIChannelItem.cpp \
+	guis/AudioToolFilterGUIFactory.cpp \
+	guis/HeadphoneCalibrationFilterGUIFactory.cpp \
 	../filters/CopyFilter.cpp \
 	../filters/CopyFilterFactory.cpp \
+	../filters/PanFilter.cpp \
+	../filters/PanFilterFactory.cpp \
+	../filters/CrossfeedFilter.cpp \
+	../filters/CrossfeedFilterFactory.cpp \
+	../filters/ChorusFilter.cpp \
+	../filters/ChorusFilterFactory.cpp \
+	../filters/ReverbFilter.cpp \
+	../filters/ReverbFilterFactory.cpp \
+	../filters/ToneGeneratorFilter.cpp \
+	../filters/ToneGeneratorFilterFactory.cpp \
+	../filters/VUMeterFilter.cpp \
+	../filters/VUMeterFilterFactory.cpp \
+	../filters/HeadphoneCalibrationFilter.cpp \
+	../filters/HeadphoneCalibrationFilterFactory.cpp \
 	../IFilter.cpp \
 	guis/CopyFilterGUIScene.cpp \
 	guis/CopyFilterGUIForm.cpp \
@@ -69,6 +88,7 @@ SOURCES += main.cpp\
 	guis/IncludeFilterGUI.cpp \
 	guis/IncludeFilterGUIFactory.cpp \
 	helpers/GUIHelper.cpp \
+	ModernTheme.cpp \
 	widgets/ResizingLineEdit.cpp \
 	widgets/ChannelGraphScene.cpp \
 	widgets/ChannelGraphItem.cpp \
@@ -122,6 +142,7 @@ SOURCES += main.cpp\
 	../AbstractAPOInfo.cpp \
 	../VoicemeeterAPOInfo.cpp \
 	../helpers/AbstractLibrary.cpp \
+	../helpers/VSTDiagnostics.cpp \
 	../helpers/VST3PluginIIDs.cpp \
 	../helpers/VSTPluginLibrary.cpp \
 	guis/VSTPluginFilterGUI.cpp \
@@ -132,6 +153,7 @@ SOURCES += main.cpp\
 	../helpers/VSTPluginInstance.cpp \
 	guis/LegacyLoudnessCorrectionFilterGUI.cpp \
 	guis/LoudnessCorrectionFilterGUI.cpp \
+	guis/LoudnessCorrectionStudioDialog.cpp \
 	guis/LoudnessCorrectionFilterGUIFactory.cpp \
 	../filters/loudnessCorrection/LoudnessCorrectionFilter.cpp \
 	../filters/loudnessCorrection/LoudnessCorrectionFilterFactory.cpp \
@@ -139,7 +161,8 @@ SOURCES += main.cpp\
 	guis/LoudnessCorrectionFilterGUIDialog.cpp \
 	helpers/QtSndfileHandle.cpp \
 	widgets/MiddleClickTabWidget.cpp \
-	widgets/MiddleClickTabBar.cpp
+	widgets/MiddleClickTabBar.cpp \
+	widgets/VerticalDragDial.cpp
 
 HEADERS  += \
 	../helpers/LogHelper.h \
@@ -148,6 +171,7 @@ HEADERS  += \
 	../parser/LogicalOperators.h \
 	IFilterGUIFactory.h \
 	helpers/GUIHelper.h \
+	ModernTheme.h \
 	stable.h \
 	IFilterGUI.h \
 	guis/PreampFilterGUI.h \
@@ -173,12 +197,33 @@ HEADERS  += \
 	../filters/BiQuadFilter.h \
 	../filters/BiQuadFilterFactory.h \
 	guis/BiQuadFilterGUIFactory.h \
+	../filters/ParametricEQFilter.h \
+	../filters/ParametricEQFilterFactory.h \
+	guis/ParametricEQFilterGUIFactory.h \
 	guis/CopyFilterGUIFactory.h \
 	guis/CopyFilterGUI.h \
 	guis/CopyFilterGUIConnectionItem.h \
 	guis/CopyFilterGUIChannelItem.h \
+	guis/AudioToolFilterGUIFactory.h \
+	guis/HeadphoneCalibrationFilterGUIFactory.h \
 	../filters/CopyFilter.h \
 	../filters/CopyFilterFactory.h \
+	../filters/AudioToolsHelper.h \
+	../filters/PanFilter.h \
+	../filters/PanFilterFactory.h \
+	../filters/CrossfeedFilter.h \
+	../filters/CrossfeedFilterFactory.h \
+	../filters/ChorusFilter.h \
+	../filters/ChorusFilterFactory.h \
+	../filters/ReverbFilter.h \
+	../filters/ReverbFilterFactory.h \
+	../filters/ToneGeneratorFilter.h \
+	../filters/ToneGeneratorFilterFactory.h \
+	../filters/VUMeterProtocol.h \
+	../filters/VUMeterFilter.h \
+	../filters/VUMeterFilterFactory.h \
+	../filters/HeadphoneCalibrationFilter.h \
+	../filters/HeadphoneCalibrationFilterFactory.h \
 	../IFilter.h \
 	../IFilterFactory.h \
 	guis/CopyFilterGUIScene.h \
@@ -247,6 +292,7 @@ HEADERS  += \
 	../AbstractAPOInfo.h \
 	../VoicemeeterAPOInfo.h \
 	../helpers/AbstractLibrary.h \
+	../helpers/VSTDiagnostics.h \
 	../helpers/VSTPluginLibrary.h \
 	guis/VSTPluginFilterGUI.h \
 	guis/VSTPluginFilterGUIFactory.h \
@@ -256,6 +302,7 @@ HEADERS  += \
 	../helpers/VSTPluginInstance.h \
 	guis/LegacyLoudnessCorrectionFilterGUI.h \
 	guis/LoudnessCorrectionFilterGUI.h \
+	guis/LoudnessCorrectionStudioDialog.h \
 	guis/LoudnessCorrectionFilterGUIFactory.h \
 	../filters/loudnessCorrection/LoudnessProfile.h \
 	../filters/loudnessCorrection/LoudnessCorrectionFilter.h \
@@ -265,7 +312,8 @@ HEADERS  += \
 	guis/LoudnessCorrectionFilterGUIDialog.h \
 	helpers/QtSndfileHandle.h \
 	widgets/MiddleClickTabWidget.h \
-	widgets/MiddleClickTabBar.h
+	widgets/MiddleClickTabBar.h \
+	widgets/VerticalDragDial.h
 
 FORMS    += \
 	guis/PreampFilterGUI.ui \
@@ -287,6 +335,7 @@ FORMS    += \
 	guis/VSTPluginFilterGUI.ui \
 	guis/VSTPluginFilterGUIDialog.ui \
 	guis/LoudnessCorrectionFilterGUI.ui \
+	guis/LoudnessCorrectionStudioDialog.ui \
 	guis/LoudnessCorrectionFilterGUIDialog.ui
 
 # Dependency paths with environment variable support and fallbacks
@@ -316,17 +365,17 @@ isEmpty(MUPARSERX_INCLUDE) {
 
 MUPARSERX_LIB = $$(MUPARSERX_LIB)
 isEmpty(MUPARSERX_LIB) {
-	MUPARSERX_LIB = "$$PWD/../third_party/muparserx/build/x64/Release"
+	CONFIG(debug, debug|release) {
+		MUPARSERX_LIB = "$$PWD/../third_party/build/muparserx-x64-windows/Debug"
+	} else {
+		MUPARSERX_LIB = "$$PWD/../third_party/build/muparserx-x64-windows/Release"
+	}
 }
 
 INCLUDEPATH += $$PWD/.. $$PWD/../third_party/vst3sdk $$LIBSNDFILE_INCLUDE $$FFTW_INCLUDE $$MUPARSERX_INCLUDE
 LIBS += user32.lib advapi32.lib version.lib ole32.lib Shlwapi.lib authz.lib crypt32.lib dbghelp.lib winmm.lib sndfile.lib fftw3.lib
 
-build_pass:CONFIG(debug, debug|release) {
-	LIBS += muparserxd.lib
-} else {
-	LIBS += muparserx.lib
-}
+LIBS += muparserx.lib
 
 contains(QT_ARCH, arm64) {
 	QMAKE_LIBDIR += $$LIBSNDFILE_LIB $$FFTW_LIB $$MUPARSERX_LIB

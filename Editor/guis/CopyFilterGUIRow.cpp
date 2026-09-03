@@ -19,6 +19,7 @@
 
 #include "CopyFilterGUIRow.h"
 #include "ui_CopyFilterGUIRow.h"
+#include <QVariant>
 
 using namespace std;
 
@@ -46,15 +47,22 @@ CopyFilterGUIRow::CopyFilterGUIRow(Assignment::Summand summand, std::vector<wstr
 	ui->modeComboBox->setCurrentIndex(ui->modeComboBox->findData(mode));
 
 	ui->factorSpinBox->setValue(summand.factor);
+	ui->factorSpinBox->setProperty("defaultValue", 1.0);
 
 	for (wstring channelName : channelNames)
 		ui->channelComboBox->addItem(QString::fromStdWString(channelName));
-	ui->channelComboBox->setEditText(QString::fromStdWString(summand.channel).trimmed());
+	const QString channelText = QString::fromStdWString(summand.channel).trimmed();
+	ui->channelComboBox->setEditText(channelText);
+	ui->channelComboBox->setToolTip(channelText);
 
 	connect(ui->modeComboBox, SIGNAL(activated(int)), this, SIGNAL(updateModel()));
 	connect(ui->factorSpinBox, SIGNAL(valueChanged(double)), this, SIGNAL(updateModel()));
 	connect(ui->channelComboBox, SIGNAL(editTextChanged(QString)), this, SIGNAL(updateModel()));
 	connect(ui->channelComboBox, SIGNAL(editTextChanged(QString)), this, SIGNAL(updateChannels()));
+	connect(ui->channelComboBox, &QComboBox::editTextChanged,
+		ui->channelComboBox, [this](const QString& text) {
+			ui->channelComboBox->setToolTip(text);
+		});
 }
 
 CopyFilterGUIRow::~CopyFilterGUIRow()
@@ -70,6 +78,7 @@ void CopyFilterGUIRow::setChannelNames(const vector<wstring>& channelNames)
 	for (wstring channelName : channelNames)
 		ui->channelComboBox->addItem(QString::fromStdWString(channelName));
 	ui->channelComboBox->setEditText(text);
+	ui->channelComboBox->setToolTip(text);
 	ui->channelComboBox->blockSignals(false);
 }
 

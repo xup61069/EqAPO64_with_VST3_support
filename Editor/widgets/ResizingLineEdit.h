@@ -29,6 +29,7 @@ public:
 	explicit ResizingLineEdit(const QString& text, bool forceWidth, QWidget* parent = 0);
 
 	QSize sizeHint() const override;
+	QSize minimumSizeHint() const override;
 
 private slots:
 	void readjustSize();

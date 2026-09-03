@@ -19,19 +19,34 @@ public:
 		const QString& command,
 		const QString& parameters,
 		bool wasEnabled,
+		double referenceLevel,
+		double referenceOffset,
 		double neutralVolumeDb,
 		double strength,
 		bool useManualVolume,
-		double manualVolumeDb);
+		double manualVolumeDb,
+		bool unmarkedEntry,
+		bool canConvertShelf,
+		bool canKeepFormula);
 
 	void store(QString& command, QString& parameters) override;
 
 private:
+	enum class Migration
+	{
+		None,
+		ConvertShelf,
+		KeepFormula
+	};
+
 	QString originalCommand;
 	QString originalParameters;
+	bool wasEnabled;
+	double referenceLevel;
+	double referenceOffset;
 	double neutralVolumeDb;
 	double strength;
 	bool useManualVolume;
 	double manualVolumeDb;
-	bool migrated;
+	Migration migration;
 };
