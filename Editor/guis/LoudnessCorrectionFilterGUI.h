@@ -50,6 +50,10 @@ public:
 
 	void store(QString& command, QString& parameters) override;
 
+	QSize sizeHint() const override;
+	QSize minimumSizeHint() const override;
+	int preferredHeight() const;
+
 private slots:
 	void on_refLevelSpinBox_valueChanged(int arg1);
 	void on_refOffsetSpinBox_valueChanged(int arg1);

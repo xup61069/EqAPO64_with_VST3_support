@@ -446,3 +446,28 @@ void LoudnessCorrectionFilterGUI::updateVolume()
 {
 	(void)tryUpdateVolume();
 }
+
+
+int LoudnessCorrectionFilterGUI::preferredHeight() const
+{
+	const int identityHeight = ui->label ? ui->label->sizeHint().height() : GUIHelper::scale(20);
+	const int paramHeight = ui->parameterLayout ? ui->parameterLayout->sizeHint().height() : GUIHelper::scale(48);
+	const int listeningHeight = ui->listeningLayout ? ui->listeningLayout->sizeHint().height() : GUIHelper::scale(45);
+	const int actionsHeight = ui->actionsLayout ? ui->actionsLayout->sizeHint().height() : GUIHelper::scale(26);
+	const int spacing = ui->gridLayout ? ui->gridLayout->verticalSpacing() : GUIHelper::scale(4);
+	return identityHeight + paramHeight + listeningHeight + actionsHeight + (3 * spacing) + GUIHelper::scale(4);
+}
+
+QSize LoudnessCorrectionFilterGUI::sizeHint() const
+{
+	QSize size = QWidget::sizeHint();
+	size.setHeight(preferredHeight());
+	return size;
+}
+
+QSize LoudnessCorrectionFilterGUI::minimumSizeHint() const
+{
+	QSize size = QWidget::minimumSizeHint();
+	size.setHeight(preferredHeight());
+	return size;
+}
