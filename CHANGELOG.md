@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.5
+
+- Added a Windows-native, responsive desktop interface across Configuration Editor, Device Selector, device testing, and Update Checker, with improved high-DPI scaling, keyboard access, screen-reader labels, and translated status feedback.
+- Added profile switching, duplication, import/export, device links, temporary bypass, A/B comparison, and tray controls to Configuration Editor while retaining the v3.0.4 loudness-correction runtime and endpoint-binding behavior.
+- Improved dense filter editors and plots for small windows and large text, and added automated UI layout and regression checks.
+
 ## 3.0.4
 
 - Fixed Configuration Editor analysis so the first displayed response uses the saved loudness-correction settings; changing `ReferenceOffset` now changes the displayed curve immediately instead of being hidden by the realtime cold-start bypass.

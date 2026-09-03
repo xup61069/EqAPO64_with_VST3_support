@@ -470,7 +470,7 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         release_workflow = (
             ROOT / ".github" / "workflows" / "release.yml"
         ).read_text(encoding="utf-8")
-        self.assertEqual(version, "3.0.4")
+        self.assertEqual(version, "3.0.5")
         self.assertEqual(manifest["version-string"], version)
         self.assertIn(f'default: "v{version}"', release_workflow)
 
