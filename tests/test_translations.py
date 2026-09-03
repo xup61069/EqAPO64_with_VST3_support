@@ -58,6 +58,26 @@ def active_messages(path: pathlib.Path):
 
 
 class TraditionalChineseTranslationTests(unittest.TestCase):
+    def test_compact_analysis_and_vst_status_copy_is_shipped(self) -> None:
+        removed_vst_wall = (
+            "NOTE: The VST module is not universally compatible with all VSTs on the market."
+        )
+        for locale, path in EDITOR_TRANSLATION_FILES_BY_LANGUAGE.items():
+            root = ET.parse(path).getroot()
+            messages = {
+                message.findtext("source", default=""): message.find("translation")
+                for message in root.findall("./context/message")
+            }
+            with self.subTest(locale=locale):
+                self.assertFalse(
+                    any(source.startswith(removed_vst_wall) for source in messages)
+                )
+                self.assertIn("Analysis status", messages)
+                translation = messages["Analysis status"]
+                self.assertIsNotNone(translation)
+                self.assertNotEqual(translation.get("type"), "unfinished")
+                self.assertTrue("".join(translation.itertext()).strip())
+
     def test_analysis_reset_view_is_finished_in_every_editor_locale(self) -> None:
         for locale, path in EDITOR_TRANSLATION_FILES_BY_LANGUAGE.items():
             root = ET.parse(path).getroot()

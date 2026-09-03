@@ -46,7 +46,6 @@ class QFileSystemWatcher;
 class QLabel;
 class QLineEdit;
 class QMenu;
-class QProgressBar;
 class QPushButton;
 class QSystemTrayIcon;
 class QToolBar;
@@ -129,6 +128,7 @@ private:
 	void savePreferences();
 	void updateRecentFiles();
 	void setupWorkspaceTools();
+	void normalizeToolbarLayout();
 	void setupTrayIcon();
 	void refreshProfiles();
 	void refreshProfileMenus();
@@ -184,7 +184,6 @@ private:
 	QLineEdit* searchLineEdit = NULL;
 	QLabel* workspaceStatusLabel = NULL;
 	QLabel* headroomValueLabel = NULL;
-	QProgressBar* headroomMeter = NULL;
 	QLabel* analysisStateLabel = NULL;
 	QPushButton* autoPreampButton = NULL;
 	QFileSystemWatcher* profileWatcher = NULL;

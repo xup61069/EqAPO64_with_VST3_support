@@ -25,6 +25,45 @@ LOUDNESS_CPP = (
 
 
 class AnalysisPanelSafetyTests(unittest.TestCase):
+    def test_analysis_loading_uses_compact_accessible_status_without_a_bar(self) -> None:
+        self.assertNotIn("QProgressBar", MAIN_CPP)
+        self.assertNotIn("QProgressBar", MAIN_H)
+        self.assertNotIn("headroomMeter", MAIN_CPP)
+        self.assertNotIn("headroomMeter", MAIN_H)
+
+        accessibility = MAIN_CPP[
+            MAIN_CPP.index("class AnalysisStatusAccessible") : MAIN_CPP.index(
+                "static QByteArray serializeConfigurationLines"
+            )
+        ]
+        for token in (
+            'property("analysisBusy").toBool()',
+            "accessibleState.busy",
+            "QAccessibleStateChangeEvent",
+            "QAccessible::updateAccessibility",
+            "label->setAccessibleDescription(text)",
+            'label->setProperty("analysisBusy", busy)',
+        ):
+            self.assertIn(token, accessibility)
+
+        constructor = MAIN_CPP[
+            MAIN_CPP.index("MainWindow::MainWindow") : MAIN_CPP.index(
+                "MainWindow::~MainWindow"
+            )
+        ]
+        self.assertIn('setAccessibleName(tr("Analysis status"))', constructor)
+        self.assertIn("ensureAnalysisStatusAccessibility();", constructor)
+
+        start = MAIN_CPP[
+            MAIN_CPP.index("void MainWindow::startAnalysis") : MAIN_CPP.index(
+                "void MainWindow::loadPreferences"
+            )
+        ]
+        analyzing = start.index('tr("Analyzing the current signal path…")')
+        self.assertLess(start.rfind("setAnalysisStatus(", 0, analyzing), analyzing)
+        self.assertIn('"normal",\n\t\ttrue);', start[analyzing:])
+        self.assertIn('"warning",\n\t\t\tfalse);', start[analyzing:])
+
     def test_floating_analysis_panel_has_explicit_bottom_dock_recovery(self) -> None:
         constructor = MAIN_CPP[
             MAIN_CPP.index("MainWindow::MainWindow") : MAIN_CPP.index(

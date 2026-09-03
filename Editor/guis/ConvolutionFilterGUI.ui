@@ -61,7 +61,7 @@
      <property name="title">
       <string>File information</string>
      </property>
-     <layout class="QGridLayout" name="gridLayout_2">
+     <layout class="QGridLayout" name="gridLayout_2" columnstretch="0,1">
       <item row="1" column="0">
        <widget class="QLabel" name="labelSampleRate">
         <property name="text">
@@ -88,7 +88,10 @@
       </item>
       <item row="2" column="0" colspan="2">
        <widget class="QPushButton" name="matchSampleRatePushButton">
-        <property name="toolTip">
+         <property name="visible">
+          <bool>false</bool>
+         </property>
+         <property name="toolTip">
          <string>Extract the loaded IR/FIR magnitude response and regenerate a sample-rate-matched FIR for the current audio device.</string>
         </property>
         <property name="text">

@@ -2240,9 +2240,9 @@ Alexander Walch</translation>
         <translation>Marge estimée</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="819"/>
-        <source>Estimated headroom meter</source>
-        <translation>Indicateur de marge estimée</translation>
+        <location filename="../MainWindow.cpp" line="877"/>
+        <source>Analysis status</source>
+        <translation>État de l’analyse</translation>
     </message>
     <message>
         <location filename="../MainWindow.cpp" line="820"/>
@@ -3292,23 +3292,6 @@ Change the first editable root Preamp from %3 dB to %4 dB?</source>
         <location filename="../guis/VSTPluginFilterGUI.cpp" line="684"/>
         <source>Select VST plugin</source>
         <translation>Sélectionnez un plugin VST</translation>
-    </message>
-    <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="94"/>
-        <source>NOTE: The VST module is not universally compatible with all VSTs on the market.
-
-If you experience:
-
-- Audio popping
-- Editor.exe crashes and closes
-- Audio changes you&apos;ve made in the VST GUI aren&apos;t applied
-- The GUI doesn&apos;t open when you click the button
-- Audio artifacts or delays when processing changes
-
-Then the VST is partially or completely incompatible with APO&apos;s architecture and the technical limitations of the Windows audio engine.
-
-Try different VST plug-ins with both the traditional loader and the out-of-process loader; some plug-ins work better in one mode than the other.</source>
-        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../guis/VSTPluginFilterGUI.cpp" line="174"/>

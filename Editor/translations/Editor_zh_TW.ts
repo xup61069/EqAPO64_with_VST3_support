@@ -2228,9 +2228,9 @@ Alexander Walch</source>
         <translation>預估餘裕</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="819"/>
-        <source>Estimated headroom meter</source>
-        <translation>預估餘裕指示器</translation>
+        <location filename="../MainWindow.cpp" line="877"/>
+        <source>Analysis status</source>
+        <translation>分析狀態</translation>
     </message>
     <message>
         <location filename="../MainWindow.cpp" line="820"/>
@@ -3283,35 +3283,6 @@ Do you want to run the Device Selector application to fix the problem?</source>
         <location filename="../guis/VSTPluginFilterGUI.cpp" line="684"/>
         <source>Select VST plugin</source>
         <translation>選擇 VST 外掛程式</translation>
-    </message>
-    <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="94"/>
-        <source>NOTE: The VST module is not universally compatible with all VSTs on the market.
-
-If you experience:
-
-- Audio popping
-- Editor.exe crashes and closes
-- Audio changes you&apos;ve made in the VST GUI aren&apos;t applied
-- The GUI doesn&apos;t open when you click the button
-- Audio artifacts or delays when processing changes
-
-Then the VST is partially or completely incompatible with APO&apos;s architecture and the technical limitations of the Windows audio engine.
-
-Try different VST plug-ins with both the traditional loader and the out-of-process loader; some plug-ins work better in one mode than the other.</source>
-        <translation>注意：VST 模組無法與市面上所有 VST 完全相容。
-
-如果發生下列情況：
-
-- 音訊爆音
-- Editor.exe 當機並關閉
-- 在 VST 圖形介面中所做的音訊變更未套用
-- 按下按鈕後圖形介面未開啟
-- 處理變更時出現音訊瑕疵或延遲
-
-表示該 VST 與 APO 的架構及 Windows 音訊引擎的技術限制部分或完全不相容。
-
-請分別使用傳統載入器與程序外載入器嘗試不同的 VST 外掛程式；有些外掛程式在其中一種模式下運作得較好。</translation>
     </message>
     <message>
         <location filename="../guis/VSTPluginFilterGUI.cpp" line="174"/>

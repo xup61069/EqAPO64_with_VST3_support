@@ -98,6 +98,7 @@ VIAddVersionKey /LANG=1033 "LegalCopyright" "Equalizer APO contributors"
   Var RenameManifestPath
   Var RenameManifestHandle
   Var RenameManifestWriteFailed
+  Var RenameCleanupInstallPrefix
   Var LegacyRenameRepairPath
   Var RenameIdentityPath
   Var RenameIdentityHandle
@@ -2071,17 +2072,21 @@ Function DiscardRenamedProductFiles
     StrCpy $InstallRecoveryFailed "1"
     Return
   ${EndIf}
-  StrCpy $6 "$5\"
+  ; Keep both values outside the general-purpose registers: the identity-delete
+  ; helper uses $0-$8 internally and must not invalidate the open manifest or
+  ; the containment prefix between records.
+  StrCpy $RenameCleanupInstallPrefix "$5\"
   ClearErrors
-  FileOpen $0 "$RenameManifestPath" r
+  FileOpen $RenameManifestHandle "$RenameManifestPath" r
   ${If} ${Errors}
+    StrCpy $RenameManifestHandle ""
     StrCpy $InstallRecoveryFailed "1"
     Return
   ${EndIf}
 
   readRenamedProductFile:
   ClearErrors
-  FileReadUTF16LE $0 $1
+  FileReadUTF16LE $RenameManifestHandle $1
   ${If} ${Errors}
     Goto closeAndRetireRenameManifest
   ${EndIf}
@@ -2124,12 +2129,12 @@ Function DiscardRenamedProductFiles
     ${Else}
       StrCpy $4 "$4\$9"
       StrCpy $RenameIdentityPath "$4"
-      StrLen $7 "$6"
+      StrLen $7 "$RenameCleanupInstallPrefix"
       StrCpy $8 "$4" $7
-      ${If} $8 == "$6"
+      ${If} $8 == "$RenameCleanupInstallPrefix"
         Call DeleteRenameFileByIdentity
         ${If} $RenameIdentityFailed == "1"
-          DetailPrint "A confirmed renamed file could not be safely deleted and was retained: $4"
+          DetailPrint "A confirmed renamed file could not be safely deleted and was retained: $RenameIdentityPath"
           Goto closeAndRetireRenameManifest
         ${EndIf}
       ${Else}
@@ -2144,7 +2149,7 @@ Function DiscardRenamedProductFiles
   Goto readRenamedProductFile
 
   closeAndRetireRenameManifest:
-  FileClose $0
+  Call CloseRenameManifest
 
   retireRenameManifest:
   ClearErrors
