@@ -38,8 +38,8 @@ public:
 		};
 
 		// Full runs the 29-band fitted correction. Fast fits a low shelf
-		// plus a top peaking filter to the same targets; it skips the
-		// response-matrix fit and the dense refined peak search.
+		// plus, when the sample rate permits, a top peaking filter to the
+		// same targets; it skips the response-matrix fit and dense search.
 		enum EngineMode
 		{
 			ENGINE_FULL = 0,
@@ -290,10 +290,10 @@ private:
 	static const unsigned RESPONSE_SCAN_POINTS = 4097;
 	static const unsigned RESPONSE_REFINEMENT_ITERATIONS = 32;
 
-	// Fast engine: a low shelf plus a top peaking filter, least-squares
-	// fitted to the same targets as the full cascade. The coarse sweep
-	// below is enough for smooth responses; the dense refined search
-	// stays on the full path only.
+	// Fast engine: a low shelf plus a top peaking filter when the sample
+	// rate permits, least-squares fitted to the same targets as the full
+	// cascade. The coarse sweep below is enough for smooth responses; the
+	// dense refined search stays on the full path only.
 	static const size_t FAST_BAND_COUNT = 2;
 	static constexpr double FAST_LOW_SHELF_FREQUENCY_HZ = 120.0;
 	static constexpr double FAST_PEAK_FREQUENCY_HZ = 12500.0;

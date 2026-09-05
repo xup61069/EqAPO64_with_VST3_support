@@ -61,6 +61,7 @@ RELEASE_CONTRACT_PATHS = tuple(
         "vcpkg.json",
         ".github/workflows/release.yml",
         "README.md",
+        "README.en.md",
         "README_zh-TW.md",
         "NOTICE.md",
         "CHANGELOG.md",
@@ -70,6 +71,7 @@ PUBLIC_RELEASE_TEXT_PATHS = tuple(
     ROOT / name
     for name in (
         "README.md",
+        "README.en.md",
         "README_zh-TW.md",
         "NOTICE.md",
         "CHANGELOG.md",
@@ -453,11 +455,16 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         self.assertIn("retired headroom mode has no direct equivalent", legacy_gui_source)
         self.assertIn("(std::max)(-100.0", legacy_gui_source)
 
-    @unittest.skipUnless(
-        all(path.is_file() for path in RELEASE_CONTRACT_PATHS),
-        "release and documentation slice has not been added yet",
-    )
     def test_release_version_is_consistent_and_has_no_named_standard_claim(self) -> None:
+        missing_paths = [
+            str(path.relative_to(ROOT))
+            for path in RELEASE_CONTRACT_PATHS
+            if not path.is_file()
+        ]
+        self.assertFalse(
+            missing_paths,
+            f"Missing release-contract files: {', '.join(missing_paths)}",
+        )
         version_text = (ROOT / "version.h").read_text(encoding="utf-8")
         parts = {
             name: value
@@ -491,13 +498,38 @@ class LoudnessSafetyContractTests(unittest.TestCase):
             self.assertNotRegex(public_text, re.compile(pattern, re.IGNORECASE))
 
         marker = "Schema 1 Model FormulaLoudnessV1"
-        english_readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        chinese_readme = (ROOT / "README_zh-TW.md").read_text(encoding="utf-8")
+        primary_readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        english_readme = (ROOT / "README.en.md").read_text(encoding="utf-8")
+        legacy_chinese_link = (ROOT / "README_zh-TW.md").read_text(encoding="utf-8")
+        self.assertGreaterEqual(primary_readme.count(marker), 3)
         self.assertGreaterEqual(english_readme.count(marker), 3)
-        self.assertGreaterEqual(chinese_readme.count(marker), 3)
         fork_url = "https://github.com/Mixomo/EqAPO64_with_VST3_support"
+        self.assertIn(fork_url, primary_readme)
         self.assertIn(fork_url, english_readme)
-        self.assertIn(fork_url, chinese_readme)
+        self.assertEqual(
+            primary_readme.splitlines()[0], "# Equalizer APO 響度校正更新"
+        )
+        self.assertEqual(
+            english_readme.splitlines()[0],
+            "# Loudness Correction for Equalizer APO",
+        )
+        self.assertNotIn("目前版本：", primary_readme)
+        self.assertNotIn("Current release:", english_readme)
+        self.assertNotRegex(
+            primary_readme, re.compile(r"^##\s+v\d+\.\d+\.\d+\s+更新重點", re.MULTILINE)
+        )
+        self.assertNotRegex(
+            english_readme,
+            re.compile(r"^##\s+What's new in v\d+\.\d+\.\d+", re.MULTILINE),
+        )
+        self.assertIn("[CHANGELOG.md](CHANGELOG.md)", primary_readme)
+        self.assertIn("[CHANGELOG.md](CHANGELOG.md)", english_readme)
+        self.assertIn("Engine Fast", primary_readme)
+        self.assertIn("Engine Fast", english_readme)
+        self.assertIn("10–15 dB", primary_readme)
+        self.assertIn("10–15 dB", english_readme)
+        self.assertIn("[README.md](README.md)", legacy_chinese_link)
+        self.assertIn("[README.en.md](README.en.md)", legacy_chinese_link)
 
 
 if __name__ == "__main__":

@@ -1,10 +1,10 @@
 1. Set the three-part release version in version.h and vcpkg.json.
-2. Add a matching top entry to CHANGELOG.md and review both README languages.
+2. Convert CHANGELOG.md's Unreleased entries into the matching release entry; review README.md and README.en.md only for behavior or migration changes, without adding a release log.
 3. Confirm the release commit is descended from the intended Mixomo main-line base.
 4. Run: python -m unittest discover -s tests -p "test_*.py" -v
 5. Run: .\scripts\build-installer-x64.ps1 -Configuration Release
 6. Run: .\scripts\test-runtime-loudness.ps1 -Configuration Release
 7. Confirm interrupted-upgrade recovery, rollback, uninstall, and a normal in-place upgrade on a disposable Windows test system.
 8. Confirm the installer contains NOTICE.md and verify its .sha256 file.
-9. Confirm README, release title, installer/updater identity, and source files call the feature "Loudness Correction" and make no standards-conformance claim.
+9. Confirm README.md, README.en.md, the release title, installer/updater identity, and source files call the feature "Loudness Correction" and make no standards-conformance claim.
 10. Commit the verified source, push main, create the matching annotated vX.Y.Z tag, and let the release workflow publish the installer, checksum, and NOTICE.md.

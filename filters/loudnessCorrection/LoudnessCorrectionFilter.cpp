@@ -465,7 +465,7 @@ void LoudnessCorrectionFilter::computeResponseInverse()
 
 		if (std::abs(augmented[pivot][column]) < 1.0e-10)
 		{
-			// This should not occur with the Q=3 one-third-octave basis. Keep
+			// This should not occur with the fitted full-band basis. Keep
 			// a safe identity fallback instead of creating NaN coefficients.
 			for (size_t index = 0; index < _activeBandCount; ++index)
 				_inverseResponseMatrix[index][index] = 1.0;
@@ -686,7 +686,7 @@ double LoudnessCorrectionFilter::findMaximumResponseDb(
 				correctionCoeffs, _activeBandCount, frequency);
 	};
 
-	// A dense logarithmic scan resolves the Q=3 pass bands by hundreds of
+	// A dense logarithmic scan resolves the Q=2.2 peaking bands by hundreds of
 	// samples. Each detected local maximum is then refined in log-frequency
 	// space, avoiding the inter-bin peaks missed by the former 256-point scan.
 	double maximumResponse = 0.0;
@@ -889,9 +889,9 @@ double LoudnessCorrectionFilter::calculateFastHeadroomGain(
 	if (!hasNonZeroGain)
 		return 1.0;
 
-	// Smooth shelves have no sharp Q=3 peaks to miss, so the coarse sweep
-	// below is enough for the candidate. The guarded A-domain transfer is
-	// still verified exactly as on the full path.
+	// The Fast response has at most one Q=2 peak in addition to its low shelf,
+	// so the coarse sweep below is enough for the candidate. The guarded
+	// A-domain transfer is still verified exactly as on the full path.
 	double maximumResponse = findFastMaximumResponseDb(gains, 1.0, false);
 	double outputGainLinear = maximumResponse <= 0.0 ? 1.0 :
 		std::pow(10.0, -(maximumResponse + HEADROOM_MARGIN_DB) / 20.0);

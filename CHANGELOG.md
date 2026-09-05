@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Reduced the default Full loudness engine's settled callback cost with a preallocated section-major block path while retaining the transition fallback and sample-for-sample native equivalence coverage.
+- Reduced Full-engine initialization and volume-update cost by reusing each frequency's complex terms and aggregating the correction cascade before magnitude conversion.
+- Kept the lower-cost, at-most-two-section Fast engine as an explicitly labeled experimental option because extreme low-level response tests can differ from Full by roughly 10–15 dB.
+
 ## 3.0.7
 
 - Fixed the Configuration Editor startup crash that v3.0.6 could trigger while showing a window after restoring an older Qt toolbar layout.
