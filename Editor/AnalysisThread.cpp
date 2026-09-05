@@ -203,6 +203,8 @@ void AnalysisThread::run()
 			snapshot.resolvedEndpointId = QString::fromStdWString(
 				observation.resolvedEndpointId);
 			snapshot.volumeDb = observation.volumeDb;
+			snapshot.volumeScalar = observation.volumeScalar;
+			snapshot.muted = observation.muted;
 			snapshot.available = observation.available;
 			volumeSnapshots.append(snapshot);
 		}

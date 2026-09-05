@@ -355,7 +355,50 @@
        </property>
       </widget>
      </item>
-     <item row="2" column="0" colspan="2">
+     <item row="2" column="0">
+      <widget class="QLabel" name="volumeFollowLabel">
+       <property name="text">
+        <string>APO volume-follow attenuation:</string>
+       </property>
+       <property name="buddy">
+        <cstring>volumeFollowComboBox</cstring>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <widget class="QComboBox" name="volumeFollowComboBox">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="toolTip">
+        <string>Applies Windows volume as an extra gain inside Equalizer APO. Use this only when the routed endpoint reports volume changes but does not attenuate audio; otherwise attenuation is applied twice. Linear uses the endpoint scalar, Logarithmic squares it, and Windows uses the endpoint's reported dB.</string>
+       </property>
+       <item>
+        <property name="text">
+         <string>Off</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Linear</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Logarithmic</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Windows (reported dB)</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+     <item row="3" column="0" colspan="2">
       <widget class="QCheckBox" name="fastEngineCheckBox">
        <property name="toolTip">
         <string>Experimental two-filter approximation. Uses less CPU but may differ noticeably from Full, especially at very low listening levels.</string>

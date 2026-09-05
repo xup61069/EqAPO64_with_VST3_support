@@ -1558,16 +1558,6 @@ Alexander Walch</source>
         <translation>這個播放音量綁定無法使用自動音量。輸入端點或無法讀取的端點請使用手動音量。</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="382"/>
-        <source>The bound playback volume could not be read. Reconnect the device, choose another binding, or use manual volume and try again.</source>
-        <translation>無法讀取綁定的播放音量。請重新連接裝置、改用其他綁定，或改用手動音量後再試一次。</translation>
-    </message>
-    <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="401"/>
-        <source>The bound playback volume could not be read. The measured level was not applied; reconnect the device, choose another binding, or use manual volume and try again.</source>
-        <translation>無法讀取綁定的播放音量，因此未套用量測值。請重新連接裝置、改用其他綁定，或改用手動音量後再試一次。</translation>
-    </message>
-    <message>
         <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="381"/>
         <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="400"/>
         <source>Calibration not applied</source>
@@ -1582,6 +1572,56 @@ Alexander Walch</source>
         <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="360"/>
         <source>Experimental two-filter approximation. Uses less CPU but may differ noticeably from Full, especially at very low listening levels.</source>
         <translation>實驗性的雙濾波器近似。CPU 用量較低，但與完整引擎可能有明顯差異，聆聽音量很低時尤其如此。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="361"/>
+        <source>APO volume-follow attenuation:</source>
+        <translation>APO 音量跟隨衰減：</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="377"/>
+        <source>Applies Windows volume as an extra gain inside Equalizer APO. Use this only when the routed endpoint reports volume changes but does not attenuate audio; otherwise attenuation is applied twice. Linear uses the endpoint scalar, Logarithmic squares it, and Windows uses the endpoint&apos;s reported dB.</source>
+        <translation>在 Equalizer APO 內額外套用 Windows 音量增益。僅適用於路由端點會回報音量變化、卻未實際降低音訊的情況；否則音量會被衰減兩次。「線性」使用端點比例值，「對數」使用比例值的平方，「Windows」則使用端點回報的 dB。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="386"/>
+        <source>Linear</source>
+        <translation>線性</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="391"/>
+        <source>Logarithmic</source>
+        <translation>對數</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="381"/>
+        <source>Off</source>
+        <translation>停用</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="511"/>
+        <source>Playback became muted, inaudible, or unavailable. The measured level was not applied; restore the endpoint and run calibration again.</source>
+        <translation>播放端點已靜音、無聲或無法使用，因此未套用量測值。請恢復端點後重新執行校正。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="455"/>
+        <source>The bound playback endpoint is muted or set to zero volume. Unmute it and raise the Windows volume before calibrating.</source>
+        <translation>綁定的播放端點已靜音或音量設為零。請取消靜音並提高 Windows 音量後再校正。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="447"/>
+        <source>The bound playback volume could not be read. Reconnect the device or choose another readable playback binding, then try again.</source>
+        <translation>無法讀取綁定的播放音量。請重新連接裝置，或改用其他可讀取的播放綁定後再試一次。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="540"/>
+        <source>The selected volume-follow curve produced an inaudible level. Raise the volume and run calibration again.</source>
+        <translation>所選音量跟隨曲線產生了無法聽見的音量。請提高音量後重新執行校正。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="396"/>
+        <source>Windows (reported dB)</source>
+        <translation>Windows（端點回報 dB）</translation>
     </message>
 </context>
 <context>
@@ -1605,11 +1645,6 @@ Alexander Walch</source>
         <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="36"/>
         <source>Use a sound-level meter with slow response and Z weighting. Complete the three steps below.</source>
         <translation>請使用慢速響應、Z 加權的聲級計。完成下列三個步驟。</translation>
-    </message>
-    <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="42"/>
-        <source>Loudness correction is temporarily disabled while this window is open.</source>
-        <translation>開啟此視窗時會暫時停用響度校正。</translation>
     </message>
     <message>
         <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="48"/>
@@ -1709,17 +1744,6 @@ Alexander Walch</source>
         <translation>使用測量值</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="102"/>
-        <source>The selected playback device is not the Windows default playback device. Test-noise playback is blocked to prevent calibration on the wrong speaker.</source>
-        <translation>所選播放裝置不是 Windows 預設播放裝置。為避免校正錯誤的揚聲器，已阻止播放測試噪音。</translation>
-    </message>
-    <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="105"/>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="267"/>
-        <source>Make this device the Windows default to play the signal</source>
-        <translation>將此裝置設為 Windows 預設裝置以播放訊號</translation>
-    </message>
-    <message>
         <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="111"/>
         <source>Playback device changed · signal stopped</source>
         <translation>播放裝置已變更 · 訊號已停止</translation>
@@ -1792,6 +1816,66 @@ Alexander Walch</source>
         <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="235"/>
         <source>Playback device mismatch</source>
         <translation>播放裝置不相符</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="206"/>
+        <source>Endpoint muted - signal stopped</source>
+        <translation>端點已靜音 - 訊號已停止</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="218"/>
+        <source>Endpoint unavailable - signal stopped</source>
+        <translation>端點無法使用 - 訊號已停止</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="207"/>
+        <source>Playback blocked - endpoint is muted or at zero volume</source>
+        <translation>播放已阻止 - 端點已靜音或音量為零</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="219"/>
+        <source>Playback blocked - endpoint volume is unavailable</source>
+        <translation>播放已阻止 - 無法讀取端點音量</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="209"/>
+        <source>Playback endpoint is inaudible</source>
+        <translation>播放端點無聲</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="221"/>
+        <source>Playback endpoint unavailable</source>
+        <translation>播放端點無法使用</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="42"/>
+        <source>The equal-loudness contour is temporarily disabled while this window is open; APO volume follow remains active when enabled.</source>
+        <translation>開啟此視窗時會暫時停用等響度補償曲線；若已啟用 APO 音量跟隨，則會繼續生效。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="223"/>
+        <source>The playback endpoint volume became unreadable. Test noise was stopped and this measurement cannot be used.</source>
+        <translation>播放端點的音量已無法讀取。測試噪音已停止，且此量測值無法使用。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="224"/>
+        <source>The playback endpoint volume cannot be read. Reconnect the device before calibrating.</source>
+        <translation>無法讀取播放端點的音量。請重新連接裝置後再校正。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="211"/>
+        <source>The playback endpoint was muted or set to zero volume. Test noise was stopped and this measurement cannot be used.</source>
+        <translation>播放端點已靜音或音量設為零。測試噪音已停止，且此量測值無法使用。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="105"/>
+        <source>The selected playback device must remain the audible Windows default playback device. Muted, zero-volume, unreadable, or mismatched endpoints block the calibration signal.</source>
+        <translation>所選播放裝置必須持續是可聽見的 Windows 預設播放裝置。端點若已靜音、音量為零、無法讀取或不相符，就會阻止播放校正訊號。</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="212"/>
+        <source>Unmute the playback endpoint and raise the Windows volume before playing the calibration signal.</source>
+        <translation>播放校正訊號前，請取消播放端點的靜音並提高 Windows 音量。</translation>
     </message>
 </context>
 <context>

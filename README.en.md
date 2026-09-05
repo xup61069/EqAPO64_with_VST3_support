@@ -44,8 +44,6 @@ The pass-through VU Meter reports RMS, sample peak, clipping, and ungated loudne
 
 > **Install the version marked latest on GitHub Releases.** Download only from this repository's [GitHub Releases](https://github.com/xup61069/loudness-correction-apo/releases/latest); see [CHANGELOG.md](CHANGELOG.md) for version-specific fixes and known issues.
 
-If v3.0.2 says that an interrupted installation could not be recovered, leave its recovery files in place and run v3.0.3 or later. The newer installer safely retires the corrupted v3.0.2 cleanup manifest while preserving any ambiguous `.old` backups; manual registry or `ProgramData` cleanup is not required.
-
 Download the x64 installer and its matching `.sha256` file from the same release. In PowerShell:
 
 ```powershell
@@ -75,8 +73,9 @@ After a successful commit, cleanup can remain deferred while Windows still has a
 2. Add **Advanced filters → Loudness correction**.
 3. Choose **Single endpoint** to follow the playback endpoint on which this APO instance is running. Choose **Global (Windows default)** only when every loudness-correction instance should deliberately share that default endpoint's master volume.
 4. Leave **Manual volume** off for automatic tracking, or enable it when Windows cannot represent the actual listening volume.
-5. Set the reference level and correction strength. Use calibration only if a suitable SPL meter is available.
-6. Confirm the stored command is enabled and contains `State 1`.
+5. Leave **APO volume follow** off for ordinary endpoints. Select a follow curve only when the Windows volume value changes but a route such as VB-Audio Matrix does not actually attenuate the audio.
+6. Set the reference level and correction strength. Use calibration only if a suitable SPL meter is available.
+7. Confirm the stored command is enabled and contains `State 1`.
 
 The filter compensates for changes in perceived tonal balance as listening level changes. It is not track loudness normalization, a room-correction system, a hearing test, an automatic microphone measurement, or a limiter.
 
@@ -89,6 +88,21 @@ The filter compensates for changes in perceived tonal balance as listening level
 | Application gain, an analog amplifier, a speaker knob, or another control after the Windows endpoint represents the real level | **Manual volume** | The explicit `Volume` value you maintain. |
 
 For **VB-Audio Matrix**, use `Binding All` only when the Windows default Multimedia endpoint's master volume is deliberately the shared listening-volume control. If the virtual default stays fixed or muted, use `Binding Single` when the actual APO endpoint volume represents listening level, or use manual volume. `Binding All` does **not** install or apply APO processing to every endpoint; Device Selector controls installation, while `Binding` controls only the volume source used by loudness correction.
+
+### Choose APO volume follow
+
+The loudness profile normally uses the tracked volume only to calculate tonal compensation; it does not replace Windows or hardware volume control. If a Matrix-style route reports endpoint volume without making the audio quieter, Equalizer APO can apply that same value to the complete post-correction output:
+
+| Mode | Final output gain | When to use it |
+|---|---|---|
+| **Off** / omitted `VolumeFollow` | `1` | The backward-compatible default for Windows or hardware paths that already attenuate the signal. |
+| **Linear** / `VolumeFollow Linear` | volume scalar `s` | Directly follows the normalized 0–1 volume scalar. |
+| **Logarithmic** / `VolumeFollow Logarithmic` | `s²` | Reduces volume more quickly than Linear. |
+| **Windows** / `VolumeFollow Windows` | `10^(dB/20)` | Converts the automatic endpoint dB or manual `Volume` to amplitude; it does not guess or recreate an unpublished Windows slider curve. |
+
+In automatic mode, `s` and dB come from the same endpoint selected by `Binding`. In manual mode, `Volume` is used directly as dB and `clamp((Volume + 100) / 100, 0, 1)` supplies `s` for Linear and Logarithmic. Non-muted values are floored at −100 dB; in automatic mode, endpoint mute produces exact silence in every enabled mode. Changes use a 10 ms ramp. `Attenuation 0` makes tonal correction flat but leaves APO volume follow active; only `State 0` bypasses both.
+
+This feature is read-only and **never writes or moves the Windows volume control**. If Windows, an amplifier, or the speaker path already applies attenuation, enabling follow multiplies the two reductions and makes the result quieter; leave it **Off** when uncertain. If automatic follow has never obtained a valid snapshot at startup, output remains muted. A temporary read failure after a valid snapshot holds the last successful follow gain instead of jumping to 0 dB; recovery moves to the new value over 10 ms. Tonal correction separately follows the fail-closed behavior described below.
 
 ## Interface and workflow
 
@@ -152,7 +166,8 @@ For example, with `ReferenceLevel 80` and `Volume -30`, `ReferenceOffset 0` esti
 | `Model` | `FormulaLoudnessV1` | Identifies this formula profile without making a conformance claim. |
 | `Engine` | omitted, `Full`, or `Fast` | Omitted or `Full` uses the default complete engine; `Fast` explicitly enables the experimental approximation with at most two sections. Unknown values or duplicate fields fail closed. |
 | `Binding` | `Single` or `All` | `Single` follows this APO instance's actual playback endpoint. `All` makes all instances follow the current Windows default Multimedia playback endpoint. Ignored when manual `Volume` is present. |
-| `State` | `0` or `1` | Internal bypass or enabled state. New filters use `1`. |
+| `VolumeFollow` | omitted, `Off`, `Linear`, `Logarithmic`, or `Windows` | Omitted or `Off` leaves complete-output volume unchanged. The other modes apply the wideband APO attenuation described above. Unknown values or duplicate fields fail closed. |
+| `State` | `0` or `1` | Internal bypass or enabled state. `0` bypasses both tonal correction and volume follow. New filters use `1`. |
 | `ReferenceLevel` | 1–100 phon | Selects the neutral reference contour. The default is 80 phon. |
 | `ReferenceOffset` | −100 to +100 dB | Subtracted from the estimated current level. A positive value therefore requests stronger low-level compensation. |
 | `Attenuation` | 0–1 | Correction strength: `0` is flat and `1` applies the full fitted correction. |
@@ -174,7 +189,7 @@ Automatic mode has two explicit bindings:
 - **Single endpoint** (`Binding Single`) follows the actual playback endpoint on which that APO instance is running. It never falls back to the Windows default or another device. Use this for ordinary physical outputs and whenever each endpoint must follow its own volume.
 - **Global (Windows default)** (`Binding All`) makes every loudness-correction instance follow the master volume of the current Windows default `eRender`/`eMultimedia` endpoint. Use it for VB-Audio Matrix or another Matrix-style routing graph only when that default master volume is the intended shared control. If the virtual default is muted, fixed at its minimum, or is not the control that represents listening level, use `Binding Single` or manual volume instead. The controller checks the default identity at least once every two seconds; after it detects a change, it discards the old endpoint before binding the new one. A failed rebind fails closed through the 10 ms behavior below instead of returning to the old endpoint.
 
-If the required endpoint disappears, is replaced but cannot be rebound, or its volume cannot be read, automatic correction fails closed. Before the cold handoff, output remains raw. Once the A domain is active, only the correction residual is faded to the uncorrected `A = L + H` path over 10 ms. After the configured source recovers, the target bank warms silently for 250 ms and correction fades back in over 100 ms; if the cold handoff is still pending, recovery remains uncorrected until that handoff is safe. `Binding Single` remains bypassed when Windows cannot identify a playback APO context. `Binding All` preserves the original Mixomo behavior by reading the default `eRender`/`eMultimedia` endpoint directly, independently of the current APO's endpoint metadata.
+If the required endpoint disappears, is replaced but cannot be rebound, or its volume cannot be read, automatic correction fails closed. Before the cold handoff, output remains raw when volume follow is off; when follow is enabled but no first valid snapshot exists, output remains muted. Once the A domain is active, the correction residual fades to the uncorrected `A = L + H` path over 10 ms while follow holds its last successful gain. After the configured source recovers, the target bank warms silently for 250 ms and correction fades back in over 100 ms; follow moves to the new gain over 10 ms. If the cold handoff is still pending, recovery remains uncorrected until that handoff is safe. `Binding Single` remains bypassed when Windows cannot identify a playback APO context. `Binding All` preserves the original Mixomo behavior by reading the default `eRender`/`eMultimedia` endpoint directly, independently of the current APO's endpoint metadata.
 
 Automatic tracking sees the Windows endpoint volume only. It cannot detect an application's own volume slider, an analog amplifier or speaker knob, or gain changes made after the Windows endpoint. Use manual mode for those systems and update the manual value whenever the real attenuation changes.
 
@@ -182,11 +197,11 @@ Automatic tracking sees the Windows endpoint volume only. It cannot detect an ap
 
 ### Calibration
 
-Calibration estimates the 1 kHz listening level at 0 dB tracked volume. It does not measure through a microphone automatically.
+Calibration estimates the 1 kHz listening level at 0 dB tracked volume. It does not measure through a microphone automatically. When APO volume follow is enabled, calibration projects from the gain actually produced by the selected curve back to unity output instead of always using the endpoint-reported dB, so Linear and Logarithmic are referenced through their own curves.
 
 1. Start with a safe system or hardware volume. Pink noise can be loud; stop immediately if it is uncomfortable.
 2. Use an SPL meter at the listening position, set to **slow response** and **Z weighting (flat)**.
-3. Measure only one speaker. Loudness correction is bypassed automatically while the calibration dialog is open.
+3. Measure only one speaker. Tonal correction is temporarily made flat while the calibration dialog is open. If APO volume follow is enabled, its gain stays active so test noise does not suddenly become full volume through a Matrix route.
 4. Set the application playing the test to full application volume, play the built-in pink noise, and enter the measured dB SPL value manually.
 5. Keep using the same Windows-volume or manual-volume method after saving the calibration. If an external hardware knob controls volume, keep its calibrated position or update the manual value.
 
@@ -194,7 +209,7 @@ The built-in player is available only when the selected endpoint is readable and
 
 ### Headroom
 
-The filter estimates the steady-state peak of the fitted correction branch over a dense frequency grid, refines local maxima, and attenuates that branch by the peak plus a 1 dB margin. It then scans the complete A-domain-plus-correction transfer and reduces the correction branch further if needed. This headroom gain is applied only to the corrected high-pass contribution; the common uncorrected `A = L + H` path is not globally attenuated, so the settled sub-20 Hz magnitude is not pulled down with the correction branch. This reduces clipping risk but is not a sample-peak or true-peak limiter. Transients, multitone signals, later plug-ins, and other gain stages can still clip, so retain additional output headroom where necessary.
+The filter estimates the steady-state peak of the fitted correction branch over a dense frequency grid, refines local maxima, and attenuates that branch only by the detected peak. It then scans the complete A-domain-plus-correction transfer and reduces the correction branch further if needed. The former fixed 1 dB margin is gone, so enabling neutral or nearly neutral correction no longer lowers output by about 1 dB merely because the feature is on. Automatic headroom applies only to the corrected high-pass contribution; the common uncorrected `A = L + H` path is not globally attenuated. APO volume follow is a separate gain applied to the complete output after those paths are combined. Peak scanning reduces clipping risk but is not a sample-peak or true-peak limiter. Transients, multitone signals, later plug-ins, and other gain stages can still clip, so retain additional output headroom where necessary.
 
 ## Configuration and migration
 
@@ -210,11 +225,13 @@ Adding `Volume -38.0` selects manual mode:
 LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0
 ```
 
-For VB-Audio Matrix or another Matrix-style graph whose Windows default Multimedia master volume is the shared control, use `Binding All` and omit `Volume`:
+For VB-Audio Matrix or another Matrix-style graph whose Windows default Multimedia master volume is the shared control but whose route does not apply that volume to audio, use `Binding All`, omit `Volume`, and add the required `VolumeFollow` mode. For example, to attenuate the complete output from the endpoint's reported dB value:
 
 ```text
-LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding All State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0
+LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding All VolumeFollow Windows State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0
 ```
+
+If the route already attenuates the audio, omit `VolumeFollow`; the default `Off` prevents the same Windows attenuation from being applied twice.
 
 ### Original Mixomo shelf-profile entries
 
@@ -272,6 +289,8 @@ Configuration files and registry backups are preserved unless **Remove configura
 | Loudness correction remains flat, or `ReferenceOffset` seems ineffective | Confirm the saved command has `State 1`, `Attenuation` is above zero, and the estimated level differs from the reference contour without being pinned at the 0/100 clamp. An unavailable automatic source fails closed; a saved offset change should move the displayed curve immediately when the filter is available. |
 | Automatic volume is unavailable or stuck at the floor | For per-device tracking, use `Binding Single` on a readable, identified playback endpoint. Use `Binding All` only if the Windows default Multimedia master volume is the intended shared control; a muted or fixed Matrix endpoint requires `Binding Single` or manual volume. Global mode does not require metadata for the current APO endpoint. |
 | The wrong endpoint volume is followed | Use `Binding Single` to follow the APO's actual endpoint. Use `Binding All` only when every instance should deliberately share the Windows default Multimedia volume. |
+| The Windows volume changes in Matrix but actual sound does not get quieter | First make sure `Binding` selects the intended source, then enable `VolumeFollow Linear`, `Logarithmic`, or `Windows`. This attenuates the complete APO output without writing Windows volume. |
+| Sound is too quiet after enabling APO volume follow | The route probably already applies Windows or hardware attenuation, producing two reductions. Set `VolumeFollow Off` or omit it. |
 | A device-linked profile opens but does not affect audio | Device links only open files in Configuration Editor. Ensure `config.txt` or its `Include` chain references that profile; use Device Selector for APO installation and the loudness filter's `Binding` control for its volume source. |
 | A/B or bypass is unavailable | Save the profile first and clear unsaved edits. The profile must be in the active `config.txt`/`Include` chain for an audible result, and A/B and bypass cannot be active together. |
 | The analysis panel is floating and will not return | Choose **View → Dock analysis panel**. It is restored to the bottom of Configuration Editor. |

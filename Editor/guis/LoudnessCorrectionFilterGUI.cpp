@@ -40,6 +40,7 @@ LoudnessCorrectionFilterGUI::LoudnessCorrectionFilterGUI(
 	bool useManualVolume,
 	double manualVolume,
 	LoudnessCorrectionFilter::FilterParameters::EngineMode engine,
+	LoudnessCorrectionFilter::FilterParameters::VolumeFollowMode volumeFollow,
 	const std::wstring& endpointIdentifier,
 	bool selectedEndpointIsRender)
 	: IFilterGUI(),
@@ -98,6 +99,12 @@ LoudnessCorrectionFilterGUI::LoudnessCorrectionFilterGUI(
 	ui->fastEngineCheckBox->setChecked(
 		engine == LoudnessCorrectionFilter::FilterParameters::ENGINE_FAST);
 	ui->fastEngineCheckBox->blockSignals(engineBlocked);
+	bool volumeFollowBlocked = ui->volumeFollowComboBox->blockSignals(true);
+	int volumeFollowIndex = static_cast<int>(volumeFollow);
+	if (volumeFollowIndex < 0 || volumeFollowIndex > 3)
+		volumeFollowIndex = 0;
+	ui->volumeFollowComboBox->setCurrentIndex(volumeFollowIndex);
+	ui->volumeFollowComboBox->blockSignals(volumeFollowBlocked);
 	refreshVolumeController();
 	updateAutomaticVolumeUi();
 
@@ -148,6 +155,21 @@ void LoudnessCorrectionFilterGUI::store(QString& command, QString& parameters)
 
 	if (ui->fastEngineCheckBox->isChecked())
 		parameters += QString(" Engine Fast");
+
+	switch (getVolumeFollowMode())
+	{
+	case LoudnessCorrectionFilter::FilterParameters::VOLUME_FOLLOW_LINEAR:
+		parameters += QString(" VolumeFollow Linear");
+		break;
+	case LoudnessCorrectionFilter::FilterParameters::VOLUME_FOLLOW_LOGARITHMIC:
+		parameters += QString(" VolumeFollow Logarithmic");
+		break;
+	case LoudnessCorrectionFilter::FilterParameters::VOLUME_FOLLOW_WINDOWS:
+		parameters += QString(" VolumeFollow Windows");
+		break;
+	default:
+		break;
+	}
 }
 
 LoudnessCorrectionFilter::FilterParameters::BindingMode
@@ -156,6 +178,22 @@ LoudnessCorrectionFilterGUI::getBindingMode() const
 	return ui->bindingComboBox->currentIndex() == 1 ?
 		LoudnessCorrectionFilter::FilterParameters::BINDING_ALL :
 		LoudnessCorrectionFilter::FilterParameters::BINDING_SINGLE;
+}
+
+LoudnessCorrectionFilter::FilterParameters::VolumeFollowMode
+LoudnessCorrectionFilterGUI::getVolumeFollowMode() const
+{
+	switch (ui->volumeFollowComboBox->currentIndex())
+	{
+	case 1:
+		return LoudnessCorrectionFilter::FilterParameters::VOLUME_FOLLOW_LINEAR;
+	case 2:
+		return LoudnessCorrectionFilter::FilterParameters::VOLUME_FOLLOW_LOGARITHMIC;
+	case 3:
+		return LoudnessCorrectionFilter::FilterParameters::VOLUME_FOLLOW_WINDOWS;
+	default:
+		return LoudnessCorrectionFilter::FilterParameters::VOLUME_FOLLOW_OFF;
+	}
 }
 
 std::wstring LoudnessCorrectionFilterGUI::getRequestedEndpointId() const
@@ -186,16 +224,17 @@ void LoudnessCorrectionFilterGUI::refreshVolumeController()
 	// Resolve the actual endpoint used by either binding strategy. Calibration
 	// guards and the displayed automatic value both use this resolved identity.
 	volumeController.reset(new VolumeController(requestedEndpointId));
-	double endpointVolume = 0.0;
-	if (FAILED(volumeController->getVolume(endpointVolume)) ||
-		!std::isfinite(endpointVolume))
+	EndpointVolumeState endpointVolumeState;
+	if (FAILED(volumeController->getVolumeState(endpointVolumeState)) ||
+		!std::isfinite(endpointVolumeState.levelDb) ||
+		!std::isfinite(endpointVolumeState.scalar))
 	{
 		volumeController.reset();
 		return;
 	}
 
 	automaticVolumeAvailable = true;
-	lastVolume = endpointVolume;
+	lastVolume = endpointVolumeState.levelDb;
 	endpointId = volumeController->getEndpointId();
 }
 
@@ -291,9 +330,10 @@ void LoudnessCorrectionFilterGUI::on_manualVolumeCheckBox_toggled(bool checked)
 	{
 		if (!volumeController)
 			volumeController.reset(new VolumeController(getRequestedEndpointId()));
-		double endpointVolume = 0.0;
-		if (FAILED(volumeController->getVolume(endpointVolume)) ||
-			!std::isfinite(endpointVolume))
+		EndpointVolumeState endpointVolumeState;
+		if (FAILED(volumeController->getVolumeState(endpointVolumeState)) ||
+			!std::isfinite(endpointVolumeState.levelDb) ||
+			!std::isfinite(endpointVolumeState.scalar))
 		{
 			automaticVolumeAvailable = false;
 			volumeController.reset();
@@ -310,9 +350,9 @@ void LoudnessCorrectionFilterGUI::on_manualVolumeCheckBox_toggled(bool checked)
 			emit updateModel();
 			return;
 		}
-		lastVolume = endpointVolume;
+		lastVolume = endpointVolumeState.levelDb;
 		endpointId = volumeController->getEndpointId();
-		ui->volumeSpinBox->setValue(endpointVolume);
+		ui->volumeSpinBox->setValue(lastVolume);
 	}
 	emit updateModel();
 }
@@ -329,6 +369,13 @@ void LoudnessCorrectionFilterGUI::on_volumeSpinBox_valueChanged(double value)
 void LoudnessCorrectionFilterGUI::on_fastEngineCheckBox_toggled(bool checked)
 {
 	(void)checked;
+	emit updateModel();
+}
+
+void LoudnessCorrectionFilterGUI::on_volumeFollowComboBox_currentIndexChanged(
+	int index)
+{
+	(void)index;
 	emit updateModel();
 }
 
@@ -391,37 +438,110 @@ void LoudnessCorrectionFilterGUI::on_studioButton_clicked()
 
 void LoudnessCorrectionFilterGUI::on_calibrateButton_clicked()
 {
-	if (!ui->manualVolumeCheckBox->isChecked() && !tryUpdateVolume())
+	EndpointVolumeState calibrationEndpointState;
+	if (!tryReadEndpointVolumeState(calibrationEndpointState))
 	{
 		QMessageBox::warning(
 			this,
 			tr("Calibration not applied"),
-			tr("The bound playback volume could not be read. Reconnect the device, choose another binding, or use manual volume and try again."));
+			tr("The bound playback volume could not be read. Reconnect the device or choose another readable playback binding, then try again."));
 		return;
 	}
+	if (calibrationEndpointState.muted || calibrationEndpointState.scalar <= 0.0)
+	{
+		QMessageBox::warning(
+			this,
+			tr("Calibration not applied"),
+			tr("The bound playback endpoint is muted or set to zero volume. Unmute it and raise the Windows volume before calibrating."));
+		return;
+	}
+	if (!ui->manualVolumeCheckBox->isChecked())
+	{
+		lastVolume = calibrationEndpointState.levelDb;
+		ui->volumeSpinBox->setValue(lastVolume);
+	}
 
-	bool previousState = state;
-	state = false;
+	const bool previousState = state;
+	const double previousAttenuation = ui->attSpinBox->value();
+	const bool keepVolumeFollow =
+		getVolumeFollowMode() !=
+		LoudnessCorrectionFilter::FilterParameters::VOLUME_FOLLOW_OFF;
+	if (keepVolumeFollow)
+	{
+		// Keep the APO-owned master-volume attenuation active while removing
+		// only the equal-loudness contour. A full State 0 bypass can make a
+		// Matrix route jump to unity gain during calibration.
+		state = true;
+		QSignalBlocker attenuationDialBlocker(ui->attDial);
+		QSignalBlocker attenuationSpinBlocker(ui->attSpinBox);
+		ui->attDial->setValue(0);
+		ui->attSpinBox->setValue(0.0);
+	}
+	else
+	{
+		state = false;
+	}
 	emit updateModel();
 
 	LoudnessCorrectionFilterGUIDialog dialog(
 		endpointId,
 		automaticVolumeAvailable,
 		getBindingMode() == LoudnessCorrectionFilter::FilterParameters::BINDING_ALL);
-	if (dialog.exec() == QDialog::Accepted)
+	const int dialogResult = dialog.exec();
+	state = previousState;
+	if (keepVolumeFollow)
 	{
-		if (!ui->manualVolumeCheckBox->isChecked() && !tryUpdateVolume())
+		QSignalBlocker attenuationDialBlocker(ui->attDial);
+		QSignalBlocker attenuationSpinBlocker(ui->attSpinBox);
+		ui->attDial->setValue(qRound(previousAttenuation * 100.0));
+		ui->attSpinBox->setValue(previousAttenuation);
+	}
+	emit updateModel();
+
+	if (dialogResult == QDialog::Accepted)
+	{
+		if (!dialog.hasValidMeasurement() ||
+			!tryReadEndpointVolumeState(calibrationEndpointState) ||
+			calibrationEndpointState.muted ||
+			calibrationEndpointState.scalar <= 0.0)
 		{
 			QMessageBox::warning(
 				this,
 				tr("Calibration not applied"),
-				tr("The bound playback volume could not be read. The measured level was not applied; reconnect the device, choose another binding, or use manual volume and try again."));
-			state = previousState;
-			emit updateModel();
+				tr("Playback became muted, inaudible, or unavailable. The measured level was not applied; restore the endpoint and run calibration again."));
 			return;
+		}
+		if (!ui->manualVolumeCheckBox->isChecked())
+		{
+			lastVolume = calibrationEndpointState.levelDb;
+			ui->volumeSpinBox->setValue(lastVolume);
 		}
 		double measuredSpl = dialog.getMeasuredLevel();
 		double effectiveVolume = lastVolume;
+		if (keepVolumeFollow)
+		{
+			double followVolumeDb = lastVolume;
+			double followScalar = calibrationEndpointState.scalar;
+			if (ui->manualVolumeCheckBox->isChecked())
+			{
+				followVolumeDb = ui->volumeSpinBox->value();
+				followScalar = (followVolumeDb + 100.0) / 100.0;
+				if (followScalar < 0.0) followScalar = 0.0;
+				if (followScalar > 1.0) followScalar = 1.0;
+			}
+			const double followGain =
+				LoudnessCorrectionFilter::calculateVolumeFollowGain(
+					getVolumeFollowMode(), followVolumeDb, followScalar, false);
+			if (!std::isfinite(followGain) || followGain <= 0.0)
+			{
+				QMessageBox::warning(
+					this,
+					tr("Calibration not applied"),
+					tr("The selected volume-follow curve produced an inaudible level. Raise the volume and run calibration again."));
+				return;
+			}
+			effectiveVolume = 20.0 * std::log10(followGain);
+		}
 		double refLevel = measuredSpl - effectiveVolume +
 			ui->refOffsetSpinBox->value();
 		if (refLevel < 1.0) refLevel = 1.0;
@@ -429,8 +549,21 @@ void LoudnessCorrectionFilterGUI::on_calibrateButton_clicked()
 		ui->refLevelSpinBox->setValue((int)round(refLevel));
 	}
 
-	state = previousState;
-	emit updateModel();
+}
+
+bool LoudnessCorrectionFilterGUI::tryReadEndpointVolumeState(
+	EndpointVolumeState& volumeState)
+{
+	if (!volumeController)
+		return false;
+	const HRESULT result = volumeController->getVolumeState(volumeState);
+	if (FAILED(result) || !std::isfinite(volumeState.levelDb) ||
+		!std::isfinite(volumeState.scalar))
+	{
+		return false;
+	}
+	endpointId = volumeController->getEndpointId();
+	return !endpointId.empty();
 }
 
 bool LoudnessCorrectionFilterGUI::tryUpdateVolume()
@@ -439,20 +572,17 @@ bool LoudnessCorrectionFilterGUI::tryUpdateVolume()
 		!volumeController)
 		return false;
 
-	double volume;
-	HRESULT res = volumeController->getVolume(volume);
-
-	if (SUCCEEDED(res) && std::isfinite(volume))
+	EndpointVolumeState volumeState;
+	if (tryReadEndpointVolumeState(volumeState))
 	{
-		endpointId = volumeController->getEndpointId();
+		const double volume = volumeState.levelDb;
 		if (!std::isfinite(lastVolume) || std::abs(volume - lastVolume) > 0.05)
 			ui->volumeSpinBox->setValue(volume);
 		lastVolume = volume;
 		return true;
 	}
 
-	if (FAILED(res) || !std::isfinite(volume))
-		lastVolume = std::numeric_limits<double>::quiet_NaN();
+	lastVolume = std::numeric_limits<double>::quiet_NaN();
 	return false;
 }
 

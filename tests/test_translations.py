@@ -26,6 +26,20 @@ ANALYSIS_RESET_SOURCES = {
     "Reset view",
     "Reset analysis zoom and position",
 }
+LOUDNESS_REQUIRED_FINISHED_SOURCES = {
+    "APO volume-follow attenuation:",
+    "Experimental fast engine:",
+    "Experimental two-filter approximation. Uses less CPU but may differ noticeably from Full, especially at very low listening levels.",
+    "The equal-loudness contour is temporarily disabled while this window is open; APO volume follow remains active when enabled.",
+    "The selected playback device must remain the audible Windows default playback device. Muted, zero-volume, unreadable, or mismatched endpoints block the calibration signal.",
+}
+REMOVED_LOUDNESS_SOURCES = {
+    "The bound playback volume could not be read. Reconnect the device, choose another binding, or use manual volume and try again.",
+    "The bound playback volume could not be read. The measured level was not applied; reconnect the device, choose another binding, or use manual volume and try again.",
+    "Loudness correction is temporarily disabled while this window is open.",
+    "The selected playback device is not the Windows default playback device. Test-noise playback is blocked to prevent calibration on the wrong speaker.",
+    "Make this device the Windows default to play the signal",
+}
 PLACEHOLDER_PATTERN = re.compile(r"%(?:\d+|n)")
 NON_TAIWAN_UI_TERMS = (
     "配置",
@@ -58,6 +72,26 @@ def active_messages(path: pathlib.Path):
 
 
 class TraditionalChineseTranslationTests(unittest.TestCase):
+    def test_loudness_catalogs_drop_replaced_copy_and_finish_new_controls(self) -> None:
+        for locale, path in EDITOR_TRANSLATION_FILES_BY_LANGUAGE.items():
+            root = ET.parse(path).getroot()
+            messages = {
+                message.findtext("source", default=""): message.find("translation")
+                for message in root.findall("./context/message")
+                if message.find("translation") is not None
+                and message.find("translation").get("type")
+                not in {"obsolete", "vanished"}
+            }
+            with self.subTest(locale=locale):
+                self.assertTrue(
+                    LOUDNESS_REQUIRED_FINISHED_SOURCES.issubset(messages)
+                )
+                self.assertTrue(REMOVED_LOUDNESS_SOURCES.isdisjoint(messages))
+                for source in LOUDNESS_REQUIRED_FINISHED_SOURCES:
+                    translation = messages[source]
+                    self.assertNotEqual(translation.get("type"), "unfinished")
+                    self.assertTrue("".join(translation.itertext()).strip())
+
     def test_compact_analysis_and_vst_status_copy_is_shipped(self) -> None:
         removed_vst_wall = (
             "NOTE: The VST module is not universally compatible with all VSTs on the market."

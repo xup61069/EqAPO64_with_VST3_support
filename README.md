@@ -44,8 +44,6 @@
 
 > **建議安裝 GitHub Releases 標示的最新版本。** 請只從本儲存庫的 [GitHub Releases](https://github.com/xup61069/loudness-correction-apo/releases/latest) 下載；各版本的已知問題與修正請見 [CHANGELOG.md](CHANGELOG.md)。
 
-若 v3.0.2 顯示無法安全復原中斷的安裝，請保留現有復原檔案，直接執行 v3.0.3 或更新版本。新版安裝程式會安全停用損壞的 v3.0.2 清理清單、保留無法證明歸屬的 `.old` 備份；不需要手動刪除登錄檔或 `ProgramData` 內容。
-
 請從同一個 Release 下載 x64 安裝程式及其對應的 `.sha256` 檔案，然後在 PowerShell 執行：
 
 ```powershell
@@ -75,8 +73,9 @@ Get-Content .\EqualizerAPO-x64-*.exe.sha256
 2. 新增 **高階過濾器 → 響度校正**。
 3. 選擇「**單一端點**」可跟隨目前執行 APO 的實際播放端點；只有刻意讓所有響度校正實例共用 Windows 預設 Multimedia 端點的主音量時，才選擇「**全域（Windows 預設）**」。
 4. 要自動追蹤時關閉「手動音量」；若 Windows 無法代表真實聆聽音量，則啟用手動音量。
-5. 設定參考響度與補償強度；只有在備有合適聲壓計時才進行校準。
-6. 確認儲存的命令已啟用，且包含 `State 1`。
+5. 一般音訊端點把「APO 音量跟隨」維持在**關閉**。只有 Windows 音量數值會變、但 VB-Audio Matrix 等路由沒有真的降低音訊時，才選擇需要的跟隨曲線。
+6. 設定參考響度與補償強度；只有在備有合適聲壓計時才進行校準。
+7. 確認儲存的命令已啟用，且包含 `State 1`。
 
 此濾波器用來補償聆聽音量變化時的感知音色平衡；它不是曲目響度正規化、空間校正、聽力測驗、自動麥克風量測或限幅器。
 
@@ -89,6 +88,21 @@ Get-Content .\EqualizerAPO-x64-*.exe.sha256
 | 應用程式增益、類比擴大機、喇叭旋鈕，或 Windows 端點之後的控制才代表真實音量 | **手動音量** | 由你維護的明確 `Volume` 數值。 |
 
 使用 **VB-Audio Matrix** 時，只有在 Windows 預設 Multimedia 端點的主音量確實是刻意共用的聆聽音量控制時才選 `Binding All`。若虛擬預設端點維持固定音量或靜音，當實際 APO 端點音量能代表聆聽級別時請用 `Binding Single`，否則使用手動音量。`Binding All` **不是**把 APO 安裝或套用到所有端點；是否套用由裝置選擇器決定，`Binding` 只決定響度校正讀取哪個音量來源。
+
+### APO 音量跟隨怎麼選
+
+響度輪廓原本只把追蹤到的音量拿來計算音色補償，不會代替 Windows 或硬體音量控制。若 Matrix 類路由會回報端點音量、實際音訊卻沒有跟著變小，可讓 Equalizer APO 再把同一份音量套用到響度校正後的完整輸出：
+
+| 模式 | 最終輸出增益 | 適用情境 |
+|---|---|---|
+| **關閉**／省略 `VolumeFollow` | `1` | 預設且與舊設定相容；正常會自行降低音量的 Windows／硬體路徑使用此模式。 |
+| **線性**／`VolumeFollow Linear` | 音量純量 `s` | 直接跟隨 0–1 音量純量。 |
+| **對數**／`VolumeFollow Logarithmic` | `s²` | 比線性曲線更快降低音量。 |
+| **Windows**／`VolumeFollow Windows` | `10^(dB/20)` | 依自動端點或手動 `Volume` 的 dB 換算振幅；這不是猜測或重製未公開的 Windows 滑桿曲線。 |
+
+自動模式的 `s` 與 dB 都來自 `Binding` 選到的同一個端點；手動模式則直接以 `Volume` 作為 dB，並把 `clamp((Volume + 100) / 100, 0, 1)` 當成線性／對數模式的 `s`。非靜音值最低限制為 −100 dB；自動模式偵測到端點靜音時，三種啟用模式都輸出完全靜音。音量變更會用 10 ms 平滑過渡，且 `Attenuation 0` 只關閉音色補償，仍會保留 APO 音量跟隨；`State 0` 才會一起旁路兩者。
+
+此功能只讀取端點狀態，**不會寫回或移動 Windows 音量**。若音訊路徑原本已經套用 Windows、擴大機或喇叭的衰減，再啟用跟隨會把兩份衰減相乘而變得更小；不確定時維持**關閉**。自動來源在啟動時若從未取得有效音量快照，啟用跟隨的輸出會先保持靜音；執行期間暫時讀取失敗則保留最後一次成功的跟隨增益，不會突然跳回 0 dB。來源恢復後再以 10 ms 平滑移到新值。音色校正本身仍依下方的失效安全流程暫停與恢復。
 
 ## 介面與工作流程
 
@@ -152,7 +166,8 @@ clamp(ReferenceLevel + Volume - ReferenceOffset, 0, 100)
 | `Model` | `FormulaLoudnessV1` | 識別此公式輪廓，不表示符合任何標準。 |
 | `Engine` | 省略、`Full` 或 `Fast` | 省略或 `Full` 使用預設完整引擎；`Fast` 明確啟用實驗性、最多兩段的近似。未知值或重複欄位會失效安全地略過。 |
 | `Binding` | `Single` 或 `All` | `Single` 跟隨這個 APO 實例的實際播放端點；`All` 讓所有實例跟隨目前 Windows 預設 Multimedia 播放端點。有手動 `Volume` 時不生效。 |
-| `State` | `0` 或 `1` | 內部略過或啟用狀態；新濾波器使用 `1`。 |
+| `VolumeFollow` | 省略、`Off`、`Linear`、`Logarithmic` 或 `Windows` | 省略或 `Off` 不改變完整輸出音量；其餘模式依上表讓 APO 套用寬頻衰減。未知值或重複欄位會失效安全地略過。 |
+| `State` | `0` 或 `1` | 內部略過或啟用狀態；`0` 同時旁路音色校正與音量跟隨，新濾波器使用 `1`。 |
 | `ReferenceLevel` | 1–100 phon | 選擇中性的參考輪廓；預設為 80 phon。 |
 | `ReferenceOffset` | −100 至 +100 dB | 從目前估計響度中扣除；因此正值會要求較強的低音量補償。 |
 | `Attenuation` | 0–1 | 補償強度；`0` 為平直，`1` 套用完整擬合校正。 |
@@ -174,7 +189,7 @@ clamp(ReferenceLevel + Volume - ReferenceOffset, 0, 100)
 - **單一端點**（`Binding Single`）跟隨該 APO 實例實際執行所在的播放端點，絕不退回 Windows 預設裝置或改追蹤其他裝置。一般實體輸出，或每個端點必須跟隨各自音量時使用此模式。
 - **全域（Windows 預設）**（`Binding All`）讓所有響度校正實例共同跟隨目前 Windows 預設 `eRender`／`eMultimedia` 端點的主音量。VB-Audio Matrix 或其他 Matrix 類路由只有在該預設主音量確實是預期的共用控制時才使用此模式；若虛擬預設端點為靜音、固定在最小值，或它並不代表實際聆聽音量，請改用 `Binding Single` 或手動音量。控制器至少每兩秒確認一次預設端點；偵測到變更後，會先丟棄舊端點再綁定新端點。重新綁定失敗時會依下述 10 ms 淡化失效安全地停止校正，不會退回舊端點。
 
-需要的端點消失、切換失敗或無法讀取音量時，自動校正會失效安全地暫停。冷啟動交接前維持原始輸入直通；已進入 A 域時，則只把校正殘差在 10 ms 內淡到未校正的 `A = L + H` 路徑。指定來源恢復後，目標濾波器會先靜音預熱 250 ms，再以 100 ms 淡回校正；若冷啟動交接仍未完成，則在可安全交接前維持未校正。`Binding Single` 在 Windows 無法確認 APO 位於播放流程時維持略過；`Binding All` 則保留原始 Mixomo 行為，直接讀取預設 `eRender`／`eMultimedia` 端點，不依賴目前 APO 的端點中繼資料。
+需要的端點消失、切換失敗或無法讀取音量時，自動校正會失效安全地暫停。冷啟動交接前，未啟用音量跟隨時維持原始輸入直通；啟用音量跟隨但尚未取得第一筆有效快照時則維持靜音。已進入 A 域時，校正殘差會在 10 ms 內淡到未校正的 `A = L + H` 路徑，而跟隨增益保留最後一次成功值。指定來源恢復後，目標濾波器會先靜音預熱 250 ms，再以 100 ms 淡回校正；跟隨增益則以 10 ms 移到新值。若冷啟動交接仍未完成，則在可安全交接前維持未校正。`Binding Single` 在 Windows 無法確認 APO 位於播放流程時維持略過；`Binding All` 則保留原始 Mixomo 行為，直接讀取預設 `eRender`／`eMultimedia` 端點，不依賴目前 APO 的端點中繼資料。
 
 自動追蹤只能看見 Windows 端點音量，無法偵測應用程式自己的音量滑桿、類比擴大機或喇叭旋鈕，也無法得知 Windows 端點之後的增益變更。這類系統應使用手動模式，並在真實衰減改變時同步更新手動值。
 
@@ -182,11 +197,11 @@ clamp(ReferenceLevel + Volume - ReferenceOffset, 0, 100)
 
 ### 校準
 
-校準會估算追蹤音量為 0 dB 時，在聆聽位置的 1 kHz 聆聽級別；它不會透過麥克風自動量測。
+校準會估算追蹤音量為 0 dB 時，在聆聽位置的 1 kHz 聆聽級別；它不會透過麥克風自動量測。若已啟用 APO 音量跟隨，程式會用所選曲線實際產生的跟隨增益換算回 unity 輸出，而不是一律用端點回報的 dB；因此線性與對數模式也會依各自曲線正確回推參考級別。
 
 1. 先把系統或硬體音量調到安全範圍。粉紅噪音可能很大聲；若感到不適，立即停止。
 2. 將聲壓計放在聆聽位置，設為**慢速反應**與 **Z 加權（平直）**。
-3. 只量測一支喇叭；校準視窗開啟時，響度校正會自動暫停。
+3. 只量測一支喇叭；校準視窗開啟時，音色補償會暫時設為平直。若已啟用 APO 音量跟隨，跟隨增益會繼續生效，避免 Matrix 路由的測試噪音突然變成全音量。
 4. 將播放測試音的應用程式音量設為最大，播放內建粉紅噪音，並手動輸入量到的 dB SPL。
 5. 儲存校準後，繼續使用相同的 Windows 音量或手動音量方式。若使用外接硬體旋鈕，請保持校準時的位置，或同步更新手動值。
 
@@ -194,7 +209,7 @@ clamp(ReferenceLevel + Volume - ReferenceOffset, 0, 100)
 
 ### 輸出餘裕
 
-濾波器會在密集頻率網格上估算擬合校正分支的穩態響應峰值、細化局部極大值，並依該峰值再加 1 dB 餘裕衰減校正分支；接著再掃描完整的「A 域＋校正」傳遞，必要時才進一步降低校正分支。這個輸出餘裕增益只作用於已校正的高通貢獻；共用的未校正 `A = L + H` 路徑不會被整體衰減，因此 20 Hz 以下的穩態幅度不會跟著校正分支被往下拉。這可降低削波風險，但不是取樣峰值或真峰值限幅器；瞬態、多音訊號、後續外掛及其他增益級仍可能削波，必要時請另外保留輸出餘裕。
+濾波器會在密集頻率網格上估算擬合校正分支的穩態響應峰值、細化局部極大值，並只依實際偵測到的峰值衰減校正分支；接著再掃描完整的「A 域＋校正」傳遞，必要時才進一步降低校正分支。固定加上的 1 dB 餘裕已移除，因此啟用中性或接近中性的響度校正不會只因為開啟功能就先降低約 1 dB。這個自動輸出餘裕增益只作用於已校正的高通貢獻；共用的未校正 `A = L + H` 路徑不會被整體衰減，APO 音量跟隨則是在兩者合成後獨立套用到完整輸出。峰值掃描可降低削波風險，但不是取樣峰值或真峰值限幅器；瞬態、多音訊號、後續外掛及其他增益級仍可能削波，必要時請另外保留輸出餘裕。
 
 ## 設定格式與升級
 
@@ -210,11 +225,13 @@ LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 1 Refe
 LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0
 ```
 
-若 VB-Audio Matrix 或其他 Matrix 類路由確實以 Windows 預設 Multimedia 主音量作為共用控制，請使用 `Binding All` 並省略 `Volume`：
+若 VB-Audio Matrix 或其他 Matrix 類路由確實以 Windows 預設 Multimedia 主音量作為共用控制，但音訊路由不會自行套用該音量，請使用 `Binding All`、省略 `Volume`，並加入需要的 `VolumeFollow` 模式；例如依端點 dB 衰減完整輸出：
 
 ```text
-LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding All State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0
+LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding All VolumeFollow Windows State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0
 ```
+
+若該路由本來就會降低音訊，請省略 `VolumeFollow`；缺省的 `Off` 可避免同一份 Windows 衰減被套用兩次。
 
 ### 原始 Mixomo 棚架輪廓項目
 
@@ -272,6 +289,8 @@ v3.0.0 可能已把舊項目重寫為沒有標記的公式格式 `State 0 Refere
 | 響度校正保持平直，或 `ReferenceOffset` 看起來沒有作用 | 確認已儲存的命令包含 `State 1`、`Attenuation` 大於零，而且估計響度與參考輪廓不同，也沒有卡在 0／100 的限制值。自動音量來源不可用時會失效安全地略過；濾鏡可用時，儲存偏移變更後顯示曲線應立即移動。 |
 | 自動音量無法使用或卡在下限 | 每個裝置分開追蹤時，在可讀且可辨識的播放端點使用 `Binding Single`。只有 Windows 預設 Multimedia 主音量確實是預期的共用控制時才用 `Binding All`；若 Matrix 端點為靜音或固定音量，請用 `Binding Single` 或手動音量。全域模式不需要目前 APO 的端點中繼資料。 |
 | 跟到錯誤端點音量 | 要跟 APO 實際端點時使用 `Binding Single`；只有刻意讓所有實例共用 Windows 預設 Multimedia 音量時才使用 `Binding All`。 |
+| Matrix 上的 Windows 音量會變，實際聲音卻不會降低 | 先確認 `Binding` 指向正確來源，再啟用 `VolumeFollow Linear`、`Logarithmic` 或 `Windows`。這只讓 APO 衰減完整輸出，不會寫回 Windows 音量。 |
+| 啟用 APO 音量跟隨後聲音太小 | 音訊路徑很可能已經套用 Windows 或硬體衰減，形成雙重衰減；把 `VolumeFollow` 改回 `Off` 或直接省略。 |
 | 裝置連結的設定檔會開啟，但音訊沒有改變 | 裝置連結只會在 Configuration Editor 開啟檔案。確認 `config.txt` 或其 `Include` 鏈有引用該設定檔；APO 安裝由裝置選擇器控制，響度濾鏡的音量來源則由 `Binding` 控制。 |
 | 無法使用 A/B 或旁路 | 先儲存設定檔並清除未儲存的變更。該檔案必須位於有效的 `config.txt`／`Include` 鏈才會有可聽效果，而且 A/B 與旁路不能同時使用。 |
 | 分析面板浮動後無法放回 | 選擇**檢視 → 停駐分析面板**，即可把面板放回 Configuration Editor 底部。 |

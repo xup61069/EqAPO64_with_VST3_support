@@ -1576,14 +1576,64 @@ Alexander Walch</translation>
         <translation>Étalonnage non appliqué</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="382"/>
-        <source>The bound playback volume could not be read. Reconnect the device, choose another binding, or use manual volume and try again.</source>
-        <translation>Impossible de lire le volume de lecture associé. Reconnectez l’appareil, choisissez une autre liaison ou utilisez le volume manuel, puis réessayez.</translation>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="361"/>
+        <source>APO volume-follow attenuation:</source>
+        <translation>Atténuation de suivi du volume APO :</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="401"/>
-        <source>The bound playback volume could not be read. The measured level was not applied; reconnect the device, choose another binding, or use manual volume and try again.</source>
-        <translation>Impossible de lire le volume de lecture associé. Le niveau mesuré n’a pas été appliqué ; reconnectez l’appareil, choisissez une autre liaison ou utilisez le volume manuel, puis réessayez.</translation>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="377"/>
+        <source>Applies Windows volume as an extra gain inside Equalizer APO. Use this only when the routed endpoint reports volume changes but does not attenuate audio; otherwise attenuation is applied twice. Linear uses the endpoint scalar, Logarithmic squares it, and Windows uses the endpoint&apos;s reported dB.</source>
+        <translation>Applique le volume Windows comme gain supplémentaire dans Equalizer APO. Utilisez cette option uniquement si le point de terminaison routé signale les changements de volume sans atténuer le son ; sinon, l’atténuation sera appliquée deux fois. Linéaire utilise la valeur scalaire du point de terminaison, Logarithmique son carré et Windows la valeur en dB signalée par le point de terminaison.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="407"/>
+        <source>Experimental fast engine:</source>
+        <translation>Moteur rapide expérimental :</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="404"/>
+        <source>Experimental two-filter approximation. Uses less CPU but may differ noticeably from Full, especially at very low listening levels.</source>
+        <translation>Approximation expérimentale à deux filtres. Utilise moins de ressources processeur, mais peut différer sensiblement du mode complet, surtout à de très faibles niveaux d’écoute.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="386"/>
+        <source>Linear</source>
+        <translation>Linéaire</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="391"/>
+        <source>Logarithmic</source>
+        <translation>Logarithmique</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="381"/>
+        <source>Off</source>
+        <translation>Désactivé</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="511"/>
+        <source>Playback became muted, inaudible, or unavailable. The measured level was not applied; restore the endpoint and run calibration again.</source>
+        <translation>La lecture est devenue muette, inaudible ou indisponible. Le niveau mesuré n’a pas été appliqué ; restaurez le point de terminaison et recommencez l’étalonnage.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="455"/>
+        <source>The bound playback endpoint is muted or set to zero volume. Unmute it and raise the Windows volume before calibrating.</source>
+        <translation>Le point de terminaison de lecture lié est en sourdine ou réglé sur un volume nul. Réactivez le son et augmentez le volume Windows avant l’étalonnage.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="447"/>
+        <source>The bound playback volume could not be read. Reconnect the device or choose another readable playback binding, then try again.</source>
+        <translation>Le volume de lecture lié n’a pas pu être lu. Reconnectez le périphérique ou choisissez une autre liaison de lecture lisible, puis réessayez.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="540"/>
+        <source>The selected volume-follow curve produced an inaudible level. Raise the volume and run calibration again.</source>
+        <translation>La courbe de suivi du volume sélectionnée a produit un niveau inaudible. Augmentez le volume et recommencez l’étalonnage.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="396"/>
+        <source>Windows (reported dB)</source>
+        <translation>Windows (dB signalés)</translation>
     </message>
 </context>
 <context>
@@ -1607,11 +1657,6 @@ Alexander Walch</translation>
         <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="36"/>
         <source>Use a sound-level meter with slow response and Z weighting. Complete the three steps below.</source>
         <translation>Utilisez un sonomètre à réponse lente et pondération Z. Suivez les trois étapes ci-dessous.</translation>
-    </message>
-    <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="42"/>
-        <source>Loudness correction is temporarily disabled while this window is open.</source>
-        <translation>La correction de la sonie est temporairement désactivée tant que cette fenêtre est ouverte.</translation>
     </message>
     <message>
         <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="48"/>
@@ -1711,17 +1756,6 @@ Alexander Walch</translation>
         <translation>Utiliser la mesure</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="102"/>
-        <source>The selected playback device is not the Windows default playback device. Test-noise playback is blocked to prevent calibration on the wrong speaker.</source>
-        <translation>L’appareil de lecture sélectionné n’est pas l’appareil de lecture par défaut de Windows. La lecture du bruit de test est bloquée pour éviter un étalonnage sur le mauvais haut-parleur.</translation>
-    </message>
-    <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="105"/>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="267"/>
-        <source>Make this device the Windows default to play the signal</source>
-        <translation>Définir cet appareil comme appareil par défaut de Windows pour lire le signal</translation>
-    </message>
-    <message>
         <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="111"/>
         <source>Playback device changed · signal stopped</source>
         <translation>Appareil de lecture modifié · signal arrêté</translation>
@@ -1794,6 +1828,66 @@ Alexander Walch</translation>
         <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="252"/>
         <source>Playing on the right speaker</source>
         <translation>Lecture sur le haut-parleur droit</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="206"/>
+        <source>Endpoint muted - signal stopped</source>
+        <translation>Point de terminaison en sourdine - signal arrêté</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="218"/>
+        <source>Endpoint unavailable - signal stopped</source>
+        <translation>Point de terminaison indisponible - signal arrêté</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="207"/>
+        <source>Playback blocked - endpoint is muted or at zero volume</source>
+        <translation>Lecture bloquée - point de terminaison en sourdine ou à volume nul</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="219"/>
+        <source>Playback blocked - endpoint volume is unavailable</source>
+        <translation>Lecture bloquée - volume du point de terminaison indisponible</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="209"/>
+        <source>Playback endpoint is inaudible</source>
+        <translation>Le point de terminaison de lecture est inaudible</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="221"/>
+        <source>Playback endpoint unavailable</source>
+        <translation>Point de terminaison de lecture indisponible</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="42"/>
+        <source>The equal-loudness contour is temporarily disabled while this window is open; APO volume follow remains active when enabled.</source>
+        <translation>Le contour isosonique est temporairement désactivé tant que cette fenêtre est ouverte ; le suivi du volume APO reste actif lorsqu’il est activé.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="223"/>
+        <source>The playback endpoint volume became unreadable. Test noise was stopped and this measurement cannot be used.</source>
+        <translation>Le volume du point de terminaison de lecture est devenu illisible. Le bruit de test a été arrêté et cette mesure ne peut pas être utilisée.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="224"/>
+        <source>The playback endpoint volume cannot be read. Reconnect the device before calibrating.</source>
+        <translation>Le volume du point de terminaison de lecture ne peut pas être lu. Reconnectez le périphérique avant l’étalonnage.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="211"/>
+        <source>The playback endpoint was muted or set to zero volume. Test noise was stopped and this measurement cannot be used.</source>
+        <translation>Le point de terminaison de lecture a été mis en sourdine ou réglé sur un volume nul. Le bruit de test a été arrêté et cette mesure ne peut pas être utilisée.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="105"/>
+        <source>The selected playback device must remain the audible Windows default playback device. Muted, zero-volume, unreadable, or mismatched endpoints block the calibration signal.</source>
+        <translation>Le périphérique de lecture sélectionné doit rester le périphérique de lecture Windows audible par défaut. Les points de terminaison en sourdine, à volume nul, illisibles ou différents bloquent le signal d’étalonnage.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="212"/>
+        <source>Unmute the playback endpoint and raise the Windows volume before playing the calibration signal.</source>
+        <translation>Réactivez le son du point de terminaison de lecture et augmentez le volume Windows avant de lire le signal d’étalonnage.</translation>
     </message>
 </context>
 <context>

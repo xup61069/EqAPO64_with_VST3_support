@@ -891,7 +891,9 @@ class UiProductizationTests(unittest.TestCase):
         )
         self.assertIn("isPlaybackEndpointStillValid", dialog_source)
         self.assertIn("on_stopButton_clicked", dialog_source)
-        self.assertIn("Loudness correction is temporarily disabled", ET.tostring(dialog_ui, encoding="unicode"))
+        dialog_text = ET.tostring(dialog_ui, encoding="unicode")
+        self.assertIn("equal-loudness contour is temporarily disabled", dialog_text)
+        self.assertIn("APO volume follow remains active", dialog_text)
 
     def test_companion_apps_expose_loading_empty_success_and_failure_states(self) -> None:
         for token in ("loadingPage", "emptyPage", "errorPage", "devicesPage"):

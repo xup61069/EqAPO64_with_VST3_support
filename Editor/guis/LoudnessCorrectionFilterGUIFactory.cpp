@@ -72,6 +72,27 @@ namespace
 		return keyCount(parameters, key) > 0;
 	}
 
+	bool volumeObservationChanged(
+		bool previousAvailable,
+		double previousDb,
+		double previousScalar,
+		bool previousMuted,
+		const std::wstring& previousEndpointId,
+		bool currentAvailable,
+		const EndpointVolumeState& currentState,
+		const std::wstring& currentEndpointId)
+	{
+		if (previousAvailable != currentAvailable)
+			return true;
+		if (!currentAvailable)
+			return false;
+		return !std::isfinite(previousDb) || !std::isfinite(previousScalar) ||
+			std::abs(currentState.levelDb - previousDb) > 0.05 ||
+			std::abs(currentState.scalar - previousScalar) > 1e-6 ||
+			currentState.muted != previousMuted ||
+			_wcsicmp(currentEndpointId.c_str(), previousEndpointId.c_str()) != 0;
+	}
+
 	bool captureNumber(
 		const QString& parameters,
 		const QString& key,
@@ -297,6 +318,7 @@ IFilterGUI* LoudnessCorrectionFilterGUIFactory::createFilterGUI(QString& command
 					params.useManualVolume,
 					params.manualVolume,
 					params.engine,
+					params.volumeFollow,
 					endpointId,
 					selectedEndpointIsRender);
 
@@ -342,29 +364,48 @@ void LoudnessCorrectionFilterGUIFactory::checkVolume()
 	bool selectedEndpointIsRender = getSelectedRenderEndpoint(endpointId);
 	if (endpointId != volumeControllerEndpointId)
 	{
+		const bool hadSelectedObservation = volumeController != NULL ||
+			volumeAvailable || !volumeControllerEndpointId.empty();
 		delete volumeController;
 		volumeController = NULL;
 		volumeControllerEndpointId = endpointId;
+		lastResolvedEndpointId.clear();
+		volumeAvailable = false;
 		lastVolume = std::numeric_limits<double>::quiet_NaN();
+		lastVolumeScalar = std::numeric_limits<double>::quiet_NaN();
+		lastMuted = false;
+		if (hadSelectedObservation)
+			filterTable->updateAnalysis();
 	}
 
 	if (selectedEndpointIsRender && !endpointId.empty() &&
 		volumeController == NULL)
 	{
 		volumeController = new VolumeController(endpointId);
-		if (FAILED(volumeController->getVolume(lastVolume)))
-			lastVolume = std::numeric_limits<double>::quiet_NaN();
 	}
-	else if (volumeController != NULL)
+	if (volumeController != NULL)
 	{
-		double volume;
-		HRESULT res = volumeController->getVolume(volume);
-
-		if (SUCCEEDED(res) &&
-			(!std::isfinite(lastVolume) || std::abs(volume - lastVolume) > 0.05))
+		EndpointVolumeState currentState;
+		const HRESULT result = volumeController->getVolumeState(currentState);
+		const bool currentAvailable = SUCCEEDED(result) &&
+			std::isfinite(currentState.levelDb) &&
+			std::isfinite(currentState.scalar);
+		const std::wstring currentEndpointId = currentAvailable
+			? volumeController->getEndpointId() : std::wstring();
+		if (volumeObservationChanged(
+			volumeAvailable, lastVolume, lastVolumeScalar, lastMuted,
+			lastResolvedEndpointId, currentAvailable, currentState,
+			currentEndpointId))
 		{
 			filterTable->updateAnalysis();
-			lastVolume = volume;
+		}
+		volumeAvailable = currentAvailable;
+		if (currentAvailable)
+		{
+			lastVolume = currentState.levelDb;
+			lastVolumeScalar = currentState.scalar;
+			lastMuted = currentState.muted;
+			lastResolvedEndpointId = currentEndpointId;
 		}
 	}
 
@@ -373,19 +414,31 @@ void LoudnessCorrectionFilterGUIFactory::checkVolume()
 	if (defaultVolumeController == NULL)
 	{
 		defaultVolumeController = new VolumeController();
-		if (FAILED(defaultVolumeController->getVolume(lastDefaultVolume)))
-			lastDefaultVolume = std::numeric_limits<double>::quiet_NaN();
 	}
-	else
+	if (defaultVolumeController != NULL)
 	{
-		double volume;
-		HRESULT res = defaultVolumeController->getVolume(volume);
-		if (SUCCEEDED(res) &&
-			(!std::isfinite(lastDefaultVolume) ||
-				std::abs(volume - lastDefaultVolume) > 0.05))
+		EndpointVolumeState currentState;
+		const HRESULT result = defaultVolumeController->getVolumeState(currentState);
+		const bool currentAvailable = SUCCEEDED(result) &&
+			std::isfinite(currentState.levelDb) &&
+			std::isfinite(currentState.scalar);
+		const std::wstring currentEndpointId = currentAvailable
+			? defaultVolumeController->getEndpointId() : std::wstring();
+		if (volumeObservationChanged(
+			defaultVolumeAvailable, lastDefaultVolume,
+			lastDefaultVolumeScalar, lastDefaultMuted,
+			lastDefaultResolvedEndpointId, currentAvailable, currentState,
+			currentEndpointId))
 		{
 			filterTable->updateAnalysis();
-			lastDefaultVolume = volume;
+		}
+		defaultVolumeAvailable = currentAvailable;
+		if (currentAvailable)
+		{
+			lastDefaultVolume = currentState.levelDb;
+			lastDefaultVolumeScalar = currentState.scalar;
+			lastDefaultMuted = currentState.muted;
+			lastDefaultResolvedEndpointId = currentEndpointId;
 		}
 	}
 }

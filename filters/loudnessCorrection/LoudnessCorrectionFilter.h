@@ -46,6 +46,16 @@ public:
 			ENGINE_FAST = 1
 		};
 
+		// Optional APO-owned attenuation for endpoints whose Windows master
+		// volume is observable but is not actually applied by the audio route.
+		enum VolumeFollowMode
+		{
+			VOLUME_FOLLOW_OFF = 0,
+			VOLUME_FOLLOW_LINEAR = 1,
+			VOLUME_FOLLOW_LOGARITHMIC = 2,
+			VOLUME_FOLLOW_WINDOWS = 3
+		};
+
 		bool state;
 		float referenceLevel;
 		float referenceOffset;
@@ -54,6 +64,7 @@ public:
 		bool useManualVolume;
 		BindingMode binding;
 		EngineMode engine;
+		VolumeFollowMode volumeFollow;
 
 		std::vector<char> serialize()
 		{
@@ -66,6 +77,19 @@ public:
 			// Engine existed keep their exact text.
 			if (engine == ENGINE_FAST)
 				archive.add(std::wstring(L"Fast"), L"Engine");
+			// Existing profiles and ordinary endpoints must not receive the same
+			// Windows attenuation twice, so Off remains the omitted default.
+			if (volumeFollow == VOLUME_FOLLOW_LINEAR ||
+				volumeFollow == VOLUME_FOLLOW_LOGARITHMIC ||
+				volumeFollow == VOLUME_FOLLOW_WINDOWS)
+			{
+				const wchar_t* mode = L"Windows";
+				if (volumeFollow == VOLUME_FOLLOW_LINEAR)
+					mode = L"Linear";
+				else if (volumeFollow == VOLUME_FOLLOW_LOGARITHMIC)
+					mode = L"Logarithmic";
+				archive.add(std::wstring(mode), L"VolumeFollow");
+			}
 			archive.add(state, L"State");
 			archive.add(referenceLevel, L"ReferenceLevel");
 			archive.add(referenceOffset, L"ReferenceOffset");
@@ -93,6 +117,8 @@ public:
 				L"(?:^|\\s)Binding(?=\\s|$)", std::regex_constants::icase));
 			size_t engineCount = archive.count(std::wregex(
 				L"(?:^|\\s)Engine(?=\\s|$)", std::regex_constants::icase));
+			size_t volumeFollowCount = archive.count(std::wregex(
+				L"(?:^|\\s)VolumeFollow(?=\\s|$)", std::regex_constants::icase));
 			if (archive.count(std::wregex(L"(?:^|\\s)Schema(?=\\s|$)",
 					std::regex_constants::icase)) != 1 ||
 				archive.count(std::wregex(L"(?:^|\\s)Model(?=\\s|$)",
@@ -105,6 +131,7 @@ public:
 					std::regex_constants::icase)) != 1 ||
 				bindingCount > 1 ||
 				engineCount > 1 ||
+				volumeFollowCount > 1 ||
 				archive.count(std::wregex(L"(?:^|\\s)Attenuation(?=\\s|$)",
 					std::regex_constants::icase)) > 1 ||
 				archive.count(std::wregex(L"(?:^|\\s)Volume(?=\\s|$)",
@@ -129,6 +156,35 @@ public:
 				std::regex_constants::icase)))
 			{
 				binding = BINDING_SINGLE;
+			}
+			else
+			{
+				return true;
+			}
+
+			if (volumeFollowCount == 0 || archive.find(std::wregex(
+				L"(?:^|\\s)VolumeFollow\\s+Off(?=\\s|$)",
+				std::regex_constants::icase)))
+			{
+				volumeFollow = VOLUME_FOLLOW_OFF;
+			}
+			else if (archive.find(std::wregex(
+				L"(?:^|\\s)VolumeFollow\\s+Linear(?=\\s|$)",
+				std::regex_constants::icase)))
+			{
+				volumeFollow = VOLUME_FOLLOW_LINEAR;
+			}
+			else if (archive.find(std::wregex(
+				L"(?:^|\\s)VolumeFollow\\s+Logarithmic(?=\\s|$)",
+				std::regex_constants::icase)))
+			{
+				volumeFollow = VOLUME_FOLLOW_LOGARITHMIC;
+			}
+			else if (archive.find(std::wregex(
+				L"(?:^|\\s)VolumeFollow\\s+Windows(?=\\s|$)",
+				std::regex_constants::icase)))
+			{
+				volumeFollow = VOLUME_FOLLOW_WINDOWS;
 			}
 			else
 			{
@@ -203,6 +259,7 @@ public:
 			  useManualVolume(false),
 			  binding(BINDING_SINGLE),
 			  engine(ENGINE_FULL),
+			  volumeFollow(VOLUME_FOLLOW_OFF),
 			  _isInitialized(false)
 		{
 		}
@@ -216,6 +273,7 @@ public:
 			  useManualVolume(false),
 			  binding(BINDING_SINGLE),
 			  engine(ENGINE_FULL),
+			  volumeFollow(VOLUME_FOLLOW_OFF),
 			  _isInitialized(false)
 		{
 			_isInitialized = !deSerialize<T>(input);
@@ -244,6 +302,12 @@ public:
 			if (!std::isfinite(manualVolume))
 				manualVolume = 0.0f;
 			manualVolume = (std::max)(-100.0f, (std::min)(0.0f, manualVolume));
+
+			if (volumeFollow < VOLUME_FOLLOW_OFF ||
+				volumeFollow > VOLUME_FOLLOW_WINDOWS)
+			{
+				volumeFollow = VOLUME_FOLLOW_OFF;
+			}
 		}
 
 		bool _isInitialized;
@@ -267,6 +331,11 @@ public:
 		unsigned maxFrameCount,
 		std::vector<std::wstring> channelNames);
 	virtual void process(double** output, double** input, unsigned frameCount);
+	static double calculateVolumeFollowGain(
+		FilterParameters::VolumeFollowMode mode,
+		double currentVolumeDb,
+		double currentVolumeScalar,
+		bool muted);
 
 private:
 	friend class LoudnessCorrectionFilterTestAccess;
@@ -277,7 +346,6 @@ private:
 	static constexpr double HIGH_SHELF_Q = 0.9;
 	static constexpr double PI = 3.1415926535897932384626433832795;
 	static constexpr double MAX_FILTER_GAIN_DB = 48.0;
-	static constexpr double HEADROOM_MARGIN_DB = 1.0;
 	static constexpr double FINAL_RESPONSE_NUMERICAL_TOLERANCE_DB = 1.0e-6;
 	static constexpr double SUBSONIC_CROSSOVER_FREQUENCY_HZ = 25.0;
 	static const size_t CROSSOVER_SECTION_COUNT = 14;
@@ -286,6 +354,7 @@ private:
 	static constexpr double BYPASS_FADE_SECONDS = 0.01;
 	static constexpr double FILTER_WARMUP_SECONDS = 0.25;
 	static constexpr double COEFFICIENT_CROSSFADE_SECONDS = 0.1;
+	static constexpr double VOLUME_FOLLOW_RAMP_SECONDS = 0.01;
 	static const unsigned FIT_ITERATIONS = 4;
 	static const unsigned RESPONSE_SCAN_POINTS = 4097;
 	static const unsigned RESPONSE_REFINEMENT_ITERATIONS = 32;
@@ -325,6 +394,19 @@ private:
 		double& outputGainLinear) const;
 	double calculateHeadroomGain(const std::vector<double>& gains) const;
 	void publishVolumeUpdate(double currentVolumeDb, std::vector<double>& scratchGains);
+	void publishVolumeUpdate(
+		double currentVolumeDb,
+		double currentVolumeScalar,
+		bool muted,
+		std::vector<double>& scratchGains);
+	void publishVolumeFollowUpdate(
+		double currentVolumeDb,
+		double currentVolumeScalar,
+		bool muted);
+	void installPendingVolumeFollow();
+	double volumeFollowGainAtFrame(unsigned frame) const;
+	void applyVolumeFollow(double* samples, unsigned frameCount) const;
+	void advanceVolumeFollow(unsigned frameCount);
 	void calculateFastShelfGains(
 		double currentVolumeDb,
 		std::vector<double>& outGains,
@@ -397,6 +479,8 @@ private:
 	FilterRuntimeContext _runtimeContext;
 	bool _hasInitialAutomaticVolume;
 	double _initialAutomaticVolume;
+	double _initialAutomaticVolumeScalar;
+	bool _initialAutomaticMuted;
 	std::atomic<bool> _runtimeBypass;
 	std::atomic<bool> _recoveryPending;
 	size_t _channelCount;
@@ -449,6 +533,16 @@ private:
 	double _outputGainLinear;
 	double _targetOutputGainLinear;
 	double _pendingOutputGainLinear;
+	// APO-owned volume follows the complete output after the correction
+	// crossover. The worker publishes targets; the callback consumes them with
+	// a short, allocation-free ramp shared by every channel.
+	double _volumeFollowGainLinear;
+	double _targetVolumeFollowGainLinear;
+	double _volumeFollowStepPerSample;
+	double _pendingVolumeFollowGainLinear;
+	unsigned _volumeFollowRampRemaining;
+	unsigned _volumeFollowRampLength;
+	std::atomic<bool> _volumeFollowUpdated;
 	std::atomic<bool> _coeffsUpdated;
 };
 #pragma AVRT_VTABLES_END

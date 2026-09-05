@@ -508,7 +508,7 @@ class LoudnessProfileTests(unittest.TestCase):
 				sample_rate,
 			)
 			output_gain = (
-				1.0 if raw_peak <= 0.0 else 10.0 ** (-(raw_peak + 1.0) / 20.0)
+				1.0 if raw_peak <= 0.0 else 10.0 ** (-raw_peak / 20.0)
 			)
 
 			def guarded_response_db(frequency: float, gain: float) -> float:
@@ -540,7 +540,7 @@ class LoudnessProfileTests(unittest.TestCase):
 	def test_headroom_uses_dense_refined_peak_search(self) -> None:
 		filter_header = FILTER_HEADER_PATH.read_text(encoding="utf-8")
 		filter_cpp = FILTER_CPP_PATH.read_text(encoding="utf-8")
-		self.assertIn("HEADROOM_MARGIN_DB = 1.0", filter_header)
+		self.assertNotIn("HEADROOM_MARGIN_DB = 1.0", filter_header)
 		self.assertIn("RESPONSE_SCAN_POINTS = 4097", filter_header)
 		self.assertIn("RESPONSE_REFINEMENT_ITERATIONS = 32", filter_header)
 		self.assertIn("goldenRatioConjugate", filter_cpp)

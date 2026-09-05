@@ -587,12 +587,15 @@ static bool analysisVolumesStillMatch(
 		if (!snapshot.available)
 			return false;
 		VolumeController controller(snapshot.requestedEndpointId.toStdWString());
-		double currentVolumeDb = 0.0;
-		if (FAILED(controller.getVolume(currentVolumeDb))
+		EndpointVolumeState currentVolumeState;
+		if (FAILED(controller.getVolumeState(currentVolumeState))
 			|| QString::fromStdWString(controller.getEndpointId()).compare(
 				snapshot.resolvedEndpointId, Qt::CaseInsensitive) != 0
-			|| !std::isfinite(currentVolumeDb)
-			|| currentVolumeDb != snapshot.volumeDb)
+			|| !std::isfinite(currentVolumeState.levelDb)
+			|| !std::isfinite(currentVolumeState.scalar)
+			|| currentVolumeState.levelDb != snapshot.volumeDb
+			|| std::abs(currentVolumeState.scalar - snapshot.volumeScalar) > 1e-6
+			|| currentVolumeState.muted != snapshot.muted)
 			return false;
 	}
 	return true;

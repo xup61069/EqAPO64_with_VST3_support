@@ -22,7 +22,10 @@
 #include <QDialog>
 #include <QBuffer>
 #include <QTimer>
+#include <memory>
 #include <string>
+
+#include "filters/loudnessCorrection/VolumeController.h"
 
 namespace Ui {
 class LoudnessCorrectionFilterGUIDialog;
@@ -41,6 +44,10 @@ public:
 	~LoudnessCorrectionFilterGUIDialog();
 
 	int getMeasuredLevel();
+	bool hasValidMeasurement() const;
+
+public slots:
+	void accept() override;
 
 private slots:
 	void on_playButton_clicked();
@@ -51,12 +58,25 @@ private slots:
 	void on_bothRadioButton_toggled(bool checked);
 
 private:
+	enum PlaybackReadiness
+	{
+		PLAYBACK_READY,
+		PLAYBACK_ENDPOINT_MISMATCH,
+		PLAYBACK_VOLUME_UNAVAILABLE,
+		PLAYBACK_MUTED
+	};
+
 	bool isPlaybackEndpointStillValid() const;
+	PlaybackReadiness getPlaybackReadiness();
+	bool updatePlaybackReadiness(bool showWarning);
+	void stopPlayback();
 	void setPlaybackStatus(const QString& text, const char* level);
 	Ui::LoudnessCorrectionFilterGUIDialog* ui;
 	QBuffer buffer;
 	std::wstring endpointId;
 	bool followsDefaultMultimedia;
 	bool playbackUsesSelectedEndpoint;
+	bool measurementValid;
+	std::unique_ptr<VolumeController> volumeController;
 	QTimer endpointGuardTimer;
 };

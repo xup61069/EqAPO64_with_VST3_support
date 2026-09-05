@@ -73,13 +73,19 @@ README 只描述目前功能、操作與限制，不放 `What's new`／「更新
 - 保留既有 raw → common-A 安全交接、預熱、淡入、雙 bank 係數交叉淡化及失敗時 bypass 的行為。
 - Settled callback 會使用 `initialize()` 依 `maxFrameCount` 預先配置的 scratch buffer 走 section-major block 路徑；交接、預熱、crossfade 與 bypass fade 仍走 sample-major fallback。修改這兩條路徑時，必須保留原生 block/scalar、in-place/out-of-place 的逐樣本等價測試。
 - 輸出餘裕掃描只降低校正分支，不得把共同的次聲頻路徑一起壓低。它不是 limiter；文件不可暗示能保證 sample peak 或 true peak。
+- `VolumeFollow` 是在目前輸出（啟用校正時為 `L + headroom × correction(H)`；校正 bypass 時為 `L + H`）完整合成後才套用的獨立寬頻增益；不得併進 correction branch 的 headroom／`_outputGainLinear`，否則共同 A 域與 `Attenuation 0` 都不會正確跟隨音量。`State 0` 必須 bit-transparent 地旁路兩者，`State 1 Attenuation 0` 則仍要保留已啟用的跟隨。
+- 跟隨增益變更使用預先配置、無配置的 10 ms amplitude ramp。所有聲道必須共享同一個 frame 位置；不得每處理一個聲道就把 ramp 多推進一次。Full／Fast、in-place／out-of-place、穩態／轉換與 ramp 中途換目標都要維持等價。
+- 端點的 dB、0–1 scalar 與 mute 必須由非即時路徑取得成一致快照；曲線也在非即時路徑算成目標增益，只把該預先計算結果發布給 audio callback。callback 不得查詢 COM 或自行重算曲線。通知 callback 必須自行擁有生命週期安全的 change state，不可保存指向 `VolumeController` 成員的裸指標，因為 Windows 在 unregister 失敗後仍可能保留 callback。
+- 自動 `VolumeFollow` 在冷啟動取得第一筆有效快照前必須靜音；執行期間讀取或重新綁定失敗時，校正分支依既有流程 bypass，但完整輸出的 follow gain 要保留最後一次成功衰減，不能跳回 unity。恢復後以 10 ms ramp 套用新值。
 
 ### 設定與相容性
 
 - 已標記的設定格式必須可 round-trip；必填欄位及 `Binding`／`Engine` enum 的無效值要 fail closed，重複的已知欄位也要 fail closed。`Attenuation` 與 `Volume` 為舊設定相容例外：缺漏或格式無效時分別回退 1.0 與自動音量。既有 parser 也會忽略不認識的額外 token 以保留 forward compatibility；不可順手改變這些語意。
 - 未標記的舊響度設定不可依數值猜測模型；保留原文並 bypass，直到使用者在 Editor 明確選擇遷移方式。
 - 新增欄位時必須定義缺省值、舊設定行為、序列化規則、未知值與重複值行為，並加入原生回歸測試。
+- `VolumeFollow` 缺省與明確 `Off` 都表示 unity，序列化時省略 `Off`，以避免舊設定或正常端點重複承受 Windows 衰減。有效值只有 `Linear`、`Logarithmic`、`Windows`；無效或重複的已知欄位要 fail closed。Linear 使用 scalar `s`，Logarithmic 使用 `s²`，Windows 使用 `10^(d/20)`；自動模式的 `s`／`d` 來自端點 scalar／dB，手動模式的 `d` 是 `Volume`，`s` 則由 `clamp((Volume + 100) / 100, 0, 1)` 取得。自動端點 mute 永遠是零增益。
 - 不得讓 UI 預覽、離線分析與實際 runtime 對同一份已儲存設定產生不同語意。
+- 離線分析與自動前級的 freshness 判斷若涉及自動音量，必須連同端點 identity、dB、scalar、mute 及來源可用狀態一起比對；只比 dB 可能接受已靜音、曲線不同或失敗後恢復的過期結果。
 
 ### Installer、資料與供應鏈
 
@@ -142,6 +148,8 @@ UI 變更再執行並人工檢查產物：
 ```
 
 Runtime 測試依賴已建好的 `Benchmark\x64\Release\Benchmark.exe` 與 staged runtime，因此要在 Release build 後執行。任何因權限或環境而 skipped 的測試都要在交接中逐項列出，不能寫成「全部通過」。
+
+修改響度音量追蹤時，原生矩陣至少要涵蓋缺省／明確 Off、三種曲線、automatic／manual、mute、冷啟動無快照、執行中失敗與恢復、`State 0`、`Attenuation 0`、單聲道／立體聲、in-place／out-of-place，以及 ramp 中途連續更新。另要保留接近中性輪廓不會固定降低 1 dB 的 Full／Fast 回歸。
 
 ## Git 與發布安全
 
