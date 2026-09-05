@@ -25,8 +25,8 @@
 
 using namespace std;
 
-VSTPluginFilter::VSTPluginFilter(std::shared_ptr<VSTPluginLibrary> library, std::wstring chunkData, std::unordered_map<std::wstring, float> paramMap, int vst3ClassIndex)
-	: library(library), chunkData(chunkData), paramMap(paramMap), vst3ClassIndex(vst3ClassIndex)
+VSTPluginFilter::VSTPluginFilter(std::shared_ptr<VSTPluginLibrary> library, std::wstring chunkData, std::unordered_map<std::wstring, float> paramMap, int vst3ClassIndex, std::wstring midiConfig)
+	: library(library), chunkData(chunkData), paramMap(paramMap), vst3ClassIndex(vst3ClassIndex), midiConfig(std::move(midiConfig))
 {
 	libPath = library->getLibPath();
 }
@@ -78,6 +78,8 @@ std::vector<std::wstring> VSTPluginFilter::initialize(float sampleRate, unsigned
 	}
 
 	prepareForProcessing(sampleRate, maxFrameCount);
+	if (!skipProcessing && !this->midiConfig.empty())
+		midiRuntime.configure(this->midiConfig, firstEffect->getParameterDescriptors());
 
 	// 2 times for input and output
 	emptyChannelCount = 2 * (effectCount * effectChannelCount - channelCount);
@@ -169,6 +171,7 @@ void VSTPluginFilter::process(double** output, double** input, unsigned frameCou
 
 	__try
 	{
+		applyMidiUpdates();
 		unsigned channelOffset = 0;
 		unsigned emptyChannelIndex = 0;
 		for (unsigned i = 0; i < effectCount; i++)
@@ -319,8 +322,26 @@ int VSTPluginFilter::getVST3ClassIndex() const
 	return vst3ClassIndex;
 }
 
+std::wstring VSTPluginFilter::getMidiConfig() const
+{
+	return midiConfig;
+}
+
+void VSTPluginFilter::applyMidiUpdates()
+{
+	VSTMidiParameterUpdate update;
+	for (unsigned processed = 0; processed < 256 && midiRuntime.tryPopParameterUpdate(update); ++processed)
+	{
+		if (update.parameter == nullptr)
+			continue;
+		for (unsigned i = 0; i < effectCount; ++i)
+			effects[i]->setParameterNormalized(*update.parameter, update.normalizedValue, true);
+	}
+}
+
 void VSTPluginFilter::cleanup()
 {
+	midiRuntime.stop();
 	if (effects != NULL)
 	{
 		for (unsigned i = 0; i < effectCount; i++)

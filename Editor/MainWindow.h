@@ -66,6 +66,12 @@ public:
 	void startAnalysis();
 	bool loadSnapshotScenario(const QString& scenario);
 	bool snapshotLayoutIsValid() const;
+	bool beginTemporaryFilterConfiguration(
+		IFilterGUI* filterGui,
+		const QString& command,
+		const QString& parameters,
+		const QString& mode);
+	bool restoreTemporaryFilterConfiguration(bool* keptExternal = NULL);
 
 protected:
 	void closeEvent(QCloseEvent* event) override;
@@ -225,6 +231,10 @@ private:
 	bool applyingAutoPreampAdjustment = false;
 	QString temporaryRecoveryOwner;
 	quint64 temporaryRecoveryProcessStartedAt = 0;
+	QPointer<FilterTable> temporaryFilterTable;
+	QList<QString> temporaryFilterOriginalLines;
+	QByteArray temporaryFilterOriginalContent;
+	QByteArray temporaryFilterContent;
 	quint64 workspaceStatusRevision = 0;
 	QPointer<FilterTable> comparisonTable;
 	QList<QString> comparisonALines;

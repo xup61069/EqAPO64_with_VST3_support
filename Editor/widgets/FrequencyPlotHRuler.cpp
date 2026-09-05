@@ -70,8 +70,8 @@ void FrequencyPlotHRuler::paintEvent(QPaintEvent*)
 			return;
 
 		const QString text = hz < 1000
-			? QString("%0").arg(hz)
-			: QString("%0k").arg(hz / 1000);
+			? QString("%1").arg(hz)
+			: QString("%1k").arg(hz / 1000);
 		const qreal center = clampTextCenter(
 			x - topLeft.x() + offsetLeft + 1,
 			text);
@@ -162,7 +162,7 @@ void FrequencyPlotHRuler::paintEvent(QPaintEvent*)
 		double x = s->hzToX(hz);
 		if (x != -1)
 		{
-			QString text = QString("%0").arg(hz, 0, 'f', 1);
+			QString text = QString("%1").arg(hz, 0, 'f', 1);
 			QRectF rect = metrics.boundingRect(text);
 			const qreal center = clampTextCenter(x - topLeft.x() + offsetLeft + 1, text, 4.0);
 			rect = QRectF(center - ceil(rect.width() / 2) - 3 + 0.5, ceil(height() / 2) - ceil(rect.height() / 2) + 1.5, rect.width() + 5, rect.height() - 1);

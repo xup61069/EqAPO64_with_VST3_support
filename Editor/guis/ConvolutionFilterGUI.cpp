@@ -18,6 +18,7 @@
 */
 
 #include <QFileDialog>
+#include <QFile>
 #include <QLabel>
 #include <QMessageBox>
 #include <QPushButton>
@@ -26,10 +27,14 @@
 #include <QToolButton>
 #include <QDirIterator>
 #include <QHBoxLayout>
+#include <QCryptographicHash>
+#include <QUuid>
 #define ENABLE_SNDFILE_WINDOWS_PROTOTYPES 1
 #include <sndfile.h>
 #include <algorithm>
 #include <cmath>
+#include <limits>
+#include <new>
 #include <vector>
 #include <fftw3.h>
 #define WIN32_LEAN_AND_MEAN
@@ -40,18 +45,70 @@
 
 #include "Editor/helpers/GUIHelper.h"
 #include "DeviceAPOInfo.h"
+#include "helpers/FFTWHelper.h"
 #include "helpers/RegistryHelper.h"
 #include "ConvolutionFilterGUI.h"
 #include "ui_ConvolutionFilterGUI.h"
 
+#ifdef max
+#undef max
+#endif
+#ifdef min
+#undef min
+#endif
+
 static PROPERTYKEY endpointGuidPropertyKey = {{0x1da5d803, 0xd492, 0x4edd, 0x8c, 0x23, 0xe0, 0xc0, 0xff, 0xee, 0x7f, 0x0e}, 4};
 
-static int nextPowerOfTwo(int value)
+static constexpr sf_count_t MaxImpulseFrames = 1024 * 1024;
+static constexpr size_t MaxImpulseSamples = 8 * 1024 * 1024;
+
+static void destroyFftwPlan(fftw_plan plan)
 {
+	if (plan == nullptr)
+		return;
+	FFTWPlannerGuard plannerGuard;
+	fftw_destroy_plan(plan);
+}
+
+static bool isSafeImpulseShape(
+	sf_count_t frames,
+	int channels,
+	size_t& sampleCount)
+{
+	sampleCount = 0;
+	if (frames <= 0 || channels <= 0 ||
+		frames > std::numeric_limits<int>::max() ||
+		frames > MaxImpulseFrames ||
+		static_cast<unsigned long long>(frames) >
+			std::numeric_limits<size_t>::max() /
+			static_cast<size_t>(channels))
+	{
+		return false;
+	}
+
+	sampleCount = static_cast<size_t>(frames) *
+		static_cast<size_t>(channels);
+	return sampleCount <= MaxImpulseSamples;
+}
+
+static bool safeFftSize(sf_count_t frames, int& fftSize)
+{
+	fftSize = 0;
+	size_t sampleCount = 0;
+	if (!isSafeImpulseShape(frames, 1, sampleCount))
+		return false;
+
+	const unsigned long long required =
+		static_cast<unsigned long long>(frames) * 4ULL;
 	int result = 1;
-	while (result < value)
+	while (static_cast<unsigned long long>(result) < required)
+	{
+		if (result > std::numeric_limits<int>::max() / 2)
+			return false;
 		result <<= 1;
-	return result;
+	}
+	fftSize = result;
+	return true;
 }
 
 static double interpolateMagnitude(const std::vector<double>& magnitudes, double sourceSampleRate, int sourceFftSize, double frequency)
@@ -74,71 +131,164 @@ static bool regenerateFirFromMagnitude(const std::vector<double>& inputData, sf_
 	if (sourceSampleRate <= 0 || targetSampleRate <= 0 || inputFrames <= 0 || channelCount <= 0)
 		return false;
 
-	const double ratio = static_cast<double>(targetSampleRate) / sourceSampleRate;
-	outputFrames = std::max<sf_count_t>(1, static_cast<sf_count_t>(std::llround(inputFrames * ratio)));
-	outputData.assign(static_cast<size_t>(outputFrames) * channelCount, 0.0);
-	const int targetFftSize = nextPowerOfTwo(static_cast<int>(outputFrames) * 4);
-	const int sourceFftSize = nextPowerOfTwo(static_cast<int>(inputFrames) * 4);
+	size_t inputSampleCount = 0;
+	if (!isSafeImpulseShape(inputFrames, channelCount, inputSampleCount) ||
+		inputData.size() < inputSampleCount)
+	{
+		return false;
+	}
 
+	const long double scaledFrames =
+		static_cast<long double>(inputFrames) * targetSampleRate /
+		sourceSampleRate;
+	if (!std::isfinite(static_cast<double>(scaledFrames)) ||
+		scaledFrames < 1.0L || scaledFrames > MaxImpulseFrames)
+	{
+		return false;
+	}
+	outputFrames = static_cast<sf_count_t>(std::llround(scaledFrames));
+
+	size_t outputSampleCount = 0;
+	int targetFftSize = 0;
+	int sourceFftSize = 0;
+	if (!isSafeImpulseShape(
+			outputFrames, channelCount, outputSampleCount) ||
+		!safeFftSize(inputFrames, sourceFftSize) ||
+		!safeFftSize(outputFrames, targetFftSize))
+	{
+		return false;
+	}
+
+	try
+	{
+		outputData.assign(outputSampleCount, 0.0);
+	}
+	catch (const std::bad_alloc&)
+	{
+		return false;
+	}
+
+	double* sourceTime = static_cast<double*>(
+		fftw_malloc(sizeof(double) * sourceFftSize));
+	fftw_complex* sourceFreq = static_cast<fftw_complex*>(
+		fftw_malloc(sizeof(fftw_complex) * (sourceFftSize / 2 + 1)));
+	fftw_complex* logMagnitude = static_cast<fftw_complex*>(
+		fftw_malloc(sizeof(fftw_complex) * (targetFftSize / 2 + 1)));
+	double* cepstrum = static_cast<double*>(
+		fftw_malloc(sizeof(double) * targetFftSize));
+	double* minCepstrum = static_cast<double*>(
+		fftw_malloc(sizeof(double) * targetFftSize));
+	fftw_complex* complexLogSpectrum = static_cast<fftw_complex*>(
+		fftw_malloc(sizeof(fftw_complex) * (targetFftSize / 2 + 1)));
+	fftw_complex* minSpectrum = static_cast<fftw_complex*>(
+		fftw_malloc(sizeof(fftw_complex) * (targetFftSize / 2 + 1)));
+	double* targetTime = static_cast<double*>(
+		fftw_malloc(sizeof(double) * targetFftSize));
+
+	if (sourceTime == nullptr || sourceFreq == nullptr ||
+		logMagnitude == nullptr || cepstrum == nullptr ||
+		minCepstrum == nullptr || complexLogSpectrum == nullptr ||
+		minSpectrum == nullptr || targetTime == nullptr)
+	{
+		fftw_free(targetTime);
+		fftw_free(minSpectrum);
+		fftw_free(complexLogSpectrum);
+		fftw_free(minCepstrum);
+		fftw_free(cepstrum);
+		fftw_free(logMagnitude);
+		fftw_free(sourceFreq);
+		fftw_free(sourceTime);
+		return false;
+	}
+
+	fftw_plan sourcePlan = nullptr;
+	fftw_plan cepstrumPlan = nullptr;
+	fftw_plan logSpectrumPlan = nullptr;
+	fftw_plan targetPlan = nullptr;
+	{
+		FFTWPlannerGuard plannerGuard;
+		sourcePlan = fftw_plan_dft_r2c_1d(
+			sourceFftSize, sourceTime, sourceFreq, FFTW_ESTIMATE);
+		cepstrumPlan = fftw_plan_dft_c2r_1d(
+			targetFftSize, logMagnitude, cepstrum, FFTW_ESTIMATE);
+		logSpectrumPlan = fftw_plan_dft_r2c_1d(
+			targetFftSize, minCepstrum, complexLogSpectrum, FFTW_ESTIMATE);
+		targetPlan = fftw_plan_dft_c2r_1d(
+			targetFftSize, minSpectrum, targetTime, FFTW_ESTIMATE);
+	}
+	if (sourcePlan == nullptr || cepstrumPlan == nullptr ||
+		logSpectrumPlan == nullptr || targetPlan == nullptr)
+	{
+		destroyFftwPlan(targetPlan);
+		destroyFftwPlan(logSpectrumPlan);
+		destroyFftwPlan(cepstrumPlan);
+		destroyFftwPlan(sourcePlan);
+		fftw_free(targetTime);
+		fftw_free(minSpectrum);
+		fftw_free(complexLogSpectrum);
+		fftw_free(minCepstrum);
+		fftw_free(cepstrum);
+		fftw_free(logMagnitude);
+		fftw_free(sourceFreq);
+		fftw_free(sourceTime);
+		return false;
+	}
+
+	std::vector<double> sourceMagnitudes;
+	try
+	{
+		sourceMagnitudes.resize(sourceFftSize / 2 + 1);
+	}
+	catch (const std::bad_alloc&)
+	{
+		destroyFftwPlan(targetPlan);
+		destroyFftwPlan(logSpectrumPlan);
+		destroyFftwPlan(cepstrumPlan);
+		destroyFftwPlan(sourcePlan);
+		fftw_free(targetTime);
+		fftw_free(minSpectrum);
+		fftw_free(complexLogSpectrum);
+		fftw_free(minCepstrum);
+		fftw_free(cepstrum);
+		fftw_free(logMagnitude);
+		fftw_free(sourceFreq);
+		fftw_free(sourceTime);
+		return false;
+	}
+
+	bool valid = true;
 	for (int channel = 0; channel < channelCount; channel++)
 	{
-		double* sourceTime = (double*)fftw_malloc(sizeof(double) * sourceFftSize);
-		fftw_complex* sourceFreq = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * (sourceFftSize / 2 + 1));
-		fftw_complex* logMagnitude = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * (targetFftSize / 2 + 1));
-		double* cepstrum = (double*)fftw_malloc(sizeof(double) * targetFftSize);
-		double* minCepstrum = (double*)fftw_malloc(sizeof(double) * targetFftSize);
-		fftw_complex* complexLogSpectrum = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * (targetFftSize / 2 + 1));
-		fftw_complex* minSpectrum = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * (targetFftSize / 2 + 1));
-		double* targetTime = (double*)fftw_malloc(sizeof(double) * targetFftSize);
-
-		if (sourceTime == nullptr || sourceFreq == nullptr || logMagnitude == nullptr || cepstrum == nullptr
-			|| minCepstrum == nullptr || complexLogSpectrum == nullptr || minSpectrum == nullptr || targetTime == nullptr)
-		{
-			fftw_free(targetTime);
-			fftw_free(minSpectrum);
-			fftw_free(complexLogSpectrum);
-			fftw_free(minCepstrum);
-			fftw_free(cepstrum);
-			fftw_free(logMagnitude);
-			fftw_free(sourceFreq);
-			fftw_free(sourceTime);
-			return false;
-		}
-
 		memset(sourceTime, 0, sizeof(double) * sourceFftSize);
 		for (sf_count_t i = 0; i < inputFrames; i++)
-			sourceTime[i] = inputData[static_cast<size_t>(i) * channelCount + channel];
-
-		fftw_plan sourcePlan = fftw_plan_dft_r2c_1d(sourceFftSize, sourceTime, sourceFreq, FFTW_ESTIMATE);
-		fftw_plan cepstrumPlan = fftw_plan_dft_c2r_1d(targetFftSize, logMagnitude, cepstrum, FFTW_ESTIMATE);
-		fftw_plan logSpectrumPlan = fftw_plan_dft_r2c_1d(targetFftSize, minCepstrum, complexLogSpectrum, FFTW_ESTIMATE);
-		fftw_plan targetPlan = fftw_plan_dft_c2r_1d(targetFftSize, minSpectrum, targetTime, FFTW_ESTIMATE);
-		if (sourcePlan == nullptr || cepstrumPlan == nullptr || logSpectrumPlan == nullptr || targetPlan == nullptr)
 		{
-			if (targetPlan != nullptr)
-				fftw_destroy_plan(targetPlan);
-			if (logSpectrumPlan != nullptr)
-				fftw_destroy_plan(logSpectrumPlan);
-			if (cepstrumPlan != nullptr)
-				fftw_destroy_plan(cepstrumPlan);
-			if (sourcePlan != nullptr)
-				fftw_destroy_plan(sourcePlan);
-			fftw_free(targetTime);
-			fftw_free(minSpectrum);
-			fftw_free(complexLogSpectrum);
-			fftw_free(minCepstrum);
-			fftw_free(cepstrum);
-			fftw_free(logMagnitude);
-			fftw_free(sourceFreq);
-			fftw_free(sourceTime);
-			return false;
+			const double sample = inputData[
+				static_cast<size_t>(i) * channelCount + channel];
+			if (!std::isfinite(sample))
+			{
+				valid = false;
+				break;
+			}
+			sourceTime[i] = sample;
 		}
+		if (!valid)
+			break;
 
 		fftw_execute(sourcePlan);
 
-		std::vector<double> sourceMagnitudes(sourceFftSize / 2 + 1);
 		for (int i = 0; i <= sourceFftSize / 2; i++)
-			sourceMagnitudes[i] = std::max(std::hypot(sourceFreq[i][0], sourceFreq[i][1]), 1e-7);
+		{
+			const double magnitude =
+				std::hypot(sourceFreq[i][0], sourceFreq[i][1]);
+			if (!std::isfinite(magnitude))
+			{
+				valid = false;
+				break;
+			}
+			sourceMagnitudes[i] = std::max(magnitude, 1e-7);
+		}
+		if (!valid)
+			break;
 
 		for (int i = 0; i <= targetFftSize / 2; i++)
 		{
@@ -161,9 +311,17 @@ static bool regenerateFirFromMagnitude(const std::vector<double>& inputData, sf_
 		for (int i = 0; i <= targetFftSize / 2; i++)
 		{
 			const double magnitude = std::exp(complexLogSpectrum[i][0]);
+			if (!std::isfinite(magnitude) ||
+				!std::isfinite(complexLogSpectrum[i][1]))
+			{
+				valid = false;
+				break;
+			}
 			minSpectrum[i][0] = magnitude * std::cos(complexLogSpectrum[i][1]);
 			minSpectrum[i][1] = magnitude * std::sin(complexLogSpectrum[i][1]);
 		}
+		if (!valid)
+			break;
 
 		fftw_execute(targetPlan);
 		const sf_count_t fadeStart = static_cast<sf_count_t>(outputFrames * 0.82);
@@ -176,24 +334,29 @@ static bool regenerateFirFromMagnitude(const std::vector<double>& inputData, sf_
 				const double x = static_cast<double>(i - fadeStart) / fadeLength;
 				window = 0.5 * (1.0 + std::cos(3.14159265358979323846 * x));
 			}
-			outputData[static_cast<size_t>(i) * channelCount + channel] = (targetTime[i] / targetFftSize) * window;
+			const double sample = (targetTime[i] / targetFftSize) * window;
+			if (!std::isfinite(sample))
+			{
+				valid = false;
+				break;
+			}
+			outputData[static_cast<size_t>(i) * channelCount + channel] = sample;
 		}
-
-		fftw_destroy_plan(targetPlan);
-		fftw_destroy_plan(logSpectrumPlan);
-		fftw_destroy_plan(cepstrumPlan);
-		fftw_destroy_plan(sourcePlan);
-		fftw_free(targetTime);
-		fftw_free(minSpectrum);
-		fftw_free(complexLogSpectrum);
-		fftw_free(minCepstrum);
-		fftw_free(cepstrum);
-		fftw_free(logMagnitude);
-		fftw_free(sourceFreq);
-		fftw_free(sourceTime);
 	}
 
-	return true;
+	destroyFftwPlan(targetPlan);
+	destroyFftwPlan(logSpectrumPlan);
+	destroyFftwPlan(cepstrumPlan);
+	destroyFftwPlan(sourcePlan);
+	fftw_free(targetTime);
+	fftw_free(minSpectrum);
+	fftw_free(complexLogSpectrum);
+	fftw_free(minCepstrum);
+	fftw_free(cepstrum);
+	fftw_free(logMagnitude);
+	fftw_free(sourceFreq);
+	fftw_free(sourceTime);
+	return valid;
 }
 
 static double firMagnitudePeak(const std::vector<double>& data, sf_count_t frames, int channelCount)
@@ -201,32 +364,71 @@ static double firMagnitudePeak(const std::vector<double>& data, sf_count_t frame
 	if (frames <= 0 || channelCount <= 0 || data.empty())
 		return 0.0;
 
-	const int fftSize = nextPowerOfTwo(static_cast<int>(frames) * 4);
+	size_t sampleCount = 0;
+	int fftSize = 0;
+	if (!isSafeImpulseShape(frames, channelCount, sampleCount) ||
+		data.size() < sampleCount || !safeFftSize(frames, fftSize))
+	{
+		return std::numeric_limits<double>::quiet_NaN();
+	}
+
+	double* time = static_cast<double*>(
+		fftw_malloc(sizeof(double) * fftSize));
+	fftw_complex* freq = static_cast<fftw_complex*>(
+		fftw_malloc(sizeof(fftw_complex) * (fftSize / 2 + 1)));
+	if (time == nullptr || freq == nullptr)
+	{
+		fftw_free(freq);
+		fftw_free(time);
+		return std::numeric_limits<double>::quiet_NaN();
+	}
+	fftw_plan plan = nullptr;
+	{
+		FFTWPlannerGuard plannerGuard;
+		plan = fftw_plan_dft_r2c_1d(
+			fftSize, time, freq, FFTW_ESTIMATE);
+	}
+	if (plan == nullptr)
+	{
+		fftw_free(freq);
+		fftw_free(time);
+		return std::numeric_limits<double>::quiet_NaN();
+	}
+
 	double peak = 0.0;
 	for (int channel = 0; channel < channelCount; channel++)
 	{
-		double* time = (double*)fftw_malloc(sizeof(double) * fftSize);
-		fftw_complex* freq = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * (fftSize / 2 + 1));
-		if (time == nullptr || freq == nullptr)
-		{
-			fftw_free(freq);
-			fftw_free(time);
-			return peak;
-		}
 		memset(time, 0, sizeof(double) * fftSize);
 		for (sf_count_t i = 0; i < frames; i++)
-			time[i] = data[static_cast<size_t>(i) * channelCount + channel];
-		fftw_plan plan = fftw_plan_dft_r2c_1d(fftSize, time, freq, FFTW_ESTIMATE);
-		if (plan != nullptr)
 		{
-			fftw_execute(plan);
-			for (int i = 0; i <= fftSize / 2; i++)
-				peak = std::max(peak, std::hypot(freq[i][0], freq[i][1]));
-			fftw_destroy_plan(plan);
+			const double sample =
+				data[static_cast<size_t>(i) * channelCount + channel];
+			if (!std::isfinite(sample))
+			{
+				destroyFftwPlan(plan);
+				fftw_free(freq);
+				fftw_free(time);
+				return std::numeric_limits<double>::quiet_NaN();
+			}
+			time[i] = sample;
 		}
-		fftw_free(freq);
-		fftw_free(time);
+		fftw_execute(plan);
+		for (int i = 0; i <= fftSize / 2; i++)
+		{
+			const double magnitude = std::hypot(freq[i][0], freq[i][1]);
+			if (!std::isfinite(magnitude))
+			{
+				destroyFftwPlan(plan);
+				fftw_free(freq);
+				fftw_free(time);
+				return std::numeric_limits<double>::quiet_NaN();
+			}
+			peak = std::max(peak, magnitude);
+		}
 	}
+	destroyFftwPlan(plan);
+	fftw_free(freq);
+	fftw_free(time);
 	return peak;
 }
 
@@ -271,7 +473,6 @@ ConvolutionFilterGUI::ConvolutionFilterGUI(const QString& configPath, unsigned d
 	connect(ui->matchSampleRatePushButton, &QPushButton::clicked, this, [this]() { matchDeviceSampleRate(true); });
 	connect(previousBundledIrButton, &QToolButton::clicked, this, [this]() { selectBundledImpulseAt(currentBundledImpulseIndex() - 1); });
 	connect(nextBundledIrButton, &QToolButton::clicked, this, [this]() { selectBundledImpulseAt(currentBundledImpulseIndex() + 1); });
-	connect(ui->pathLineEdit, &QLineEdit::textChanged, this, [this]() { updateFileInfo(); });
 	QPushButton* resetButton = new QPushButton(tr("Reset"), this);
 	resetButton->setObjectName(QStringLiteral("convolutionResetButton"));
 	resetButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
@@ -331,17 +532,17 @@ void ConvolutionFilterGUI::on_pathLineEdit_editingFinished()
 
 QString ConvolutionFilterGUI::absoluteImpulsePath() const
 {
-	QString path = ui->pathLineEdit->text();
+	const QString path = ui->pathLineEdit->text().trimmed();
 	if (path.isEmpty())
 		return QString();
 
-	QFileInfo configInfo(configPath);
-	QDir configDir = configInfo.absoluteDir();
-	QFileInfo fileInfo(configDir, path);
-	if (!fileInfo.exists())
-		fileInfo.setFile(path);
+	const QFileInfo configuredInfo(path);
+	if (configuredInfo.isAbsolute())
+		return QDir::toNativeSeparators(configuredInfo.absoluteFilePath());
 
-	return QDir::toNativeSeparators(fileInfo.absoluteFilePath());
+	const QDir configDir = QFileInfo(configPath).absoluteDir();
+	return QDir::toNativeSeparators(
+		QFileInfo(configDir, path).absoluteFilePath());
 }
 
 unsigned ConvolutionFilterGUI::refreshDeviceSampleRate() const
@@ -511,7 +712,6 @@ void ConvolutionFilterGUI::selectBundledImpulseResponse(const QString& absoluteP
 	const QString relativePath = configInfo.absoluteDir().relativeFilePath(absolutePath);
 	ui->pathLineEdit->setText(QDir::toNativeSeparators(relativePath.startsWith("..") ? absolutePath : relativePath));
 	updateFileInfo();
-	matchDeviceSampleRate(false);
 	emit updateModel();
 }
 
@@ -553,7 +753,7 @@ bool ConvolutionFilterGUI::matchDeviceSampleRate(bool interactive)
 	if (targetSampleRate == 0)
 	{
 		if (interactive)
-			QMessageBox::warning(this, tr("Convolution"), tr("Could not determine the current device sample rate."));
+			QMessageBox::warning(this, tr("IR convolution"), tr("Could not determine the current device sample rate."));
 		return false;
 	}
 
@@ -561,7 +761,7 @@ bool ConvolutionFilterGUI::matchDeviceSampleRate(bool interactive)
 	if (inputPath.isEmpty() || !QFileInfo::exists(inputPath))
 	{
 		if (interactive)
-			QMessageBox::warning(this, tr("Convolution"), tr("Select an IR/FIR file first."));
+			QMessageBox::warning(this, tr("IR convolution"), tr("Select an IR/FIR file first."));
 		return false;
 	}
 
@@ -570,7 +770,7 @@ bool ConvolutionFilterGUI::matchDeviceSampleRate(bool interactive)
 	if (inputFile == nullptr)
 	{
 		if (interactive)
-			QMessageBox::warning(this, tr("Convolution"), tr("Unsupported IR/FIR file."));
+			QMessageBox::warning(this, tr("IR convolution"), tr("Unsupported IR/FIR file."));
 		return false;
 	}
 
@@ -578,11 +778,34 @@ bool ConvolutionFilterGUI::matchDeviceSampleRate(bool interactive)
 	{
 		sf_close(inputFile);
 		if (interactive)
-			QMessageBox::warning(this, tr("Convolution"), tr("The IR/FIR file has invalid metadata."));
+			QMessageBox::warning(this, tr("IR convolution"), tr("The IR/FIR file has invalid metadata."));
 		return false;
 	}
 
-	std::vector<double> inputData(static_cast<size_t>(inputInfo.frames) * inputInfo.channels);
+	size_t inputSampleCount = 0;
+	if (!isSafeImpulseShape(
+			inputInfo.frames, inputInfo.channels, inputSampleCount))
+	{
+		sf_close(inputFile);
+		if (interactive)
+			QMessageBox::warning(this, tr("IR convolution"),
+				tr("The IR/FIR file is too large to process safely."));
+		return false;
+	}
+
+	std::vector<double> inputData;
+	try
+	{
+		inputData.resize(inputSampleCount);
+	}
+	catch (const std::bad_alloc&)
+	{
+		sf_close(inputFile);
+		if (interactive)
+			QMessageBox::warning(this, tr("IR convolution"),
+				tr("There is not enough memory to process this IR/FIR file."));
+		return false;
+	}
 	sf_count_t framesRead = 0;
 	while (framesRead < inputInfo.frames)
 	{
@@ -591,22 +814,38 @@ bool ConvolutionFilterGUI::matchDeviceSampleRate(bool interactive)
 			break;
 		framesRead += read;
 	}
-	sf_close(inputFile);
+	const int readError = sf_error(inputFile);
+	const int closeResult = sf_close(inputFile);
 
-	if (framesRead <= 0)
+	if (framesRead <= 0 || readError != SF_ERR_NO_ERROR || closeResult != 0)
 	{
 		if (interactive)
-			QMessageBox::warning(this, tr("Convolution"), tr("Could not read the IR/FIR samples."));
+			QMessageBox::warning(this, tr("IR convolution"), tr("Could not read the IR/FIR samples."));
 		return false;
 	}
 	if (framesRead != inputInfo.frames)
-		inputData.resize(static_cast<size_t>(framesRead) * inputInfo.channels);
+	{
+		if (interactive)
+			QMessageBox::warning(this, tr("IR convolution"),
+				tr("The IR/FIR file ended before all declared samples were read."));
+		return false;
+	}
+	for (double sample : inputData)
+	{
+		if (!std::isfinite(sample))
+		{
+			if (interactive)
+				QMessageBox::warning(this, tr("IR convolution"),
+					tr("The IR/FIR file contains invalid sample values."));
+			return false;
+		}
+	}
 
 	std::vector<double> outputData;
 	sf_count_t outputFrames = framesRead;
 	if (inputInfo.samplerate == static_cast<int>(targetSampleRate))
 	{
-		outputData = inputData;
+		outputData.swap(inputData);
 	}
 	else
 	{
@@ -614,45 +853,81 @@ bool ConvolutionFilterGUI::matchDeviceSampleRate(bool interactive)
 			static_cast<int>(targetSampleRate), outputData, outputFrames))
 		{
 			if (interactive)
-				QMessageBox::warning(this, tr("Convolution"), tr("Could not regenerate a matched FIR from the loaded IR/FIR magnitude response."));
+				QMessageBox::warning(this, tr("IR convolution"), tr("Could not rebuild a sample-rate-matched minimum-phase FIR from the loaded IR/FIR magnitude response."));
 			return false;
 		}
 	}
 	const double magnitudePeak = firMagnitudePeak(outputData, outputFrames, inputInfo.channels);
+	if (!std::isfinite(magnitudePeak) || magnitudePeak <= 0.0)
+	{
+		if (interactive)
+			QMessageBox::warning(this, tr("IR convolution"),
+				tr("The IR/FIR response is silent or invalid and cannot be normalized."));
+		return false;
+	}
 	if (inputInfo.samplerate == static_cast<int>(targetSampleRate) && magnitudePeak > 0.999 && magnitudePeak < 1.001)
 	{
 		if (interactive)
-			QMessageBox::information(this, tr("Convolution"), tr("The loaded IR/FIR already matches the current device sample rate and peak level."));
+			QMessageBox::information(this, tr("IR convolution"), tr("The loaded IR/FIR already matches the current device sample rate and peak level."));
 		return true;
 	}
-	if (magnitudePeak > 0.0)
-		for (double& sample : outputData)
-			sample /= magnitudePeak;
+	for (double& sample : outputData)
+		sample /= magnitudePeak;
 
 	QFileInfo inputFileInfo(inputPath);
 	QDir configDir(QFileInfo(configPath).absoluteDir());
 	QDir generatedDir(configDir.absoluteFilePath("generated-ir"));
-	generatedDir.mkpath(".");
+	if (!generatedDir.mkpath("."))
+	{
+		if (interactive)
+			QMessageBox::warning(this, tr("IR convolution"),
+				tr("Could not create the generated IR/FIR folder."));
+		return false;
+	}
+	QString identityPath = inputFileInfo.canonicalFilePath();
+	if (identityPath.isEmpty())
+		identityPath = inputFileInfo.absoluteFilePath();
+	const QString sourceId = QString::fromLatin1(
+		QCryptographicHash::hash(
+			identityPath.toUtf8(), QCryptographicHash::Sha256).toHex().left(10));
 	QString outputPath = generatedDir.absoluteFilePath(
-		QString("%1_matched_normalized_%2Hz.wav").arg(inputFileInfo.completeBaseName()).arg(targetSampleRate));
+		QString("%1_%2_%3Hz.wav")
+			.arg(inputFileInfo.completeBaseName(), sourceId)
+			.arg(targetSampleRate));
+	const QString temporaryOutputPath = outputPath + QStringLiteral(".") +
+		QUuid::createUuid().toString(QUuid::WithoutBraces) +
+		QStringLiteral(".tmp");
 
 	SF_INFO outputInfo = {};
 	outputInfo.channels = inputInfo.channels;
 	outputInfo.samplerate = static_cast<int>(targetSampleRate);
 	outputInfo.format = SF_FORMAT_WAV | SF_FORMAT_FLOAT;
-	SNDFILE* outputFile = sf_wchar_open(outputPath.toStdWString().c_str(), SFM_WRITE, &outputInfo);
+	SNDFILE* outputFile = sf_wchar_open(
+		temporaryOutputPath.toStdWString().c_str(), SFM_WRITE, &outputInfo);
 	if (outputFile == nullptr)
 	{
 		if (interactive)
-			QMessageBox::warning(this, tr("Convolution"), tr("Could not create the regenerated matched FIR file."));
+			QMessageBox::warning(this, tr("IR convolution"), tr("Could not create the regenerated matched FIR file."));
 		return false;
 	}
 	sf_count_t framesWritten = sf_writef_double(outputFile, outputData.data(), outputFrames);
-	sf_close(outputFile);
-	if (framesWritten != outputFrames)
+	const int outputCloseResult = sf_close(outputFile);
+	if (framesWritten != outputFrames || outputCloseResult != 0)
 	{
+		QFile::remove(temporaryOutputPath);
 		if (interactive)
-			QMessageBox::warning(this, tr("Convolution"), tr("Could not write the complete regenerated matched FIR file."));
+			QMessageBox::warning(this, tr("IR convolution"), tr("Could not write the complete regenerated matched FIR file."));
+		return false;
+	}
+	if (!MoveFileExW(
+			temporaryOutputPath.toStdWString().c_str(),
+			outputPath.toStdWString().c_str(),
+			MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+	{
+		QFile::remove(temporaryOutputPath);
+		if (interactive)
+			QMessageBox::warning(this, tr("IR convolution"),
+				tr("Could not replace the generated IR/FIR file."));
 		return false;
 	}
 
@@ -683,9 +958,7 @@ void ConvolutionFilterGUI::updateFileInfo()
 	}
 	else
 	{
-		QFileInfo fileInfo(configPath);
-		QDir configDir = fileInfo.absoluteDir();
-		fileInfo.setFile(configDir, path);
+		QFileInfo fileInfo(absoluteImpulsePath());
 		if (!fileInfo.exists())
 		{
 			error = tr("File not found");
@@ -724,32 +997,33 @@ void ConvolutionFilterGUI::updateFileInfo()
 					int sampleRate = info.samplerate;
 					sf_close(file);
 
-					if (sampleRate <= 0 || info.frames <= 0)
+					size_t impulseSampleCount = 0;
+					if (sampleRate <= 0 ||
+						!isSafeImpulseShape(info.frames, info.channels,
+							impulseSampleCount) ||
+						impulseSampleCount == 0)
 					{
-						error = tr("The IR/FIR file has invalid metadata.");
+						error = tr("The IR/FIR file metadata is invalid or exceeds the safe processing limit.");
 						labelsVisible = false;
 					}
 					else
 					{
 						const double length = info.frames * 1000.0 / sampleRate;
-						ui->labelLengthValue->setText(tr("%0 ms (%1 samples)").arg(length).arg(info.frames));
-						ui->labelSampleRateValue->setText(tr("%0 Hz").arg(sampleRate));
+						ui->labelLengthValue->setText(
+							tr("%1 ms (%2 samples)").arg(length).arg(info.frames));
+						ui->labelSampleRateValue->setText(
+							tr("%1 Hz").arg(sampleRate));
 
 						const bool sampleRateMismatch = deviceSampleRate != 0
 							&& sampleRate != static_cast<int>(deviceSampleRate);
-						if (sampleRateMismatch && !autoMatchingSampleRate)
+						matchedFirActionVisible = sampleRateMismatch;
+						if (sampleRateMismatch)
 						{
-							autoMatchingSampleRate = true;
-							const bool matched = matchDeviceSampleRate(false);
-							autoMatchingSampleRate = false;
-							if (matched)
-								return;
-							error = tr("The loaded IR/FIR sample rate does not match the current device sample rate (%0 Hz), and automatic matching failed. Export a native FIR from GraphicEQ or choose a matching IR/FIR.").arg(deviceSampleRate);
-							matchedFirActionVisible = true;
+							error = tr("The loaded IR/FIR sample rate does not match the current device sample rate (%1 Hz). Select Rebuild matched FIR to create a compatible minimum-phase copy.").arg(deviceSampleRate);
 						}
 						else if (deviceSampleRate == 0)
 						{
-							error = tr("Could not determine the current device sample rate. Automatic matching is unavailable.");
+							error = tr("Could not determine the current device sample rate. Sample-rate matching is unavailable.");
 						}
 					}
 				}

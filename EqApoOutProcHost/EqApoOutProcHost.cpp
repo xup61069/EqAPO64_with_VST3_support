@@ -5,6 +5,7 @@
 #include <sddl.h>
 #include <shellapi.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cwchar>
@@ -17,6 +18,7 @@
 #include "helpers/VSTPluginInstance.h"
 #include "helpers/VSTPluginLibrary.h"
 #include "helpers/VSTDiagnostics.h"
+#include "helpers/WinMidiInput.h"
 #include "outproc/OutProcAudioProtocol.h"
 #include "outproc/OutProcVSTConfig.h"
 
@@ -93,6 +95,7 @@ struct VstRuntime
 	bool usesGuiEffect = false;
 	bool initialized = false;
 	bool failed = false;
+	VSTMidiRuntime midiRuntime;
 };
 
 struct HostDspState
@@ -428,6 +431,52 @@ static void hideGuiWindow()
 		SetEvent(guiHiddenEvent);
 }
 
+static void captureParameterDescriptors(
+	VSTPluginInstance* effect,
+	const std::unordered_map<std::wstring, float>& parameterValues,
+	std::vector<OutProcVSTParameterDescriptor>& destination)
+{
+	destination.clear();
+	if (effect == nullptr)
+		return;
+
+	const std::vector<VSTParameterDescriptor>& source =
+		effect->getParameterDescriptors();
+	const std::size_t count = (std::min)(
+		source.size(),
+		static_cast<std::size_t>(OUTPROC_VST_CONFIG_MAX_DESCRIPTOR_COUNT));
+	destination.reserve(count);
+	for (std::size_t i = 0; i < count; ++i)
+	{
+		const VSTParameterDescriptor& parameter = source[i];
+		if (parameter.name.size() > OUTPROC_VST_CONFIG_MAX_PARAMETER_NAME_LENGTH)
+			continue;
+
+		OutProcVSTParameterDescriptor descriptor;
+		descriptor.api = parameter.api == VSTParameterApi::VST3
+			? OutProcVSTParameterApi::VST3 : OutProcVSTParameterApi::VST2;
+		descriptor.stableId = parameter.stableId;
+		descriptor.name = parameter.name;
+		descriptor.stepCount = parameter.stepCount;
+		descriptor.normalizedValue = parameter.normalizedValue;
+		descriptor.readOnly = parameter.readOnly;
+		descriptor.hidden = parameter.hidden;
+
+		std::wstring stableKey = L"#" + std::to_wstring(parameter.stableId);
+		if (parameter.api == VSTParameterApi::VST2)
+			stableKey += L":" + parameter.name;
+		auto value = parameterValues.find(stableKey);
+		if (value == parameterValues.end())
+			value = parameterValues.find(parameter.name);
+		if (value != parameterValues.end() && std::isfinite(value->second))
+			descriptor.normalizedValue = value->second;
+		if (!std::isfinite(descriptor.normalizedValue))
+			descriptor.normalizedValue = 0.0;
+
+		destination.push_back(std::move(descriptor));
+	}
+}
+
 static void writeGuiEffectState()
 {
 	if (guiEffect == nullptr || guiVstConfigPath.empty())
@@ -439,6 +488,8 @@ static void writeGuiEffectState()
 
 	lockGuiEffect();
 	guiEffect->readFromEffect(config.chunkData, config.paramMap);
+	captureParameterDescriptors(
+		guiEffect, config.paramMap, config.parameterDescriptors);
 	unlockGuiEffect();
 
 	OutProcWriteVSTConfig(guiVstConfigPath, config);
@@ -688,6 +739,10 @@ static int runVstGuiHost(const std::wstring& vstConfigPath, const std::wstring& 
 			{
 				lockGuiEffect();
 				dspState.vst.effects[0]->readFromEffect(config.chunkData, config.paramMap);
+				captureParameterDescriptors(
+					dspState.vst.effects[0].get(),
+					config.paramMap,
+					config.parameterDescriptors);
 				unlockGuiEffect();
 			}
 			OutProcWriteVSTConfig(vstConfigPath, config);
@@ -856,6 +911,7 @@ static bool initializeVst(OutProcAudioHeader* header, VstRuntime& vst)
 	vst.floatOutputStorage.clear();
 	vst.floatInputs.clear();
 	vst.floatOutputs.clear();
+	vst.midiRuntime.stop();
 	vst.initialized = false;
 
 	if (vst.library == nullptr)
@@ -936,6 +992,8 @@ static bool initializeVst(OutProcAudioHeader* header, VstRuntime& vst)
 
 	vst.channelCount = header->channelCount;
 	vst.maxFrames = header->maxFrames;
+	if (!vst.config.midiConfig.empty() && !vst.effects.empty())
+		vst.midiRuntime.configure(vst.config.midiConfig, vst.effects[0]->getParameterDescriptors());
 	vst.initialized = true;
 	return true;
 }
@@ -947,6 +1005,14 @@ static bool processVst(OutProcAudioHeader* header, HostDspState& state)
 
 	double* input = OutProcAudioInput(header);
 	double* output = OutProcAudioOutput(header);
+	VSTMidiParameterUpdate midiUpdate;
+	for (unsigned processed = 0; processed < 256 && state.vst.midiRuntime.tryPopParameterUpdate(midiUpdate); ++processed)
+	{
+		if (midiUpdate.parameter == nullptr)
+			continue;
+		for (const std::unique_ptr<VSTPluginInstance>& effect : state.vst.effects)
+			effect->setParameterNormalized(*midiUpdate.parameter, midiUpdate.normalizedValue, true);
+	}
 	std::uint32_t channelOffset = 0;
 	std::uint32_t emptyChannelIndex = 0;
 

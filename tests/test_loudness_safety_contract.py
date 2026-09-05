@@ -415,7 +415,13 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         )
         self.assertIn("calibrationEndpointState.muted", gui_source)
         self.assertIn("calibrationEndpointState.scalar <= 0.0", gui_source)
-        self.assertIn('tr("Manual volume (required):")', gui_source)
+        self.assertIn(
+            "Availability is an observation, not a user preference", gui_source
+        )
+        self.assertIn("setChecked(useManualVolume)", gui_source)
+        self.assertNotIn(
+            "useManualVolume || !this->automaticVolumeAvailable", gui_source
+        )
         self.assertIn('name="bindingComboBox"', gui_ui)
         self.assertIn(
             "Single endpoint", gui_ui

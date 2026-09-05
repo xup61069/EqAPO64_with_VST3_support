@@ -46,7 +46,7 @@ namespace
 	{
 		QNetworkRequest request(releaseApiUrl);
 		request.setHeader(QNetworkRequest::UserAgentHeader,
-			QString("loudness-correction-apo-UpdateChecker/%0").arg(installedVersion));
+			QString("loudness-correction-apo-UpdateChecker/%1").arg(installedVersion));
 		request.setRawHeader("Accept", "application/vnd.github+json");
 		request.setRawHeader("X-GitHub-Api-Version", "2022-11-28");
 		request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
@@ -242,7 +242,7 @@ int main(int argc, char* argv[])
 	}
 	bool autoMode = parser.isSet(autoOption);
 
-	QString version = QString("%0.%1.%2").arg(MAJOR).arg(MINOR).arg(REVISION);
+	QString version = QString("%1.%2.%3").arg(MAJOR).arg(MINOR).arg(REVISION);
 
 	QSettings settings(QString::fromWCharArray(UPDATE_CHECKER_REGPATH), QSettings::NativeFormat);
 	QString skipVersion;
@@ -329,7 +329,7 @@ int main(int argc, char* argv[])
 					{
 						if (!autoMode && !silentMode)
 							QMessageBox::information(nullptr, UpdateChecker::tr("No update available"),
-								UpdateChecker::tr("The installed Loudness Correction for Equalizer APO version %0 is up to date.").arg(version));
+								UpdateChecker::tr("The installed Loudness Correction for Equalizer APO version %1 is up to date.").arg(version));
 					}
 					else
 					{

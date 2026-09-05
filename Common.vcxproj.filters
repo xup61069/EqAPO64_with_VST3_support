@@ -167,6 +167,9 @@
     <ClInclude Include="helpers\ChannelHelper.h">
       <Filter>helpers</Filter>
     </ClInclude>
+    <ClInclude Include="helpers\FFTWHelper.h">
+      <Filter>helpers</Filter>
+    </ClInclude>
     <ClInclude Include="helpers\GainIterator.h">
       <Filter>helpers</Filter>
     </ClInclude>
@@ -194,10 +197,16 @@
     <ClInclude Include="helpers\VSTParameterParser.h">
       <Filter>helpers</Filter>
     </ClInclude>
+    <ClInclude Include="helpers\VSTMidiBindingCodec.h">
+      <Filter>helpers</Filter>
+    </ClInclude>
     <ClInclude Include="helpers\VSTPluginInstance.h">
       <Filter>helpers</Filter>
     </ClInclude>
     <ClInclude Include="helpers\VSTPluginLibrary.h">
+      <Filter>helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="helpers\WinMidiInput.h">
       <Filter>helpers</Filter>
     </ClInclude>
     <ClInclude Include="libHybridConv-0.1.1\libHybridConv_eapo.h">
@@ -232,6 +241,12 @@
       <Filter>filters\loudnessCorrection</Filter>
     </ClInclude>
     <ClInclude Include="filters\loudnessCorrection\LoudnessCorrectionFilter.h">
+      <Filter>filters\loudnessCorrection</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\loudnessCorrection\OriginalLoudnessCorrectionFilter.h">
+      <Filter>filters\loudnessCorrection</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\loudnessCorrection\OriginalLoudnessCorrectionFilterFactory.h">
       <Filter>filters\loudnessCorrection</Filter>
     </ClInclude>
     <ClInclude Include="parser\LogicalOperators.h">
@@ -408,6 +423,9 @@
     <ClCompile Include="helpers\VSTDiagnostics.cpp">
       <Filter>helpers</Filter>
     </ClCompile>
+    <ClCompile Include="helpers\WinMidiInput.cpp">
+      <Filter>helpers</Filter>
+    </ClCompile>
     <ClCompile Include="helpers\VSTPluginInstance.cpp">
       <Filter>helpers</Filter>
     </ClCompile>
@@ -451,6 +469,12 @@
       <Filter>filters\loudnessCorrection</Filter>
     </ClCompile>
     <ClCompile Include="filters\loudnessCorrection\LoudnessCorrectionFilter.cpp">
+      <Filter>filters\loudnessCorrection</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\loudnessCorrection\OriginalLoudnessCorrectionFilter.cpp">
+      <Filter>filters\loudnessCorrection</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\loudnessCorrection\OriginalLoudnessCorrectionFilterFactory.cpp">
       <Filter>filters\loudnessCorrection</Filter>
     </ClCompile>
     <ClCompile Include="parser\LogicalOperators.cpp">

@@ -21,6 +21,7 @@
 
 #include "FilterEngine.h"
 #include "AnalysisThread.h"
+#include "helpers/FFTWHelper.h"
 
 using namespace std;
 
@@ -49,7 +50,10 @@ AnalysisThread::~AnalysisThread()
 	if (freqData != NULL)
 		fftw_free(freqData);
 	if (planForward != NULL)
+	{
+		FFTWPlannerGuard plannerGuard;
 		fftw_destroy_plan(planForward);
+	}
 }
 
 quint64 AnalysisThread::setParameters(shared_ptr<AbstractAPOInfo> device, int channelMask, int channelIndex, QString configPath, int frameCount)
@@ -234,9 +238,13 @@ void AnalysisThread::run()
 				fftw_free(freqData);
 			freqData = fftw_alloc_complex(frameCount);
 
-			if (planForward != NULL)
-				fftw_destroy_plan(planForward);
-			planForward = fftw_plan_dft_r2c_1d(frameCount, timeData, freqData, FFTW_ESTIMATE);
+			{
+				FFTWPlannerGuard plannerGuard;
+				if (planForward != NULL)
+					fftw_destroy_plan(planForward);
+				planForward = fftw_plan_dft_r2c_1d(
+					frameCount, timeData, freqData, FFTW_ESTIMATE);
+			}
 		}
 
 		lastFrameCount = frameCount;

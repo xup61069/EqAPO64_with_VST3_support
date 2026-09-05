@@ -290,11 +290,19 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\helpers\MemoryHelper.h" />
+    <ClInclude Include="..\helpers\VSTMidiBindingCodec.h" />
+    <ClInclude Include="..\filters\loudnessCorrection\OriginalLoudnessCorrectionFilter.h" />
+    <ClInclude Include="..\filters\loudnessCorrection\OriginalLoudnessCorrectionFilterFactory.h" />
     <ClInclude Include="..\stdafx.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\EqualizerAPO.licenseheader" />
   </ItemGroup>
+  <ItemDefinitionGroup>
+    <Link>
+      <AdditionalDependencies>winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

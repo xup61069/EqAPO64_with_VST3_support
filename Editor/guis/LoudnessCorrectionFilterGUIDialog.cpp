@@ -261,7 +261,14 @@ void LoudnessCorrectionFilterGUIDialog::accept()
 	// moment the measurement is accepted.
 	if (!measurementValid || !updatePlaybackReadiness(true))
 		return;
+	stopPlayback();
 	QDialog::accept();
+}
+
+void LoudnessCorrectionFilterGUIDialog::reject()
+{
+	stopPlayback();
+	QDialog::reject();
 }
 
 void LoudnessCorrectionFilterGUIDialog::on_playButton_clicked()

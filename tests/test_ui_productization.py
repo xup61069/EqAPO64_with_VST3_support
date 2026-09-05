@@ -38,6 +38,29 @@ FREQUENCY_PLOT_VIEW_HEADER = (
 
 
 class UiProductizationTests(unittest.TestCase):
+    def test_qstring_arg_placeholders_start_at_one(self) -> None:
+        # QString::arg() only recognizes %1 through %99. Keep this focused on
+        # first-party Qt sources that format UI/config text so printf's %0 flag
+        # elsewhere is not mistaken for a Qt placeholder.
+        paths = (
+            "DeviceSelector/DeviceSelector.cpp",
+            "Editor/FilterTable.cpp",
+            "Editor/FilterTableRow.cpp",
+            "Editor/MainWindow.cpp",
+            "Editor/widgets/FrequencyPlotHRuler.cpp",
+            "Editor/widgets/FrequencyPlotVRuler.cpp",
+            "Editor/guis/DelayFilterGUI.cpp",
+            "Editor/guis/GraphicEQFilterGUI.cpp",
+            "Editor/guis/LoudnessCorrectionFilterGUI.cpp",
+            "Editor/guis/VSTPluginFilterGUI.cpp",
+            "UpdateChecker/main.cpp",
+            "UpdateChecker/UpdateChecker.cpp",
+        )
+        for relative_path in paths:
+            with self.subTest(path=relative_path):
+                source = (ROOT / relative_path).read_text(encoding="utf-8")
+                self.assertNotIn("%0", source)
+
     def test_saved_window_state_cannot_merge_the_workspace_toolbar(self) -> None:
         header = (ROOT / "Editor" / "MainWindow.h").read_text(encoding="utf-8")
         self.assertIn("bool restoreWindowLayoutState(const QByteArray& state);", header)
@@ -429,6 +452,7 @@ class UiProductizationTests(unittest.TestCase):
         for command in (
             "LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single",
             "Volume -38.0",
+            "LoudnessCorrectionOriginal: Schema 1 Model MixomoShelfV1",
             "Filter: ON PK Fc 1000 Hz Gain -3 dB Q 1",
             "UnsupportedSnapshotCommand: this-deliberately-long-unknown-command",
             "VSTPlugin: Library snapshot-memory",
@@ -447,6 +471,7 @@ class UiProductizationTests(unittest.TestCase):
             "IncludeFilterGUI",
             "BiQuadFilterGUI",
             "LoudnessCorrectionFilterGUI",
+            "OriginalLoudnessCorrectionFilterGUI",
             "VSTPluginFilterGUI",
             "elidingCommandLabel",
         ):
@@ -730,6 +755,30 @@ class UiProductizationTests(unittest.TestCase):
         self.assertIn("selected.clear();", filter_table)
         self.assertIn("selectionStart = NULL;", filter_table)
 
+    def test_failed_temporary_write_preserves_unverified_recovery_journal(self) -> None:
+        conditional_write = MAIN_WINDOW[
+            MAIN_WINDOW.index("static ConditionalWriteResult conditionallyWriteConfiguration") :
+            MAIN_WINDOW.index("static quint64 processCreationToken")
+        ]
+        begin_temporary = MAIN_WINDOW[
+            MAIN_WINDOW.index("bool MainWindow::beginTemporaryFilterConfiguration") :
+            MAIN_WINDOW.index("bool MainWindow::restoreTemporaryFilterConfiguration")
+        ]
+
+        self.assertIn("bool rollbackVerified = false;", MAIN_WINDOW)
+        self.assertIn("contentAfterRollback == originalContent", conditional_write)
+        self.assertIn("readConfigurationHandle(", conditional_write)
+        verified_branch = begin_temporary[
+            begin_temporary.index("else if (result.rollbackVerified)") :
+            begin_temporary.index("else\n\t\t{", begin_temporary.index("else if (result.rollbackVerified)"))
+        ]
+        self.assertIn("clearTemporaryRecoveryJournal();", verified_branch)
+        unverified_branch = begin_temporary[
+            begin_temporary.index("else\n\t\t{", begin_temporary.index("else if (result.rollbackVerified)")) :
+        ]
+        self.assertNotIn("clearTemporaryRecoveryJournal();", unverified_branch)
+        self.assertIn("QMessageBox::critical", unverified_branch)
+
     def test_temporary_audio_state_blocks_cross_session_and_destructive_actions(self) -> None:
         conflict_check = MAIN_WINDOW[
             MAIN_WINDOW.index("static bool hasConflictingTemporaryJournal") :
@@ -846,13 +895,14 @@ class UiProductizationTests(unittest.TestCase):
             "bundledIrButton->setAccessibleDescription(bundledIrDescription);", source
         )
         self.assertIn("const bool sampleRateMismatch = deviceSampleRate != 0", update_file_info)
-        self.assertIn("sampleRate <= 0 || info.frames <= 0", update_file_info)
-        self.assertIn("if (sampleRateMismatch && !autoMatchingSampleRate)", update_file_info)
-        self.assertIn("const bool matched = matchDeviceSampleRate(false);", update_file_info)
-        self.assertLess(
-            update_file_info.index("const bool matched = matchDeviceSampleRate(false);"),
-            update_file_info.index("matchedFirActionVisible = true;"),
+        self.assertIn("sampleRate <= 0 ||", update_file_info)
+        self.assertIn(
+            "isSafeImpulseShape(info.frames, info.channels", update_file_info
         )
+        self.assertIn(
+            "matchedFirActionVisible = sampleRateMismatch;", update_file_info
+        )
+        self.assertNotIn("matchDeviceSampleRate(", update_file_info)
         self.assertIn(
             "ui->matchSampleRatePushButton->setVisible(matchedFirActionVisible);",
             update_file_info,
@@ -865,6 +915,14 @@ class UiProductizationTests(unittest.TestCase):
         self.assertIsNotNone(match_button)
         self.assertEqual(
             match_button.findtext("property[@name='visible']/bool"), "false"
+        )
+        self.assertEqual(
+            match_button.findtext("property[@name='text']/string"),
+            "Rebuild matched FIR",
+        )
+        self.assertIn(
+            "Original phase and delay are not preserved",
+            match_button.findtext("property[@name='toolTip']/string"),
         )
         file_info_layout = ui.find(".//layout[@name='gridLayout_2']")
         self.assertIsNotNone(file_info_layout)

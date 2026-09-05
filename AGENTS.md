@@ -20,7 +20,7 @@
 
 ## 專案定位
 
-這是 Mixomo `EqAPO64_with_VST3_support` 的非官方 Windows x64 fork，產品功能包括系統層 Equalizer APO、x64 VST2/VST3 效果器支援、響度校正、Configuration Editor、Device Selector 與更新程式。
+這是 Mixomo `EqAPO64_with_VST3_support` 的非官方 Windows x64 fork，產品功能包括系統層 Equalizer APO、x64 VST2/VST3 效果器支援、兩個完全獨立的響度校正元件、Configuration Editor、Device Selector 與更新程式。`LoudnessCorrection:` 是公式版；`LoudnessCorrectionOriginal:` 是原始 Mixomo 雙棚架版，不得實作成同一元件的模式。
 
 不可把本專案描述成官方 Equalizer APO 發行版，也不可宣稱響度功能符合、通過、獲認證或獲背書於任何標準。對外措辭與資料授權以繁中主文件 `README.md`、英文翻譯 `README.en.md` 及 `NOTICE.md` 為準；`README_zh-TW.md` 只保留舊連結導向，不是另一份內容來源。
 
@@ -44,6 +44,9 @@ README 只描述目前功能、操作與限制，不放 `What's new`／「更新
 | 一般程式修改／PR | `CONTRIBUTING.md`、相關程式與測試、相關 ADR |
 | 產品行為、設定、UI 或使用者文件 | `README.md`；需要同步英文時再讀 `README.en.md` |
 | 響度資料、授權或對外聲明 | `NOTICE.md` |
+| 原版響度校正或舊設定遷移 | `docs/decisions/0003-separate-original-loudness-component.md` |
+| VST MIDI parameter control | `docs/decisions/0004-vst-midi-parameter-control.md` |
+| IR 卷積、動態 callback frame 或 FIR 重建 | `docs/decisions/0005-ir-convolution-runtime.md` |
 | 安全問題或支援政策 | `SECURITY.md` |
 | 第三方相依與建置來源 | `third_party/README.md` |
 | 發布／升版 | `CHANGELOG.md`、`Release checklist.txt`、release workflow；不得略過任何一步 |
@@ -69,6 +72,8 @@ README 只描述目前功能、操作與限制，不放 `What's new`／「更新
 ### 即時音訊
 
 - Audio callback 內不得配置或釋放記憶體、等待或取得可能阻塞的鎖、寫 log、呼叫系統 API，或執行不可預測的 I/O。
+- WinMM MIDI callback 也只可寫入預配置的固定容量 queue；同一行程內每個實體裝置只能由固定容量 broker 開啟一次，裝置列舉、開關、重連、字串、設定編解碼與 fan-out 訂閱管理都必須留在非即時執行緒。VST audio callback 每個 block 只可消費有界數量的 parameter change；VST3 `IParameterChanges` 的 queue 與 point storage 必須在開始處理前配置／預熱。
+- IR／GraphicEQ 卷積 callback 遇到實際 frame count 與目前 bank 不符時，只能發布 lock-free 尺寸請求並複製乾聲；不得仿照舊上游修正在 callback 重新讀檔、配置、建 FFTW plan 或初始化 HybridConv。IR cache、固定尺寸 bank、每聲道最多 4,096 個 HybridConv partition、pending／retired 生命週期與 10 ms 乾濕淡入依 ADR-0005；超過 partition 上限只能 fail safe 保持乾聲。
 - 昂貴的輪廓擬合、端點查詢、峰值搜尋與係數準備必須在非即時路徑完成；callback 只消費已發布且生命週期安全的狀態。
 - 保留既有 raw → common-A 安全交接、預熱、淡入、雙 bank 係數交叉淡化及失敗時 bypass 的行為。
 - Settled callback 會使用 `initialize()` 依 `maxFrameCount` 預先配置的 scratch buffer 走 section-major block 路徑；交接、預熱、crossfade 與 bypass fade 仍走 sample-major fallback。修改這兩條路徑時，必須保留原生 block/scalar、in-place/out-of-place 的逐樣本等價測試。
@@ -80,11 +85,17 @@ README 只描述目前功能、操作與限制，不放 `What's new`／「更新
 
 ### 設定與相容性
 
+- `LoudnessCorrection:`／`FormulaLoudnessV1` 與 `LoudnessCorrectionOriginal:`／`MixomoShelfV1` 的 command、parser、factory、runtime DSP、GUI、校準與狀態必須完全分離。兩者只可共用模型無關且已驗證安全的底層端點讀取；停用、重設或校準其中一個不得改寫另一個。
+- 兩個校準對話框不論接受、取消或關閉都必須先停止循環測試音，再讓呼叫端復原 temporary-audio journal；復原時若使用者保留外部修改，必須丟棄本次量測，不得更新 model 或觸發即時儲存。
+- 原版固定追蹤 Windows 預設 `eRender`／`eMultimedia`，不接受公式版的 `Binding`、`Engine`、`Volume` 或 `VolumeFollow`。新原版格式的 `Schema`、`Model`、`State`、`ReferenceLevel`、`ReferenceOffset`、`Attenuation` 都必填且唯一；錯誤時 fail closed。這不改變下方公式版舊設定對缺漏 `Attenuation` 的相容回退。
 - 已標記的設定格式必須可 round-trip；必填欄位及 `Binding`／`Engine` enum 的無效值要 fail closed，重複的已知欄位也要 fail closed。`Attenuation` 與 `Volume` 為舊設定相容例外：缺漏或格式無效時分別回退 1.0 與自動音量。既有 parser 也會忽略不認識的額外 token 以保留 forward compatibility；不可順手改變這些語意。
 - 未標記的舊響度設定不可依數值猜測模型；保留原文並 bypass，直到使用者在 Editor 明確選擇遷移方式。
 - 新增欄位時必須定義缺省值、舊設定行為、序列化規則、未知值與重複值行為，並加入原生回歸測試。
 - `VolumeFollow` 缺省與明確 `Off` 都表示 unity，序列化時省略 `Off`，以避免舊設定或正常端點重複承受 Windows 衰減。有效值只有 `Linear`、`Logarithmic`、`Windows`；無效或重複的已知欄位要 fail closed。Linear 使用 scalar `s`，Logarithmic 使用 `s²`，Windows 使用 `10^(d/20)`；自動模式的 `s`／`d` 來自端點 scalar／dB，手動模式的 `d` 是 `Volume`，`s` 則由 `clamp((Volume + 100) / 100, 0, 1)` 取得。自動端點 mute 永遠是零增益。
 - 不得讓 UI 預覽、離線分析與實際 runtime 對同一份已儲存設定產生不同語意。
+- VST `MidiConfig` 壞掉、未知、超限或有重疊來源時只停用 MIDI，不得停用 VST 音訊。VST3 綁定以 ParamID 定位，且只可提供可見、非唯讀、具有 `kCanAutomate` 的參數；VST2 以 parameter index 加名稱 guard。行程外 sidecar 不得用舊 mapping 回寫 Editor row。更換外掛或 class 前必須確認並清除 parameter-specific state。
+- 已有 `MidiConfig` 的目前列進入 MIDI learn 前，必須用 durable temporary-audio journal 暫時序列化成無 mapping 版本，讓 audio host 釋放只允許單一 client 的 WinMM 裝置。Learner 必須先關閉 handle 才還原原始檔；還原失敗或使用者保留外部修改時不得套用新 mapping。其他列／行程的占用仍只能顯示 Busy 並重試。
+- `Convolution:` 是穩定設定指令，UI 顯示名稱是「IR 卷積」。相對路徑只以設定檔目錄解析；runtime 只接受與裝置相同取樣率及安全尺寸內、完整且有限值的 IR。Editor 的「重建相符 FIR」是使用幅度響應的手動 minimum-phase 重建，不是保留相位／延遲的 resampler，也不得在文字輸入或選檔時自動執行。
 - 離線分析與自動前級的 freshness 判斷若涉及自動音量，必須連同端點 identity、dB、scalar、mute 及來源可用狀態一起比對；只比 dB 可能接受已靜音、曲線不同或失敗後恢復的過期結果。
 
 ### Installer、資料與供應鏈

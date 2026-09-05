@@ -289,6 +289,8 @@ struct ConditionalWriteResult
 	QByteArray currentContent;
 	DWORD error = ERROR_SUCCESS;
 	DWORD rollbackError = ERROR_SUCCESS;
+	DWORD rollbackVerificationError = ERROR_SUCCESS;
+	bool rollbackVerified = false;
 };
 
 static bool readConfigurationHandle(HANDLE file, QByteArray& content, DWORD& error)
@@ -398,7 +400,16 @@ static ConditionalWriteResult conditionallyWriteConfiguration(
 	DWORD writeError = ERROR_SUCCESS;
 	if (!writeConfigurationHandle(file, replacementContent, writeError))
 	{
-		writeConfigurationHandle(file, result.currentContent, result.rollbackError);
+		const QByteArray originalContent = result.currentContent;
+		(void)writeConfigurationHandle(
+			file, originalContent, result.rollbackError);
+		QByteArray contentAfterRollback;
+		if (readConfigurationHandle(
+			file, contentAfterRollback, result.rollbackVerificationError))
+		{
+			result.currentContent = contentAfterRollback;
+			result.rollbackVerified = contentAfterRollback == originalContent;
+		}
 		result.error = writeError;
 		CloseHandle(file);
 		return result;
@@ -777,10 +788,10 @@ MainWindow::MainWindow(QDir configDir, QWidget* parent)
 
 	LogHelper::set(stderr, true, false, false);
 
-	QString version = QString("%0.%1").arg(MAJOR).arg(MINOR);
+	QString version = QString("%1.%2").arg(MAJOR).arg(MINOR);
 	if (REVISION != 0)
-		version += QString(".%0").arg(REVISION);
-	setWindowTitle(tr("Equalizer APO %0 Configuration Editor").arg(version));
+		version += QString(".%1").arg(REVISION);
+	setWindowTitle(tr("Equalizer APO %1 Configuration Editor").arg(version));
 
 	QLabel* workspaceBrand = new QLabel(QStringLiteral("EQ"));
 	workspaceBrand->setObjectName(QStringLiteral("workspaceBrand"));
@@ -910,7 +921,7 @@ MainWindow::MainWindow(QDir configDir, QWidget* parent)
 	{
 		QString localeName = QString::fromLatin1(localeNames[i]);
 		QString text = localeName.isEmpty()
-			? tr("Automatic (%0)").arg(localeDisplayName(automaticLocale))
+			? tr("Automatic (%1)").arg(localeDisplayName(automaticLocale))
 			: localeDisplayName(localeName);
 		QAction* action = ui->menuLanguage->addAction(text);
 		action->setData(localeName);
@@ -1216,7 +1227,7 @@ void MainWindow::showWorkspaceStatus(const QString& text, const char* level, int
 	setStatusLevel(workspaceStatusLabel, level);
 	workspaceStatusLabel->setToolTip(text);
 	if (trayIcon != NULL)
-		trayIcon->setToolTip(tr("Equalizer APO · %0").arg(text));
+		trayIcon->setToolTip(tr("Equalizer APO · %1").arg(text));
 
 	if (timeoutMs > 0)
 	{
@@ -1251,8 +1262,8 @@ void MainWindow::refreshProfiles()
 	}
 	profileComboBox->setEnabled(!profiles.isEmpty());
 	profileComboBox->setToolTip(profiles.isEmpty()
-		? tr("No configuration profiles were found in %0").arg(configDir.absolutePath())
-		: tr("Open a configuration profile from %0").arg(configDir.absolutePath()));
+		? tr("No configuration profiles were found in %1").arg(configDir.absolutePath())
+		: tr("Open a configuration profile from %1").arg(configDir.absolutePath()));
 
 	for (int index = 0; index < profileComboBox->count(); ++index)
 	{
@@ -1294,7 +1305,7 @@ void MainWindow::refreshProfileMenus()
 				activateWindow();
 				syncProfileSelection();
 				if (opened)
-					showWorkspaceStatus(tr("Opened %0").arg(QFileInfo(path).completeBaseName()));
+					showWorkspaceStatus(tr("Opened %1").arg(QFileInfo(path).completeBaseName()));
 			});
 		};
 		addProfileAction(openProfilesMenu);
@@ -1381,7 +1392,7 @@ void MainWindow::profileSelected(int index)
 	syncProfileSelection();
 	refreshWorkspaceActionState();
 	if (opened)
-		showWorkspaceStatus(tr("Opened %0").arg(profileComboBox->itemText(index)));
+		showWorkspaceStatus(tr("Opened %1").arg(profileComboBox->itemText(index)));
 }
 
 void MainWindow::duplicateCurrentProfile()
@@ -1416,7 +1427,7 @@ void MainWindow::duplicateCurrentProfile()
 	if (QFileInfo::exists(path))
 	{
 		QMessageBox::warning(this, tr("Profile already exists"),
-			tr("A profile named %0 already exists.").arg(fileName));
+			tr("A profile named %1 already exists.").arg(fileName));
 		return;
 	}
 
@@ -1426,7 +1437,7 @@ void MainWindow::duplicateCurrentProfile()
 	if (!load(path))
 		return;
 	syncProfileSelection();
-	showWorkspaceStatus(tr("Created %0").arg(QFileInfo(path).completeBaseName()));
+	showWorkspaceStatus(tr("Created %1").arg(QFileInfo(path).completeBaseName()));
 }
 
 void MainWindow::renameCurrentProfile()
@@ -1475,11 +1486,11 @@ void MainWindow::renameCurrentProfile()
 	if (QFileInfo::exists(newPath))
 	{
 		QMessageBox::warning(this, tr("Profile already exists"),
-			tr("A profile named %0 already exists.").arg(fileName));
+			tr("A profile named %1 already exists.").arg(fileName));
 		return;
 	}
 	if (QMessageBox::question(this, tr("Rename profile"),
-		tr("References to %0 inside other configuration files are not changed automatically. Rename it anyway?")
+		tr("References to %1 inside other configuration files are not changed automatically. Rename it anyway?")
 			.arg(QFileInfo(oldPath).fileName())) != QMessageBox::Yes)
 		return;
 
@@ -1511,7 +1522,7 @@ void MainWindow::renameCurrentProfile()
 	linkSettings.sync();
 	refreshProfiles();
 	syncProfileSelection();
-	showWorkspaceStatus(tr("Renamed profile to %0").arg(QFileInfo(newPath).completeBaseName()));
+	showWorkspaceStatus(tr("Renamed profile to %1").arg(QFileInfo(newPath).completeBaseName()));
 }
 
 void MainWindow::importProfile()
@@ -1539,7 +1550,7 @@ void MainWindow::importProfile()
 	if (QFileInfo::exists(destinationPath))
 	{
 		QMessageBox::warning(this, tr("Profile already exists"),
-			tr("A profile named %0 already exists.").arg(fileName));
+			tr("A profile named %1 already exists.").arg(fileName));
 		return;
 	}
 	if (!QFile::copy(sourcePath, destinationPath))
@@ -1552,7 +1563,7 @@ void MainWindow::importProfile()
 	if (!load(destinationPath))
 		return;
 	syncProfileSelection();
-	showWorkspaceStatus(tr("Imported %0").arg(QFileInfo(destinationPath).completeBaseName()));
+	showWorkspaceStatus(tr("Imported %1").arg(QFileInfo(destinationPath).completeBaseName()));
 }
 
 void MainWindow::exportCurrentProfile()
@@ -1576,7 +1587,7 @@ void MainWindow::exportCurrentProfile()
 		path += QStringLiteral(".txt");
 	if (!save(filterTable, QDir::toNativeSeparators(path)))
 		return;
-	showWorkspaceStatus(tr("Exported profile to %0").arg(QFileInfo(path).fileName()));
+	showWorkspaceStatus(tr("Exported profile to %1").arg(QFileInfo(path).fileName()));
 }
 
 QString MainWindow::deviceLinkKey() const
@@ -1611,7 +1622,7 @@ void MainWindow::linkCurrentProfileToDevice()
 	}
 	QSettings settings(QString::fromWCharArray(EDITOR_REGPATH), QSettings::NativeFormat);
 	settings.setValue(QStringLiteral("profileDeviceLinks/") + key, path);
-	showWorkspaceStatus(tr("Linked %0 to the selected device").arg(QFileInfo(path).completeBaseName()));
+	showWorkspaceStatus(tr("Linked %1 to the selected device").arg(QFileInfo(path).completeBaseName()));
 }
 
 void MainWindow::clearCurrentDeviceProfileLink()
@@ -1640,9 +1651,9 @@ void MainWindow::findNext()
 	}
 	const int row = filterTable->findText(text, false);
 	if (row < 0)
-		showWorkspaceStatus(tr("No filter or setting matches “%0”").arg(text), "warning");
+		showWorkspaceStatus(tr("No filter or setting matches “%1”").arg(text), "warning");
 	else
-		showWorkspaceStatus(tr("Match on row %0").arg(row + 1), "normal", 2200);
+		showWorkspaceStatus(tr("Match on row %1").arg(row + 1), "normal", 2200);
 }
 
 void MainWindow::findPrevious()
@@ -1658,9 +1669,9 @@ void MainWindow::findPrevious()
 	}
 	const int row = filterTable->findText(text, true);
 	if (row < 0)
-		showWorkspaceStatus(tr("No filter or setting matches “%0”").arg(text), "warning");
+		showWorkspaceStatus(tr("No filter or setting matches “%1”").arg(text), "warning");
 	else
-		showWorkspaceStatus(tr("Match on row %0").arg(row + 1), "normal", 2200);
+		showWorkspaceStatus(tr("Match on row %1").arg(row + 1), "normal", 2200);
 }
 
 void MainWindow::searchTextChanged(const QString& text)
@@ -1712,6 +1723,216 @@ bool MainWindow::prepareTemporaryContents(
 
 	*originalContent = observedContent;
 	*temporaryContent = serializeConfigurationLinesLike(temporaryLines, observedContent);
+	return true;
+}
+
+bool MainWindow::beginTemporaryFilterConfiguration(
+	IFilterGUI* filterGui,
+	const QString& command,
+	const QString& parameters,
+	const QString& mode)
+{
+	if (filterGui == NULL || !temporaryFilterTable.isNull())
+		return false;
+	const bool midiLearning = mode == QStringLiteral("vst-midi-learn");
+
+	TemporaryProcessingMutexGuard processingLock;
+	if (!processingLock.isLocked())
+	{
+		showWorkspaceStatus(
+			tr("A temporary audio state could not be activated"),
+			"danger", 0);
+		return false;
+	}
+
+	FilterTable* filterTable = currentFilterTable();
+	if (filterTable == NULL || filterTable->getConfigPath().isEmpty()
+		|| isFilterTableDirty(filterTable))
+	{
+		showWorkspaceStatus(
+			midiLearning
+				? tr("Save the profile before configuring MIDI")
+				: tr("Save the profile before starting calibration"),
+			"warning");
+		return false;
+	}
+
+	recoverInterruptedTemporaryProcessingState();
+	if (hasConflictingTemporaryJournal(
+		filterTable->getConfigPath(), temporaryRecoveryOwner))
+	{
+		showWorkspaceStatus(
+			tr("A temporary audio state could not be recovered automatically"),
+			"danger", 0);
+		return false;
+	}
+
+	const QList<QString> originalLines = filterTable->getLines();
+	QList<QString> temporaryLines;
+	if (!filterTable->makeLinesWithGuiOverride(
+		filterGui, command, parameters, &temporaryLines))
+	{
+		return false;
+	}
+
+	QFile file(filterTable->getConfigPath());
+	if (!file.open(QIODevice::ReadOnly))
+		return false;
+	const QByteArray originalContent = file.readAll();
+	const bool readSucceeded = file.error() == QFileDevice::NoError;
+	file.close();
+	if (!readSucceeded || deserializeConfigurationLines(originalContent) != originalLines)
+	{
+		showWorkspaceStatus(
+			midiLearning
+				? tr("The profile changed outside the editor; MIDI configuration was not started")
+				: tr("The profile changed outside the editor; calibration was not started"),
+			"warning");
+		return false;
+	}
+
+	const QByteArray temporaryContent = serializeConfigurationLinesLike(
+		temporaryLines, originalContent);
+	if (!writeTemporaryRecoveryJournal(
+		filterTable, originalLines, originalContent, temporaryContent, mode))
+	{
+		showWorkspaceStatus(
+			tr("A temporary audio state could not be activated"),
+			"danger", 0);
+		return false;
+	}
+
+	const ConditionalWriteResult result = conditionallyWriteConfiguration(
+		filterTable->getConfigPath(), originalContent, temporaryContent);
+	if (result.status != ConditionalWriteStatus::written)
+	{
+		if (result.status == ConditionalWriteStatus::conflict)
+		{
+			// No write was attempted, so this journal never became recovery state.
+			clearTemporaryRecoveryJournal();
+			showWorkspaceStatus(
+				midiLearning
+					? tr("The profile changed outside the editor; MIDI configuration was not started")
+					: tr("The profile changed outside the editor; calibration was not started"),
+				"warning", 4500);
+		}
+		else if (result.rollbackVerified)
+		{
+			// A failed write may have been partial. Only discard the sole recovery
+			// record after rereading the file and proving the original bytes won.
+			clearTemporaryRecoveryJournal();
+			showWorkspaceStatus(
+				tr("A temporary audio state could not be activated"),
+				"danger", 0);
+		}
+		else
+		{
+			showWorkspaceStatus(
+				tr("A temporary audio state could not be recovered automatically"),
+				"danger", 0);
+			QMessageBox::critical(
+				this,
+				tr("Audio processing was not restored"),
+				tr("A temporary audio state could not be recovered automatically"));
+		}
+		return false;
+	}
+
+	temporaryFilterTable = filterTable;
+	temporaryFilterOriginalLines = originalLines;
+	temporaryFilterOriginalContent = originalContent;
+	temporaryFilterContent = temporaryContent;
+	showWorkspaceStatus(
+		midiLearning
+			? tr("This row temporarily released its MIDI input")
+			: tr("Calibration contour is temporarily bypassed"),
+		"warning", 0);
+	return true;
+}
+
+bool MainWindow::restoreTemporaryFilterConfiguration(bool* keptExternal)
+{
+	if (keptExternal != NULL)
+		*keptExternal = false;
+	if (temporaryFilterTable.isNull())
+		return true;
+
+	TemporaryProcessingMutexGuard processingLock;
+	if (!processingLock.isLocked())
+		return false;
+
+	QPointer<FilterTable> filterTable = temporaryFilterTable;
+	const QString path = filterTable->getConfigPath();
+	QByteArray expectedContent = temporaryFilterContent;
+	bool keepExternal = false;
+	QByteArray externalContent;
+
+	for (int attempt = 0; attempt < 4; ++attempt)
+	{
+		const ConditionalWriteResult result = conditionallyWriteConfiguration(
+			path, expectedContent, temporaryFilterOriginalContent);
+		if (result.status == ConditionalWriteStatus::written
+			|| (result.status == ConditionalWriteStatus::conflict
+				&& result.currentContent == temporaryFilterOriginalContent))
+		{
+			break;
+		}
+		if (result.status == ConditionalWriteStatus::failed)
+		{
+			showWorkspaceStatus(
+				tr("The current profile could not be read; temporary audio remains active"),
+				"danger", 0);
+			return false;
+		}
+
+		QMessageBox conflictBox(
+			QMessageBox::Warning,
+			tr("External profile change"),
+			tr("This profile changed in another program while temporary audio was active. Restore saved profile will overwrite those external changes."),
+			QMessageBox::NoButton,
+			this);
+		QPushButton* restoreButton = conflictBox.addButton(
+			tr("Restore saved profile"), QMessageBox::AcceptRole);
+		QPushButton* keepButton = conflictBox.addButton(
+			tr("Keep external changes"), QMessageBox::RejectRole);
+		conflictBox.setDefaultButton(keepButton);
+		conflictBox.setEscapeButton(keepButton);
+		conflictBox.exec();
+		if (conflictBox.clickedButton() != restoreButton)
+		{
+			keepExternal = true;
+			externalContent = result.currentContent;
+			break;
+		}
+		expectedContent = result.currentContent;
+		if (attempt == 3)
+			return false;
+	}
+
+	clearTemporaryRecoveryJournal();
+	temporaryFilterTable.clear();
+	temporaryFilterOriginalLines.clear();
+	temporaryFilterOriginalContent.clear();
+	temporaryFilterContent.clear();
+	showWorkspaceStatus(
+		keepExternal ? tr("Kept external profile changes") : tr("Audio processing restored"),
+		keepExternal ? "warning" : "normal");
+
+	if (keepExternal && !filterTable.isNull())
+	{
+		// Defer rebuilding the rows until the filter GUI that requested the
+		// modal calibration has returned from its slot.
+		QTimer::singleShot(0, this, [this, filterTable, path, externalContent]() {
+			if (filterTable.isNull())
+				return;
+			QScopedValueRollback<bool> restoringGuard(restoringTemporaryState, true);
+			filterTable->setLines(path, deserializeConfigurationLines(externalContent));
+			filterTable->updateAnalysis();
+			refreshProfiles();
+		});
+	}
+	if (keptExternal != NULL)
+		*keptExternal = keepExternal;
 	return true;
 }
 
@@ -2569,6 +2790,9 @@ bool MainWindow::restoreTemporaryProcessingState()
 {
 	if (restoringTemporaryState)
 		return true;
+	if (!temporaryFilterTable.isNull()
+		&& !restoreTemporaryFilterConfiguration())
+		return false;
 	TemporaryProcessingMutexGuard processingLock;
 	if (!processingLock.isLocked())
 	{
@@ -2761,7 +2985,7 @@ void MainWindow::doChecks()
 
 	if (disabledApoInfo != NULL)
 	{
-		if (QMessageBox::warning(this, tr("Audio enhancements disabled"), tr("Audio enhancements are not enabled for the device\n%0 %1.\nDo you want to run the Device Selector application to fix the problem?").arg(QString::fromStdWString(disabledApoInfo->getConnectionName())).arg(QString::fromStdWString(disabledApoInfo->getDeviceName())), QMessageBox::Yes, QMessageBox::No) == QMessageBox::Yes)
+		if (QMessageBox::warning(this, tr("Audio enhancements disabled"), tr("Audio enhancements are not enabled for the device\n%1 %2.\nDo you want to run the Device Selector application to fix the problem?").arg(QString::fromStdWString(disabledApoInfo->getConnectionName())).arg(QString::fromStdWString(disabledApoInfo->getDeviceName())), QMessageBox::Yes, QMessageBox::No) == QMessageBox::Yes)
 		{
 			runDeviceSelector();
 			return;
@@ -2807,7 +3031,7 @@ bool MainWindow::load(QString path)
 			DWORD error = GetLastError();
 			if (error != ERROR_SHARING_VIOLATION)
 			{
-				QMessageBox::critical(this, tr("Error"), tr("Error while reading configuration file: %0").arg(QString::fromStdWString(StringHelper::getSystemErrorString(error))));
+				QMessageBox::critical(this, tr("Error"), tr("Error while reading configuration file: %1").arg(QString::fromStdWString(StringHelper::getSystemErrorString(error))));
 				return false;
 			}
 
@@ -2880,7 +3104,7 @@ bool MainWindow::save(FilterTable* filterTable, QString path)
 			DWORD error = GetLastError();
 			if (error != ERROR_SHARING_VIOLATION)
 			{
-				QMessageBox::critical(this, tr("Error"), tr("Error while writing configuration file: %0").arg(QString::fromStdWString(StringHelper::getSystemErrorString(error))));
+				QMessageBox::critical(this, tr("Error"), tr("Error while writing configuration file: %1").arg(QString::fromStdWString(StringHelper::getSystemErrorString(error))));
 				return false;
 			}
 
@@ -2895,7 +3119,7 @@ bool MainWindow::save(FilterTable* filterTable, QString path)
 	if (!writeSucceeded || bytesWritten != byteArray.length())
 	{
 		// should never happen
-		QMessageBox::critical(this, tr("Error"), tr("Only %0/%1 bytes have been written!").arg(bytesWritten).arg(byteArray.length()));
+		QMessageBox::critical(this, tr("Error"), tr("Only %1/%2 bytes have been written!").arg(bytesWritten).arg(byteArray.length()));
 	}
 
 	CloseHandle(hFile);
@@ -3009,7 +3233,7 @@ void MainWindow::deviceSelected(int index)
 			if (!restoreTemporaryProcessingState())
 				return;
 			if (load(linkedPath))
-				showWorkspaceStatus(tr("Opened the profile linked to this device: %0")
+				showWorkspaceStatus(tr("Opened the profile linked to this device: %1")
 					.arg(QFileInfo(linkedPath).completeBaseName()));
 		}
 	}
@@ -3066,6 +3290,11 @@ void MainWindow::linesChanged()
 	invalidateAnalysisResult();
 
 	FilterTable* filterTable = qobject_cast<FilterTable*>(sender());
+	// A modal calibration writes a crash-recoverable runtime-only contour
+	// bypass. Timers may still emit model changes while the dialog is open;
+	// never let those overwrite the temporary file or its recovery contract.
+	if (!temporaryFilterTable.isNull() && filterTable == temporaryFilterTable)
+		return;
 	bool savedInstantly = false;
 
 	if (instantModeCheckBox->isChecked() && !applyingAutoPreampAdjustment)
@@ -3429,12 +3658,12 @@ void MainWindow::updateAnalysisPanel()
 	latestAnalysisResultValid = std::isfinite(peakGain);
 	if (std::isfinite(peakGain))
 	{
-		ui->peakGainValueLabel->setText(tr("%0 dB").arg(peakGain, 0, 'f', 1));
+		ui->peakGainValueLabel->setText(tr("%1 dB").arg(peakGain, 0, 'f', 1));
 		setStatusLevel(ui->peakGainValueLabel, peakGain > 0 ? "danger" : "normal");
 		const double headroom = (std::max)(0.0, -peakGain);
 		if (headroomValueLabel != NULL)
 		{
-			headroomValueLabel->setText(tr("%0 dB").arg(headroom, 0, 'f', 1));
+			headroomValueLabel->setText(tr("%1 dB").arg(headroom, 0, 'f', 1));
 			setStatusLevel(headroomValueLabel, peakGain > 0 ? "danger" : "normal");
 		}
 	}
@@ -3445,16 +3674,16 @@ void MainWindow::updateAnalysisPanel()
 			headroomValueLabel->setText(QStringLiteral("—"));
 	}
 
-	ui->latencyValueLabel->setText(tr("%0 ms (%1 s.)").arg(latency * 1000.0 / sampleRate, 0, 'f', 1).arg(latency));
+	ui->latencyValueLabel->setText(tr("%1 ms (%2 s.)").arg(latency * 1000.0 / sampleRate, 0, 'f', 1).arg(latency));
 
-	ui->initTimeValueLabel->setText(tr("%0 ms").arg(analysisThread->getInitializationTime(), 0, 'f', 1));
+	ui->initTimeValueLabel->setText(tr("%1 ms").arg(analysisThread->getInitializationTime(), 0, 'f', 1));
 
 	const double processedFrames = analysisThread->getProcessedFrames();
 	if (processedFrames > 0)
 	{
 		double cpuUsage = analysisThread->getProcessingTime() * 100.0 /
 			(processedFrames * 1000.0 / sampleRate);
-		ui->cpuUsageValueLabel->setText(tr("%0 % (one core)").arg(cpuUsage, 0, 'f', 1));
+		ui->cpuUsageValueLabel->setText(tr("%1 % (one core)").arg(cpuUsage, 0, 'f', 1));
 		setStatusLevel(
 			ui->cpuUsageValueLabel,
 			cpuUsage >= 50 ? "danger" : (cpuUsage >= 20 ? "warning" : "normal"));
@@ -3741,6 +3970,7 @@ bool MainWindow::loadSnapshotScenario(const QString& scenario)
 	// particular, do not call FilterTable::setLines(), because that method
 	// intentionally restores the real user's per-file QSettings.
 	const QList<QString> lines = denseScenario ? QList<QString>{
+		QStringLiteral("LoudnessCorrectionOriginal: Schema 1 Model MixomoShelfV1 State 1 ReferenceLevel 0 ReferenceOffset 0 Attenuation 1.0"),
 		QStringLiteral("LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 1 ReferenceLevel 80 ReferenceOffset 40 Attenuation 1.0 Volume -38.0"),
 		QStringLiteral("Filter: ON PK Fc 1000 Hz Gain -3 dB Q 1"),
 		QStringLiteral("UnsupportedSnapshotCommand: this-deliberately-long-unknown-command-keeps-the-raw-text-middle-elision-and-tooltip-path-covered"),
@@ -3820,6 +4050,7 @@ bool MainWindow::loadSnapshotScenario(const QString& scenario)
 			&& objectCount(QStringLiteral("IncludeFilterGUI")) == 4
 			&& objectCount(QStringLiteral("BiQuadFilterGUI")) == 1
 			&& objectCount(QStringLiteral("LoudnessCorrectionFilterGUI")) == 1
+			&& objectCount(QStringLiteral("OriginalLoudnessCorrectionFilterGUI")) == 1
 			&& objectCount(QStringLiteral("VSTPluginFilterGUI")) == 1
 			&& objectCount(QStringLiteral("elidingCommandLabel")) == 1;
 	}
@@ -3845,6 +4076,28 @@ bool MainWindow::loadSnapshotScenario(const QString& scenario)
 	}
 	if (!complete)
 		return false;
+
+	if (denseScenario)
+	{
+		// Exercise the same inner-GUI target used by both calibration buttons.
+		// FilterTable stores a CommentFilterGUI decorator for each row, so this
+		// fails unless descendant targets are mapped back to their owning item.
+		const QString overrideMarker = QStringLiteral("SnapshotCalibrationOverride");
+		for (const QString& objectName : {
+			QStringLiteral("LoudnessCorrectionFilterGUI"),
+			QStringLiteral("OriginalLoudnessCorrectionFilterGUI") })
+		{
+			IFilterGUI* innerGui = findChild<IFilterGUI*>(objectName);
+			QList<QString> overriddenLines;
+			if (innerGui == NULL || !filterTable->makeLinesWithGuiOverride(
+				innerGui, overrideMarker, objectName, &overriddenLines) ||
+				overriddenLines.size() != lines.size() ||
+				overriddenLines.count(overrideMarker + ": " + objectName) != 1)
+			{
+				return false;
+			}
+		}
+	}
 
 	refreshWorkspaceActionState();
 	return true;
@@ -3932,6 +4185,7 @@ bool MainWindow::snapshotLayoutIsValid() const
 		QStringLiteral("IncludeFilterGUI"),
 		QStringLiteral("BiQuadFilterGUI"),
 		QStringLiteral("LoudnessCorrectionFilterGUI"),
+		QStringLiteral("OriginalLoudnessCorrectionFilterGUI"),
 		QStringLiteral("VSTPluginFilterGUI"),
 		QStringLiteral("elidingCommandLabel")
 	} : QStringList{
@@ -4085,7 +4339,7 @@ bool MainWindow::askForClose(int tabIndex)
 		QString configPath = ui->tabWidget->tabToolTip(tabIndex);
 		QMessageBox messageBox;
 		messageBox.setWindowTitle(tr("Unsaved changes"));
-		messageBox.setText(tr("The configuration file %0 has unsaved changes.").arg(configPath));
+		messageBox.setText(tr("The configuration file %1 has unsaved changes.").arg(configPath));
 		messageBox.setInformativeText(tr("Do you want to save the changes before closing the file?"));
 		messageBox.setIcon(QMessageBox::Question);
 		messageBox.setStandardButtons(QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);

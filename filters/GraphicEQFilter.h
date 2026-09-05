@@ -36,7 +36,8 @@ public:
 	static std::vector<double> createImpulseResponse(const std::vector<FilterNode>& nodes, unsigned filterLength, float sampleRate);
 
 protected:
-	void initializeFilters(unsigned frameCount) override;
+	bool prepareImpulseResponse(
+		std::vector<std::vector<double>>& impulseResponses) override;
 
 private:
 	static void mps(fftw_complex* timeData, fftw_complex* freqData, fftw_plan planForward, fftw_plan planReverse, unsigned filterLength);

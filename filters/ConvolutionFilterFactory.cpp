@@ -18,7 +18,8 @@
 */
 
 #include "stdafx.h"
-#include <Shlwapi.h>
+#include <exception>
+#include <filesystem>
 
 #include "helpers/MemoryHelper.h"
 #include "helpers/StringHelper.h"
@@ -34,28 +35,26 @@ vector<IFilter*> ConvolutionFilterFactory::createFilter(const wstring& configPat
 
 	if (command == L"Convolution")
 	{
-		wstring value = parameters;
-		while (value.length() > 0 && iswspace(value[0]))
-			value = value.substr(1);
+		const wstring value = StringHelper::trim(parameters);
+		if (value.empty())
+			return vector<IFilter*>();
 
-		wstring absolutePath;
-		if (PathIsRelativeW(value.c_str()))
+		try
 		{
-			wchar_t filePath[MAX_PATH];
-			configPath._Copy_s(filePath, sizeof(filePath) / sizeof(wchar_t), MAX_PATH);
-			if (configPath.size() < MAX_PATH)
-				filePath[configPath.size()] = L'\0';
-			else
-				filePath[MAX_PATH - 1] = L'\0';
-			PathRemoveFileSpecW(filePath);
-			PathAppendW(filePath, value.c_str());
-			absolutePath = filePath;
-		}
-		else
-			absolutePath = value;
+			const std::filesystem::path configuredPath(value);
+			const std::filesystem::path absolutePath = configuredPath.is_relative()
+				? (std::filesystem::path(configPath).parent_path() /
+					configuredPath).lexically_normal()
+				: configuredPath;
 
-		void* mem = MemoryHelper::alloc(sizeof(ConvolutionFilter));
-		filter = new(mem) ConvolutionFilter(absolutePath);
+			void* mem = MemoryHelper::alloc(sizeof(ConvolutionFilter));
+			if (mem != NULL)
+				filter = new(mem) ConvolutionFilter(absolutePath.wstring());
+		}
+		catch (const std::exception&)
+		{
+			LogF(L"Could not resolve convolution path");
+		}
 	}
 
 	if (filter == NULL)

@@ -148,13 +148,18 @@ SOURCES += main.cpp\
 	guis/VSTPluginFilterGUI.cpp \
 	guis/VSTPluginFilterGUIFactory.cpp \
 	guis/VSTPluginFilterGUIDialog.cpp \
+	guis/VSTMidiMappingDialog.cpp \
 	../filters/VSTPluginFilter.cpp \
 	../filters/VSTPluginFilterFactory.cpp \
 	../helpers/VSTPluginInstance.cpp \
+	../helpers/WinMidiInput.cpp \
 	guis/LegacyLoudnessCorrectionFilterGUI.cpp \
 	guis/LoudnessCorrectionFilterGUI.cpp \
 	guis/LoudnessCorrectionStudioDialog.cpp \
 	guis/LoudnessCorrectionFilterGUIFactory.cpp \
+	guis/OriginalLoudnessCorrectionFilterGUI.cpp \
+	guis/OriginalLoudnessCorrectionCalibrationDialog.cpp \
+	guis/OriginalLoudnessCorrectionFilterGUIFactory.cpp \
 	../filters/loudnessCorrection/LoudnessCorrectionFilter.cpp \
 	../filters/loudnessCorrection/LoudnessCorrectionFilterFactory.cpp \
 	../filters/loudnessCorrection/VolumeController.cpp \
@@ -166,6 +171,7 @@ SOURCES += main.cpp\
 
 HEADERS  += \
 	../helpers/LogHelper.h \
+	../helpers/FFTWHelper.h \
 	../helpers/StringHelper.h \
 	../helpers/RegistryHelper.h \
 	../parser/LogicalOperators.h \
@@ -297,13 +303,19 @@ HEADERS  += \
 	guis/VSTPluginFilterGUI.h \
 	guis/VSTPluginFilterGUIFactory.h \
 	guis/VSTPluginFilterGUIDialog.h \
+	guis/VSTMidiMappingDialog.h \
 	../filters/VSTPluginFilter.h \
 	../filters/VSTPluginFilterFactory.h \
 	../helpers/VSTPluginInstance.h \
+	../helpers/VSTMidiBindingCodec.h \
+	../helpers/WinMidiInput.h \
 	guis/LegacyLoudnessCorrectionFilterGUI.h \
 	guis/LoudnessCorrectionFilterGUI.h \
 	guis/LoudnessCorrectionStudioDialog.h \
 	guis/LoudnessCorrectionFilterGUIFactory.h \
+	guis/OriginalLoudnessCorrectionFilterGUI.h \
+	guis/OriginalLoudnessCorrectionCalibrationDialog.h \
+	guis/OriginalLoudnessCorrectionFilterGUIFactory.h \
 	../filters/loudnessCorrection/LoudnessProfile.h \
 	../filters/loudnessCorrection/LoudnessCorrectionFilter.h \
 	../filters/loudnessCorrection/LoudnessCorrectionFilterFactory.h \

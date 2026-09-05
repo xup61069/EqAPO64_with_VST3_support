@@ -4,184 +4,184 @@
 <context>
     <name>AudioToolFilterGUI</name>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="657"/>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="923"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="658"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="928"/>
         <source>Reset module</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="669"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="672"/>
         <source>Channels</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="813"/>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="833"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="816"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="836"/>
         <source>Stop</source>
         <translation type="unfinished">Arrêt</translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="813"/>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="833"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="816"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="836"/>
         <source>Play</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="826"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="829"/>
         <source>Frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="827"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="830"/>
         <source>Level</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="828"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="831"/>
         <source>Sweep start</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="829"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="832"/>
         <source>Sweep end</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="830"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="833"/>
         <source>Duration</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="839"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="842"/>
         <source>Position</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="840"/>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="901"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="843"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="904"/>
         <source>Width</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="859"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="862"/>
         <source>Algorithm</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="861"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="864"/>
         <source>Anatomy</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="864"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="867"/>
         <source>Amount</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="865"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="868"/>
         <source>Circumference</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="866"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="869"/>
         <source>Head width</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="867"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="870"/>
         <source>Head length</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="868"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="871"/>
         <source>Angle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="869"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="872"/>
         <source>Cutoff</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="870"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="873"/>
         <source>Direct</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="889"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="892"/>
         <source>Rate</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="890"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="893"/>
         <source>Depth</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="891"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="894"/>
         <source>Mix</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="892"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="895"/>
         <source>Feedback</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="897"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="900"/>
         <source>Room</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="898"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="901"/>
         <source>Damping</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="899"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="902"/>
         <source>Wet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="900"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="903"/>
         <source>Dry</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="911"/>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="953"/>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="969"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="914"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="958"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="974"/>
         <source>Open panel</source>
         <translation type="unfinished">Ouvrir le panneau</translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="913"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="916"/>
         <source>Reset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="921"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="926"/>
         <source>Compatibility label only. The current meter reports an ungated loudness estimate; this label does not change its calculation.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="926"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="931"/>
         <source>RMS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="928"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="933"/>
         <source>Loudness estimate</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="932"/>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1015"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="937"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1020"/>
         <source>APO Loudness / VU Meter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="953"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="958"/>
         <source>Hide panel</source>
         <translation type="unfinished"></translation>
     </message>
@@ -250,43 +250,43 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/BiQuadFilterGUI.cpp" line="285"/>
+        <location filename="../guis/BiQuadFilterGUI.cpp" line="287"/>
         <source>Center frequency</source>
         <translation>Fréquence centrale</translation>
     </message>
     <message>
-        <location filename="../guis/BiQuadFilterGUI.cpp" line="287"/>
+        <location filename="../guis/BiQuadFilterGUI.cpp" line="289"/>
         <source>Corner frequency</source>
         <translation>Fréquence de coupure</translation>
     </message>
     <message>
-        <location filename="../guis/BiQuadFilterGUI.cpp" line="304"/>
+        <location filename="../guis/BiQuadFilterGUI.cpp" line="306"/>
         <source>Fixed Q</source>
         <translatorcomment>I don&apos;t understand</translatorcomment>
         <translation>Q fixé</translation>
     </message>
     <message>
-        <location filename="../guis/BiQuadFilterGUI.cpp" line="306"/>
-        <location filename="../guis/BiQuadFilterGUI.cpp" line="346"/>
+        <location filename="../guis/BiQuadFilterGUI.cpp" line="308"/>
+        <location filename="../guis/BiQuadFilterGUI.cpp" line="348"/>
         <source>Fixed S</source>
         <translatorcomment>I don&apos;t understand</translatorcomment>
         <translation>S fixé</translation>
     </message>
     <message>
-        <location filename="../guis/BiQuadFilterGUI.cpp" line="308"/>
-        <location filename="../guis/BiQuadFilterGUI.cpp" line="347"/>
+        <location filename="../guis/BiQuadFilterGUI.cpp" line="310"/>
+        <location filename="../guis/BiQuadFilterGUI.cpp" line="349"/>
         <source>Slope</source>
         <translation>Pente</translation>
     </message>
     <message>
-        <location filename="../guis/BiQuadFilterGUI.cpp" line="310"/>
-        <location filename="../guis/BiQuadFilterGUI.cpp" line="348"/>
+        <location filename="../guis/BiQuadFilterGUI.cpp" line="312"/>
+        <location filename="../guis/BiQuadFilterGUI.cpp" line="350"/>
         <source>Q factor</source>
         <translatorcomment>Refer to &quot;Fixed Q&quot; ? Translation is ok if the Q letter doesn&apos;t need translation</translatorcomment>
         <translation>Facteur Q</translation>
     </message>
     <message>
-        <location filename="../guis/BiQuadFilterGUI.cpp" line="312"/>
+        <location filename="../guis/BiQuadFilterGUI.cpp" line="314"/>
         <source>Bandwidth</source>
         <translation>Bande passante</translation>
     </message>
@@ -446,12 +446,12 @@
 <context>
     <name>ChorusFilterGUIFactory</name>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1090"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1095"/>
         <source>Chorus</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1090"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1095"/>
         <source>Effects</source>
         <translation type="unfinished"></translation>
     </message>
@@ -480,9 +480,8 @@
         <translation>Sélectionner un fichier</translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.ui" line="39"/>
         <source>Convolution with impulse response:</source>
-        <translation>Convolution avec réponse impulsionnelle:</translation>
+        <translation type="vanished">Convolution avec réponse impulsionnelle:</translation>
     </message>
     <message>
         <location filename="../guis/ConvolutionFilterGUI.ui" line="62"/>
@@ -496,175 +495,240 @@
     </message>
     <message>
         <location filename="../guis/ConvolutionFilterGUI.ui" line="75"/>
-        <location filename="../guis/ConvolutionFilterGUI.ui" line="109"/>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="679"/>
+        <location filename="../guis/ConvolutionFilterGUI.ui" line="112"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="956"/>
         <source>No file selected</source>
         <translation>Aucun fichier sélectionné</translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.ui" line="92"/>
-        <source>Extract the loaded IR/FIR magnitude response and regenerate a sample-rate-matched FIR for the current audio device.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../guis/ConvolutionFilterGUI.ui" line="95"/>
-        <source>Create matched IR/FIR</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../guis/ConvolutionFilterGUI.ui" line="102"/>
+        <location filename="../guis/ConvolutionFilterGUI.ui" line="105"/>
         <source>Length:</source>
         <translatorcomment>Durée: (time)
 OR Longueur: (space)</translatorcomment>
         <translation>Durée:</translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="246"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="448"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="452"/>
         <source>Local IR/FIR</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="248"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="454"/>
         <source>Local IR/FIR:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="256"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="462"/>
         <source>Previous local IR/FIR</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="259"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="465"/>
         <source>Next local IR/FIR</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="266"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="450"/>
         <source>Local IR/FIR files are loaded from the config/IRs folder. Use only files that you are licensed to use.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="275"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="476"/>
         <source>Reset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="305"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="508"/>
         <source>Select impulse response file</source>
         <translation>Sélectionner un fichier de réponse impulsionnelle</translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="307"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="510"/>
         <source>Impulse response (*.wav *.flac *.ogg)</source>
         <translation>Réponse impulsionnelle (*.wav *.flac *.ogg)</translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="555"/>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="563"/>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="572"/>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="580"/>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="598"/>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="616"/>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="624"/>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="646"/>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="654"/>
-        <source>Convolution</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="555"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="756"/>
         <source>Could not determine the current device sample rate.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="563"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="764"/>
         <source>Select an IR/FIR file first.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="572"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="773"/>
         <source>Unsupported IR/FIR file.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="580"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="781"/>
         <source>The IR/FIR file has invalid metadata.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="598"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="823"/>
         <source>Could not read the IR/FIR samples.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="616"/>
-        <source>Could not regenerate a matched FIR from the loaded IR/FIR magnitude response.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="624"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="871"/>
         <source>The loaded IR/FIR already matches the current device sample rate and peak level.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="646"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="910"/>
         <source>Could not create the regenerated matched FIR file.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="654"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="919"/>
         <source>Could not write the complete regenerated matched FIR file.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="689"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="964"/>
         <source>File not found</source>
         <translation>Fichier non trouvé</translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="708"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="983"/>
         <source>The file is not readable for the audio service.
 Change the file permissions or copy the file to the config directory.</source>
         <translation>Le fichier n&apos;est pas lisible pour le service audio.
 Modifiez les autorisations du fichier ou copiez le fichier dans le répertoire de configuration.</translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="717"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="992"/>
         <source>Unsupported file format</source>
         <translation>Format de fichier non pris en charge</translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="725"/>
         <source>%0 ms (%1 samples)</source>
-        <translation>%0 ms (%1 échantillons)</translation>
+        <translation type="vanished">%0 ms (%1 échantillons)</translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="726"/>
         <source>%0 Hz</source>
-        <translation>%0 Hz</translation>
+        <translation type="vanished">%0 Hz</translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="731"/>
-        <source>The loaded IR/FIR sample rate does not match the current device sample rate (%0 Hz). Creating a matched, normalized FIR...</source>
+        <location filename="../guis/ConvolutionFilterGUI.ui" line="39"/>
+        <source>IR file:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/ConvolutionFilterGUI.cpp" line="739"/>
-        <source>The loaded IR/FIR sample rate does not match the current device sample rate (%0 Hz), and automatic matching failed. Export a native FIR from GraphicEQ or choose a matching IR/FIR.</source>
+        <location filename="../guis/ConvolutionFilterGUI.ui" line="95"/>
+        <source>Rebuild a normalized minimum-phase FIR from the loaded magnitude response at the current device sample rate. Original phase and delay are not preserved.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/ConvolutionFilterGUI.ui" line="98"/>
+        <source>Rebuild matched FIR</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="756"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="764"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="773"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="781"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="791"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="805"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="823"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="829"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="838"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="856"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="864"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="871"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="883"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="910"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="919"/>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="929"/>
+        <source>IR convolution</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="792"/>
+        <source>The IR/FIR file is too large to process safely.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="806"/>
+        <source>There is not enough memory to process this IR/FIR file.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="830"/>
+        <source>The IR/FIR file ended before all declared samples were read.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="839"/>
+        <source>The IR/FIR file contains invalid sample values.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="856"/>
+        <source>Could not rebuild a sample-rate-matched minimum-phase FIR from the loaded IR/FIR magnitude response.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="865"/>
+        <source>The IR/FIR response is silent or invalid and cannot be normalized.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="1006"/>
+        <source>The IR/FIR file metadata is invalid or exceeds the safe processing limit.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="1013"/>
+        <source>%1 ms (%2 samples)</source>
+        <translation>%1 ms (%2 échantillons)</translation>
+    </message>
+    <message>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="1015"/>
+        <source>%1 Hz</source>
+        <translation>%1 Hz</translation>
+    </message>
+    <message>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="1022"/>
+        <source>The loaded IR/FIR sample rate does not match the current device sample rate (%1 Hz). Select Rebuild matched FIR to create a compatible minimum-phase copy.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="1026"/>
+        <source>Could not determine the current device sample rate. Sample-rate matching is unavailable.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="884"/>
+        <source>Could not create the generated IR/FIR folder.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/ConvolutionFilterGUI.cpp" line="930"/>
+        <source>Could not replace the generated IR/FIR file.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>ConvolutionFilterGUIFactory</name>
     <message>
-        <location filename="../guis/ConvolutionFilterGUIFactory.cpp" line="49"/>
         <source>Convolution (Convolution with impulse response)</source>
-        <translation>Convolution (Convolution avec réponse impulsionnelle)</translation>
+        <translation type="vanished">Convolution (Convolution avec réponse impulsionnelle)</translation>
     </message>
     <message>
         <location filename="../guis/ConvolutionFilterGUIFactory.cpp" line="49"/>
         <source>Advanced filters</source>
         <translation>Filtres avancés</translation>
+    </message>
+    <message>
+        <location filename="../guis/ConvolutionFilterGUIFactory.cpp" line="49"/>
+        <source>IR convolution</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -685,7 +749,7 @@ Modifiez les autorisations du fichier ou copiez le fichier dans le répertoire d
         <translation>Assignations</translation>
     </message>
     <message>
-        <location filename="../guis/CopyFilterGUI.cpp" line="49"/>
+        <location filename="../guis/CopyFilterGUI.cpp" line="72"/>
         <source>Reset</source>
         <translation type="unfinished"></translation>
     </message>
@@ -761,12 +825,12 @@ Supprimer un terme (d&apos;addition)</translatorcomment>
 <context>
     <name>CrossfeedFilterGUIFactory</name>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1080"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1085"/>
         <source>Crossfeed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1080"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1085"/>
         <source>Effects</source>
         <translation type="unfinished"></translation>
     </message>
@@ -775,7 +839,7 @@ Supprimer un terme (d&apos;addition)</translatorcomment>
     <name>DelayFilterGUI</name>
     <message>
         <location filename="../guis/DelayFilterGUI.ui" line="32"/>
-        <location filename="../guis/DelayFilterGUI.cpp" line="73"/>
+        <location filename="../guis/DelayFilterGUI.cpp" line="71"/>
         <source> ms</source>
         <translation> ms</translation>
     </message>
@@ -785,12 +849,12 @@ Supprimer un terme (d&apos;addition)</translatorcomment>
         <translation>Retard (delay):</translation>
     </message>
     <message>
-        <location filename="../guis/DelayFilterGUI.ui" line="69"/>
+        <location filename="../guis/DelayFilterGUI.ui" line="72"/>
         <source>Time</source>
         <translation>Durée</translation>
     </message>
     <message>
-        <location filename="../guis/DelayFilterGUI.ui" line="74"/>
+        <location filename="../guis/DelayFilterGUI.ui" line="77"/>
         <source>Samples</source>
         <translation>Échantillons</translation>
     </message>
@@ -800,7 +864,7 @@ Supprimer un terme (d&apos;addition)</translatorcomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/DelayFilterGUI.cpp" line="73"/>
+        <location filename="../guis/DelayFilterGUI.cpp" line="71"/>
         <source> samples</source>
         <translation> échantillons</translation>
     </message>
@@ -960,7 +1024,7 @@ Supprimer un terme (d&apos;addition)</translatorcomment>
 <context>
     <name>FilterTable</name>
     <message>
-        <location filename="../FilterTable.cpp" line="349"/>
+        <location filename="../FilterTable.cpp" line="351"/>
         <source>Add filter</source>
         <translation>Ajouter un filtre</translation>
     </message>
@@ -1158,7 +1222,7 @@ Supprimer un terme (d&apos;addition)</translatorcomment>
     </message>
     <message>
         <location filename="../guis/GraphicEQFilterGUI.cpp" line="691"/>
-        <source>Exported FIR at %0 Hz.</source>
+        <source>Exported FIR at %1 Hz.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1190,149 +1254,149 @@ Supprimer un terme (d&apos;addition)</translatorcomment>
 <context>
     <name>HeadphoneCalibrationFilterGUI</name>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="174"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="173"/>
         <source>Add GraphicEQ calibration</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="175"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="174"/>
         <source>Create FIR + add Convolution</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="176"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="175"/>
         <source>Add ParametricEQ calibration</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="177"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="176"/>
         <source>Export GraphicEQ CSV</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="178"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="177"/>
         <source>Export FIR .wav</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="179"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="178"/>
         <source>Export ParametricEQ</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="180"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="179"/>
         <source>Choose a headphone calibration.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="181"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="180"/>
         <source>This module loads a compatible catalog supplied by the user. No headphone-measurement dataset is bundled.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="275"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="264"/>
         <source>No compatible catalog was found. Add ash_hpcf_catalog.json under config/HeadphoneCalibrations.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="283"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="272"/>
         <source>The headphone calibration catalog could not be opened.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="293"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="282"/>
         <source>ASH catalog has no frequency axis.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="406"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="395"/>
         <source>No ASH calibration found for this selection.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="421"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="410"/>
         <source>Loaded ASH correction for %1.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="462"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="451"/>
         <source>Added ASH GraphicEQ calibration.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="469"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="458"/>
         <source>Create ASH FIR for current sample rate</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="469"/>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="524"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="458"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="513"/>
         <source>WAV files (*.wav)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="474"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="463"/>
         <source>Added ASH FIR at %1 Hz.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="483"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="472"/>
         <source>Added ASH ParametricEQ calibration.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="490"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="479"/>
         <source>Export ASH GraphicEQ CSV</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="490"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="479"/>
         <source>CSV files (*.csv);;Text files (*.txt);;All files (*.*)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="501"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="490"/>
         <source>Exported ASH GraphicEQ CSV.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="508"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="497"/>
         <source>Export ASH ParametricEQ</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="508"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="497"/>
         <source>Text files (*.txt);;All files (*.*)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="517"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="506"/>
         <source>Exported ASH ParametricEQ.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="524"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="513"/>
         <source>Export ASH FIR for current sample rate</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="526"/>
         <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="537"/>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="548"/>
         <source>Export FIR</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="537"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="526"/>
         <source>Could not generate FIR impulse response.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="548"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="537"/>
         <source>Could not create FIR file.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="553"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="542"/>
         <source>Exported ASH FIR at %1 Hz.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1340,12 +1404,12 @@ Supprimer un terme (d&apos;addition)</translatorcomment>
 <context>
     <name>HeadphoneCalibrationFilterGUIFactory</name>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="576"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="565"/>
         <source>Headphone calibration</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="576"/>
+        <location filename="../guis/HeadphoneCalibrationFilterGUIFactory.cpp" line="565"/>
         <source>Advanced filters</source>
         <translation type="unfinished">Filtres avancés</translation>
     </message>
@@ -1441,74 +1505,83 @@ Modifiez les autorisations du fichier ou copiez le fichier dans le répertoire d
         <translation>L’ancien mode de marge n’a pas d’équivalent direct ; le profil de formule utilise une marge automatique.</translation>
     </message>
     <message>
-        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="76"/>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="90"/>
         <source>Keep existing formula values</source>
         <translation>Conserver les valeurs de formule existantes</translation>
     </message>
     <message>
-        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="77"/>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="91"/>
         <source>Adds the formula marker while preserving the current values and enabled state.</source>
         <translation>Ajoute le marqueur de formule en conservant les valeurs actuelles et l’état d’activation.</translation>
     </message>
     <message>
-        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="90"/>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="104"/>
         <source>Convert original shelf profile</source>
         <translation>Convertir le profil shelving d’origine</translation>
     </message>
     <message>
-        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="91"/>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="105"/>
         <source>Convert and enable formula profile</source>
         <translation>Convertir et activer le profil de formule</translation>
     </message>
     <message>
-        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="95"/>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="109"/>
         <source>Maps the original neutral volume and correction strength to the formula profile, then enables it.</source>
         <translation>Convertit le volume neutre et l’intensité de correction d’origine pour le profil de formule, puis l’active.</translation>
     </message>
     <message>
-        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="97"/>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="111"/>
         <source>Maps the old neutral volume and strength to the formula profile, then enables it.</source>
         <translation>Convertit l’ancien volume neutre et l’intensité pour le profil de formule, puis l’active.</translation>
     </message>
     <message>
-        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="98"/>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="112"/>
         <source>Converts this disabled entry and enables the new formula profile.</source>
         <translation>Convertit cette entrée désactivée et active le nouveau profil de formule.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="76"/>
+        <source>Keep as original component</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LegacyLoudnessCorrectionFilterGUI.cpp" line="77"/>
+        <source>Moves this row to the separate original shelf component, preserving its original curve values and enabled state.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>LoudnessCorrectionFilterGUI</name>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="115"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="111"/>
         <source>Reference level:</source>
         <translation>Niveau de référence:</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="321"/>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="196"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="323"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="256"/>
         <source>Use this when a DAC or amplifier hardware knob controls the real listening level.</source>
         <translation>Utilisez cette option lorsqu’un bouton matériel du DAC ou de l’amplificateur contrôle le niveau d’écoute réel.</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="324"/>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="195"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="326"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="253"/>
         <source>Manual volume:</source>
         <translation>Volume manuel :</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="70"/>
         <source>contributed by
 Alexander Walch</source>
-        <translation>contribution de
+        <translation type="vanished">contribution de
 Alexander Walch</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="225"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="238"/>
         <source>Attenuation:</source>
         <translation>Atténuation:</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="170"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="173"/>
         <source>Reference offset:</source>
         <translation>Décalage de référence (offset):</translation>
     </message>
@@ -1519,59 +1592,54 @@ Alexander Walch</translation>
         <translation>Correction du Loudness:</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="282"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="284"/>
         <source>Volume binding:</source>
         <translation>Liaison du volume :</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="298"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="300"/>
         <source>Single follows the current APO playback endpoint. Global follows the Windows default Multimedia playback volume across all instances; use Global only when that master volume is the intended shared control. If a Matrix endpoint is muted or fixed, use Single or manual volume.</source>
         <translation>Unique suit le point de sortie de lecture APO actuel. Global suit le volume de lecture multimédia par défaut de Windows pour toutes les instances ; utilisez Global uniquement lorsque ce volume principal est la commande partagée prévue. Si un point de terminaison Matrix est muet ou fixe, utilisez Unique ou le volume manuel.</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="308"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="310"/>
         <source>Single endpoint</source>
         <translation>Point de sortie unique</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="313"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="315"/>
         <source>Global (Windows default)</source>
         <translation>Global (valeur par défaut de Windows)</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="385"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="440"/>
         <source>Calibrate</source>
         <translatorcomment>OR &quot;Étalonner&quot; only </translatorcomment>
         <translation>Étalonner</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="401"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="456"/>
         <source>Open the full visual editor with a live target-curve preview.</source>
         <translation>Ouvre l’éditeur visuel complet avec un aperçu en direct de la courbe cible.</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="404"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="459"/>
         <source>Studio…</source>
         <translation>Studio…</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="78"/>
-        <source>Reset</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="201"/>
         <source>Manual volume (required):</source>
-        <translation>Volume manuel (requis) :</translation>
+        <translation type="vanished">Volume manuel (requis) :</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="202"/>
         <source>Automatic volume is unavailable for this playback binding. Use manual volume for an input or unreadable endpoint.</source>
-        <translation>Le volume automatique n’est pas disponible pour cette liaison de lecture. Utilisez le volume manuel pour une entrée ou un point de sortie illisible.</translation>
+        <translation type="vanished">Le volume automatique n’est pas disponible pour cette liaison de lecture. Utilisez le volume manuel pour une entrée ou un point de sortie illisible.</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="381"/>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="400"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="464"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="472"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="549"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="578"/>
         <source>Calibration not applied</source>
         <translation>Étalonnage non appliqué</translation>
     </message>
@@ -1611,22 +1679,22 @@ Alexander Walch</translation>
         <translation>Désactivé</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="511"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="550"/>
         <source>Playback became muted, inaudible, or unavailable. The measured level was not applied; restore the endpoint and run calibration again.</source>
         <translation>La lecture est devenue muette, inaudible ou indisponible. Le niveau mesuré n’a pas été appliqué ; restaurez le point de terminaison et recommencez l’étalonnage.</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="455"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="473"/>
         <source>The bound playback endpoint is muted or set to zero volume. Unmute it and raise the Windows volume before calibrating.</source>
         <translation>Le point de terminaison de lecture lié est en sourdine ou réglé sur un volume nul. Réactivez le son et augmentez le volume Windows avant l’étalonnage.</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="447"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="465"/>
         <source>The bound playback volume could not be read. Reconnect the device or choose another readable playback binding, then try again.</source>
         <translation>Le volume de lecture lié n’a pas pu être lu. Reconnectez le périphérique ou choisissez une autre liaison de lecture lisible, puis réessayez.</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="540"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="579"/>
         <source>The selected volume-follow curve produced an inaudible level. Raise the volume and run calibration again.</source>
         <translation>La courbe de suivi du volume sélectionnée a produit un niveau inaudible. Augmentez le volume et recommencez l’étalonnage.</translation>
     </message>
@@ -1634,6 +1702,54 @@ Alexander Walch</translation>
         <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="396"/>
         <source>Windows (reported dB)</source>
         <translation>Windows (dB signalés)</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="66"/>
+        <source>Listening volume</source>
+        <translation type="unfinished">Volume d’écoute</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="84"/>
+        <source>Reset contour</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="88"/>
+        <source>Reset reference level, offset, and correction strength; listening and engine options are preserved.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="133"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="266"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="320"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="446"/>
+        <source>Unavailable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="262"/>
+        <source>Automatic volume is temporarily unavailable. The saved automatic mode is preserved and runtime correction pauses safely until the endpoint returns. Enable manual volume only if you want to replace automatic tracking.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="521"/>
+        <source>Calibration not started</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="522"/>
+        <source>Save the current profile and resolve any temporary audio state before calibrating.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="535"/>
+        <source>Audio processing was not restored</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="536"/>
+        <source>The temporary calibration state could not be restored automatically. Close the editor and use temporary audio recovery before continuing.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -1710,8 +1826,7 @@ Alexander Walch</translation>
     </message>
     <message>
         <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="106"/>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="92"/>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="266"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="171"/>
         <source>Ready to play</source>
         <translation>Prêt à lire</translation>
     </message>
@@ -1736,96 +1851,92 @@ Alexander Walch</translation>
         <translation>Après l’enregistrement, continuez à utiliser la même méthode de volume Windows ou de bouton matériel sélectionnée dans le filtre.</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="87"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="91"/>
         <source> dB SPL</source>
         <translation> dB SPL</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="88"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="92"/>
         <source>Enter the slow-response, Z-weighted (flat) reading measured at the listening position.</source>
         <translation>Saisissez la valeur mesurée à la position d’écoute avec une réponse lente et une pondération Z (plate).</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="90"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="94"/>
         <source>Measured sound pressure level</source>
         <translation>Niveau de pression acoustique mesuré</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="95"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="99"/>
         <source>Use measurement</source>
         <translation>Utiliser la mesure</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="111"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="194"/>
         <source>Playback device changed · signal stopped</source>
         <translation>Appareil de lecture modifié · signal arrêté</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="114"/>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="165"/>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="235"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="197"/>
         <source>Playback device mismatch</source>
         <translation>Appareil de lecture incompatible</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="115"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="199"/>
         <source>The Windows default playback device changed. Test noise was stopped to prevent calibration on the wrong speaker.</source>
         <translation>L’appareil de lecture par défaut de Windows a changé. Le bruit de test a été arrêté pour éviter un étalonnage sur le mauvais haut-parleur.</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="126"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="121"/>
         <source>Calibration playback status</source>
         <translation>État de la lecture d’étalonnage</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="162"/>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="232"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="195"/>
         <source>Playback blocked · default device mismatch</source>
         <translation>Lecture bloquée · appareil par défaut incompatible</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="166"/>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="236"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="200"/>
         <source>Make the selected playback device the Windows default playback device, then reopen calibration. No test noise was played.</source>
         <translation>Définissez l’appareil de lecture sélectionné comme appareil par défaut de Windows, puis rouvrez l’étalonnage. Aucun bruit de test n’a été lu.</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="173"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="282"/>
         <source>Preparing pink noise…</source>
         <translation>Préparation du bruit rose…</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="178"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="287"/>
         <source>Pink-noise resource could not be opened</source>
         <translation>Impossible d’ouvrir la ressource de bruit rose</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="185"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="294"/>
         <source>Pink-noise resource could not be decoded</source>
         <translation>Impossible de décoder la ressource de bruit rose</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="191"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="300"/>
         <source>Calibration audio buffer could not be created</source>
         <translation>Impossible de créer le tampon audio d’étalonnage</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="222"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="331"/>
         <source>Calibration signal could not be prepared</source>
         <translation>Impossible de préparer le signal d’étalonnage</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="244"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="347"/>
         <source>Windows could not start calibration playback</source>
         <translation>Windows n’a pas pu démarrer la lecture d’étalonnage</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="251"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="360"/>
         <source>Playing on the left speaker</source>
         <translation>Lecture sur le haut-parleur gauche</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="252"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="361"/>
         <source>Playing on the right speaker</source>
         <translation>Lecture sur le haut-parleur droit</translation>
     </message>
@@ -1893,12 +2004,12 @@ Alexander Walch</translation>
 <context>
     <name>LoudnessCorrectionFilterGUIFactory</name>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIFactory.cpp" line="256"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIFactory.cpp" line="277"/>
         <source>Loudness correction</source>
         <translation>Correction du Loudness</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIFactory.cpp" line="256"/>
+        <location filename="../guis/LoudnessCorrectionFilterGUIFactory.cpp" line="277"/>
         <source>Advanced filters</source>
         <translation>Filtres avancés</translation>
     </message>
@@ -2048,79 +2159,87 @@ Alexander Walch</translation>
         <translation>Appliquer les modifications</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="566"/>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="571"/>
         <source>%1 phon · %2 dB · %3%</source>
         <translation>%1 phon · %2 dB · %3%</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="570"/>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="575"/>
         <source>Estimated %1 phon · %2% strength</source>
         <translation>Force estimée : %1 phon · %2%</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="580"/>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="585"/>
         <source>Manual · %1 dB</source>
         <translation>Manuel · %1 dB</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="582"/>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="587"/>
         <source>Use the same hardware volume position represented by this value.</source>
         <translation>Utilisez la même position du volume matériel que celle représentée par cette valeur.</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="588"/>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="593"/>
         <source>Check after apply</source>
         <translation>Vérifier après application</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="589"/>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="594"/>
         <source>The new binding will be verified when these changes are applied.</source>
         <translation>La nouvelle liaison sera vérifiée lors de l’application de ces modifications.</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="595"/>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="600"/>
         <source>Automatic · %1 dB</source>
         <translation>Automatique · %1 dB</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="599"/>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="604"/>
         <source>Tracks the Windows default Multimedia playback volume.</source>
         <translation>Suit le volume de lecture multimédia par défaut de Windows.</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="600"/>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="605"/>
         <source>Tracks the selected APO playback endpoint.</source>
         <translation>Suit le point de sortie de lecture APO sélectionné.</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="605"/>
         <source>Manual volume required</source>
-        <translation>Volume manuel requis</translation>
+        <translation type="vanished">Volume manuel requis</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="606"/>
         <source>Automatic volume is unavailable for the current playback binding.</source>
-        <translation>Le volume automatique n’est pas disponible pour la liaison de lecture actuelle.</translation>
+        <translation type="vanished">Le volume automatique n’est pas disponible pour la liaison de lecture actuelle.</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="723"/>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="734"/>
         <source>20 Hz</source>
         <translation>20 Hz</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="725"/>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="736"/>
         <source>1 kHz</source>
         <translation>1 kHz</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="727"/>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="738"/>
         <source>12.5 kHz</source>
         <translation>12,5 kHz</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="729"/>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="740"/>
         <source>±%1 dB</source>
         <translation>±%1 dB</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="610"/>
+        <source>Automatic volume unavailable · paused</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionStudioDialog.cpp" line="611"/>
+        <source>Automatic mode is preserved. Runtime correction resumes when the endpoint volume is readable again.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -2243,7 +2362,7 @@ Alexander Walch</translation>
     </message>
     <message>
         <location filename="../MainWindow.ui" line="360"/>
-        <location filename="../MainWindow.cpp" line="1080"/>
+        <location filename="../MainWindow.cpp" line="1163"/>
         <source>Exit</source>
         <translation>Sortie</translation>
     </message>
@@ -2283,863 +2402,1306 @@ Alexander Walch</translation>
         <translation>Tout sélectionner</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="717"/>
         <source>Equalizer APO %0 Configuration Editor</source>
-        <translation>Equalizer APO %0 Éditeur de configuration</translation>
+        <translation type="vanished">Equalizer APO %0 Éditeur de configuration</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="730"/>
-        <location filename="../MainWindow.cpp" line="1069"/>
+        <location filename="../MainWindow.cpp" line="807"/>
+        <location filename="../MainWindow.cpp" line="1152"/>
         <source>Instant mode</source>
         <translation>Mode instantané</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="733"/>
+        <location filename="../MainWindow.cpp" line="810"/>
         <source>Changes are saved immediately</source>
         <translation>Les modifications sont enregistrées immédiatement</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="741"/>
+        <location filename="../MainWindow.cpp" line="818"/>
         <source>Device: </source>
         <translation>Périphérique: </translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="756"/>
+        <location filename="../MainWindow.cpp" line="833"/>
         <source>Channel configuration: </source>
         <translation>Configuration des canaux: </translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="778"/>
+        <location filename="../MainWindow.cpp" line="855"/>
         <source>Default</source>
         <translation>Défaut</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="780"/>
+        <location filename="../MainWindow.cpp" line="857"/>
         <source>Playback devices:</source>
         <translation>Périphériques de lecture:</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="791"/>
+        <location filename="../MainWindow.cpp" line="868"/>
         <source>Capture devices:</source>
         <translation>Périphériques de capture:</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="810"/>
+        <location filename="../MainWindow.cpp" line="887"/>
         <source>Headroom:</source>
         <translation>Marge :</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="813"/>
+        <location filename="../MainWindow.cpp" line="890"/>
         <source>Estimated headroom</source>
         <translation>Marge estimée</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="877"/>
+        <location filename="../MainWindow.cpp" line="895"/>
         <source>Analysis status</source>
         <translation>État de l’analyse</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="820"/>
+        <location filename="../MainWindow.cpp" line="892"/>
         <source>Waiting for analysis</source>
         <translation>En attente de l’analyse</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="825"/>
+        <location filename="../MainWindow.cpp" line="899"/>
         <source>Auto preamp (current ≤ 0 dB)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="827"/>
+        <location filename="../MainWindow.cpp" line="901"/>
         <source>One-time estimated cut for a supported static per-channel chain from the latest saved current-file analysis; review and save manually</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="851"/>
         <source>Automatic (%0)</source>
-        <translation>Automatique (%0)</translation>
+        <translation type="vanished">Automatique (%0)</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="888"/>
+        <location filename="../MainWindow.cpp" line="961"/>
         <source>Workspace tools</source>
         <translation>Outils de l’espace de travail</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="896"/>
+        <location filename="../MainWindow.cpp" line="969"/>
         <source>Profile:</source>
         <translation>Profil :</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="904"/>
+        <location filename="../MainWindow.cpp" line="977"/>
         <source>Configuration profile</source>
         <translation>Profil de configuration</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="905"/>
+        <location filename="../MainWindow.cpp" line="978"/>
         <source>Open a configuration profile from the Equalizer APO config folder</source>
         <translation>Ouvrir un profil de configuration depuis le dossier de configuration d’Equalizer APO</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="911"/>
-        <location filename="../MainWindow.cpp" line="1331"/>
+        <location filename="../MainWindow.cpp" line="984"/>
+        <location filename="../MainWindow.cpp" line="1414"/>
         <source>Duplicate profile</source>
         <translation>Dupliquer le profil</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="912"/>
+        <location filename="../MainWindow.cpp" line="985"/>
         <source>Duplicate the current profile</source>
         <translation>Dupliquer le profil actuel</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="918"/>
+        <location filename="../MainWindow.cpp" line="991"/>
         <source>Find a filter or setting…</source>
         <translation>Rechercher un filtre ou un réglage…</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="922"/>
+        <location filename="../MainWindow.cpp" line="995"/>
         <source>Find a filter or setting</source>
         <translation>Rechercher un filtre ou un réglage</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="929"/>
+        <location filename="../MainWindow.cpp" line="1002"/>
         <source>Find next</source>
         <translation>Rechercher suivant</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="931"/>
+        <location filename="../MainWindow.cpp" line="1004"/>
         <source>Find next (F3)</source>
         <translation>Rechercher suivant (F3)</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="934"/>
+        <location filename="../MainWindow.cpp" line="1007"/>
         <source>Find previous</source>
         <translation>Rechercher précédent</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="939"/>
+        <location filename="../MainWindow.cpp" line="1012"/>
         <source>Find</source>
         <translation>Rechercher</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="960"/>
+        <location filename="../MainWindow.cpp" line="1033"/>
         <source>Capture A</source>
         <translation>Capturer A</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="961"/>
+        <location filename="../MainWindow.cpp" line="1034"/>
         <source>Capture the current filter state as comparison A</source>
         <translation>Capturer l’état actuel du filtre comme comparaison A</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="966"/>
-        <location filename="../MainWindow.cpp" line="2166"/>
-        <location filename="../MainWindow.cpp" line="2277"/>
-        <location filename="../MainWindow.cpp" line="2317"/>
-        <location filename="../MainWindow.cpp" line="2527"/>
+        <location filename="../MainWindow.cpp" line="1039"/>
+        <location filename="../MainWindow.cpp" line="2459"/>
+        <location filename="../MainWindow.cpp" line="2570"/>
+        <location filename="../MainWindow.cpp" line="2610"/>
+        <location filename="../MainWindow.cpp" line="2823"/>
         <source>Compare A</source>
         <translation>Comparer A</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="969"/>
+        <location filename="../MainWindow.cpp" line="1042"/>
         <source>Switch between captured A and the current B state</source>
         <translation>Basculer entre A capturé et l’état B actuel</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="974"/>
-        <location filename="../MainWindow.cpp" line="2490"/>
-        <location filename="../MainWindow.cpp" line="2546"/>
+        <location filename="../MainWindow.cpp" line="1047"/>
+        <location filename="../MainWindow.cpp" line="2783"/>
+        <location filename="../MainWindow.cpp" line="2842"/>
         <source>Bypass</source>
         <translation>Contourner</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="977"/>
+        <location filename="../MainWindow.cpp" line="1050"/>
         <source>Temporarily bypass every command in the current profile</source>
         <translation>Contourner temporairement toutes les commandes du profil actuel</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="983"/>
-        <location filename="../MainWindow.cpp" line="1154"/>
+        <location filename="../MainWindow.cpp" line="1056"/>
+        <location filename="../MainWindow.cpp" line="1237"/>
         <source>Ready</source>
         <translation>Prêt</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="988"/>
+        <location filename="../MainWindow.cpp" line="1061"/>
         <source>Workspace status</source>
         <translation>État de l’espace de travail</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="992"/>
-        <location filename="../MainWindow.cpp" line="1067"/>
+        <location filename="../MainWindow.cpp" line="1065"/>
+        <location filename="../MainWindow.cpp" line="1150"/>
         <source>Profiles</source>
         <translation>Profils</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="996"/>
+        <location filename="../MainWindow.cpp" line="1069"/>
         <source>Open profile</source>
         <translation>Ouvrir le profil</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1000"/>
+        <location filename="../MainWindow.cpp" line="1073"/>
         <source>Duplicate current profile…</source>
         <translation>Dupliquer le profil actuel…</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1004"/>
+        <location filename="../MainWindow.cpp" line="1077"/>
         <source>Rename current profile…</source>
         <translation>Renommer le profil actuel…</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1009"/>
+        <location filename="../MainWindow.cpp" line="1082"/>
         <source>Import profile…</source>
         <translation>Importer un profil…</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1013"/>
+        <location filename="../MainWindow.cpp" line="1086"/>
         <source>Export current profile…</source>
         <translation>Exporter le profil actuel…</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1018"/>
+        <location filename="../MainWindow.cpp" line="1091"/>
         <source>Link current profile to selected device</source>
         <translation>Lier le profil actuel à l’appareil sélectionné</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1020"/>
+        <location filename="../MainWindow.cpp" line="1093"/>
         <source>Clear selected device profile link</source>
         <translation>Effacer le lien du profil de l’appareil sélectionné</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1024"/>
+        <location filename="../MainWindow.cpp" line="1097"/>
         <source>Keep running in the notification area</source>
         <translation>Continuer à exécuter dans la zone de notification</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1046"/>
-        <location filename="../MainWindow.cpp" line="2644"/>
+        <location filename="../MainWindow.cpp" line="1129"/>
+        <location filename="../MainWindow.cpp" line="2940"/>
         <source>The Windows notification area is unavailable</source>
         <translation>La zone de notification Windows est indisponible</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1056"/>
+        <location filename="../MainWindow.cpp" line="1139"/>
         <source>Equalizer APO Configuration Editor</source>
         <translation>Éditeur de configuration d’Equalizer APO</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1059"/>
+        <location filename="../MainWindow.cpp" line="1142"/>
         <source>Show Configuration Editor</source>
         <translation>Afficher l’éditeur de configuration</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1147"/>
         <source>Equalizer APO · %0</source>
-        <translation>Equalizer APO · %0</translation>
+        <translation type="vanished">Equalizer APO · %0</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1182"/>
         <source>No configuration profiles were found in %0</source>
-        <translation>Aucun profil de configuration trouvé dans %0</translation>
+        <translation type="vanished">Aucun profil de configuration trouvé dans %0</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1183"/>
         <source>Open a configuration profile from %0</source>
-        <translation>Ouvrir un profil de configuration depuis %0</translation>
+        <translation type="vanished">Ouvrir un profil de configuration depuis %0</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1225"/>
-        <location filename="../MainWindow.cpp" line="1312"/>
         <source>Opened %0</source>
-        <translation>%0 ouvert</translation>
+        <translation type="vanished">%0 ouvert</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1233"/>
-        <location filename="../MainWindow.cpp" line="1235"/>
+        <location filename="../MainWindow.cpp" line="1316"/>
+        <location filename="../MainWindow.cpp" line="1318"/>
         <source>No profiles found</source>
         <translation>Aucun profil trouvé</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1322"/>
+        <location filename="../MainWindow.cpp" line="1405"/>
         <source>Open a profile before duplicating it</source>
         <translation>Ouvrez un profil avant de le dupliquer</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1327"/>
+        <location filename="../MainWindow.cpp" line="1410"/>
         <source>New profile</source>
         <translation>Nouveau profil</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1328"/>
+        <location filename="../MainWindow.cpp" line="1411"/>
         <source> copy</source>
         <translation> copie</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1331"/>
-        <location filename="../MainWindow.cpp" line="1456"/>
+        <location filename="../MainWindow.cpp" line="1414"/>
+        <location filename="../MainWindow.cpp" line="1539"/>
         <source>Profile name:</source>
         <translation>Nom du profil :</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1339"/>
-        <location filename="../MainWindow.cpp" line="1396"/>
-        <location filename="../MainWindow.cpp" line="1463"/>
+        <location filename="../MainWindow.cpp" line="1422"/>
+        <location filename="../MainWindow.cpp" line="1479"/>
+        <location filename="../MainWindow.cpp" line="1546"/>
         <source>Invalid profile name</source>
         <translation>Nom de profil non valide</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1340"/>
+        <location filename="../MainWindow.cpp" line="1423"/>
         <source>Use a file name without &lt; &gt; : &quot; / \ | ? * and without a trailing space or period.</source>
         <translation>Utilisez un nom de fichier sans &lt; &gt; : &quot; / \ | ? * et sans espace ou point final.</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1346"/>
-        <location filename="../MainWindow.cpp" line="1405"/>
-        <location filename="../MainWindow.cpp" line="1469"/>
+        <location filename="../MainWindow.cpp" line="1429"/>
+        <location filename="../MainWindow.cpp" line="1488"/>
+        <location filename="../MainWindow.cpp" line="1552"/>
         <source>Profile already exists</source>
         <translation>Le profil existe déjà</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1347"/>
-        <location filename="../MainWindow.cpp" line="1406"/>
-        <location filename="../MainWindow.cpp" line="1470"/>
         <source>A profile named %0 already exists.</source>
-        <translation>Un profil nommé %0 existe déjà.</translation>
+        <translation type="vanished">Un profil nommé %0 existe déjà.</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1357"/>
         <source>Created %0</source>
-        <translation>%0 créé</translation>
+        <translation type="vanished">%0 créé</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1368"/>
-        <location filename="../MainWindow.cpp" line="1373"/>
+        <location filename="../MainWindow.cpp" line="1451"/>
+        <location filename="../MainWindow.cpp" line="1456"/>
         <source>Save the profile before renaming it</source>
         <translation>Enregistrez le profil avant de le renommer</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1378"/>
+        <location filename="../MainWindow.cpp" line="1461"/>
         <source>Only profiles in the Equalizer APO config folder can be renamed</source>
         <translation>Seuls les profils du dossier de configuration d’Equalizer APO peuvent être renommés</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1383"/>
+        <location filename="../MainWindow.cpp" line="1466"/>
         <source>config.txt is the active root configuration and cannot be renamed here</source>
         <translation>config.txt est la configuration racine active et ne peut pas être renommé ici</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1389"/>
-        <location filename="../MainWindow.cpp" line="1409"/>
+        <location filename="../MainWindow.cpp" line="1472"/>
+        <location filename="../MainWindow.cpp" line="1492"/>
         <source>Rename profile</source>
         <translation>Renommer le profil</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1389"/>
+        <location filename="../MainWindow.cpp" line="1472"/>
         <source>New profile name:</source>
         <translation>Nouveau nom de profil :</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1397"/>
+        <location filename="../MainWindow.cpp" line="1480"/>
         <source>Use a valid Windows file name without a trailing space or period.</source>
         <translation>Utilisez un nom de fichier Windows valide, sans espace ni point final.</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1410"/>
         <source>References to %0 inside other configuration files are not changed automatically. Rename it anyway?</source>
-        <translation>Les références à %0 dans d’autres fichiers de configuration ne sont pas modifiées automatiquement. Le renommer quand même ?</translation>
+        <translation type="vanished">Les références à %0 dans d’autres fichiers de configuration ne sont pas modifiées automatiquement. Le renommer quand même ?</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1416"/>
+        <location filename="../MainWindow.cpp" line="1499"/>
         <source>Rename failed</source>
         <translation>Échec du changement de nom</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1417"/>
+        <location filename="../MainWindow.cpp" line="1500"/>
         <source>Could not rename the profile. Check file permissions and try again.</source>
         <translation>Impossible de renommer le profil. Vérifiez les autorisations du fichier et réessayez.</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1442"/>
         <source>Renamed profile to %0</source>
-        <translation>Profil renommé en %0</translation>
+        <translation type="vanished">Profil renommé en %0</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1450"/>
-        <location filename="../MainWindow.cpp" line="1456"/>
+        <location filename="../MainWindow.cpp" line="1533"/>
+        <location filename="../MainWindow.cpp" line="1539"/>
         <source>Import profile</source>
         <translation>Importer un profil</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1463"/>
+        <location filename="../MainWindow.cpp" line="1546"/>
         <source>Enter a valid Windows file name.</source>
         <translation>Saisissez un nom de fichier Windows valide.</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1475"/>
+        <location filename="../MainWindow.cpp" line="1558"/>
         <source>Import failed</source>
         <translation>Échec de l’importation</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1476"/>
+        <location filename="../MainWindow.cpp" line="1559"/>
         <source>The profile could not be copied into the Equalizer APO config folder.</source>
         <translation>Impossible de copier le profil dans le dossier de configuration d’Equalizer APO.</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1483"/>
         <source>Imported %0</source>
-        <translation>%0 importé</translation>
+        <translation type="vanished">%0 importé</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1493"/>
+        <location filename="../MainWindow.cpp" line="1576"/>
         <source>Open a profile before exporting it</source>
         <translation>Ouvrez un profil avant de l’exporter</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1499"/>
+        <location filename="../MainWindow.cpp" line="1582"/>
         <source>Export profile</source>
         <translation>Exporter le profil</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1507"/>
         <source>Exported profile to %0</source>
-        <translation>Profil exporté vers %0</translation>
+        <translation type="vanished">Profil exporté vers %0</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1537"/>
+        <location filename="../MainWindow.cpp" line="1620"/>
         <source>Select a saved profile and playback device first</source>
         <translation>Sélectionnez d’abord un profil enregistré et un appareil de lecture</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1542"/>
         <source>Linked %0 to the selected device</source>
-        <translation>%0 lié à l’appareil sélectionné</translation>
+        <translation type="vanished">%0 lié à l’appareil sélectionné</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1550"/>
+        <location filename="../MainWindow.cpp" line="1633"/>
         <source>Select a playback device first</source>
         <translation>Sélectionnez d’abord un appareil de lecture</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1555"/>
+        <location filename="../MainWindow.cpp" line="1638"/>
         <source>Cleared the selected device profile link</source>
         <translation>Lien du profil de l’appareil sélectionné effacé</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1571"/>
-        <location filename="../MainWindow.cpp" line="1589"/>
         <source>No filter or setting matches “%0”</source>
-        <translation>Aucun filtre ni réglage ne correspond à « %0 »</translation>
+        <translation type="vanished">Aucun filtre ni réglage ne correspond à « %0 »</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1573"/>
-        <location filename="../MainWindow.cpp" line="1591"/>
         <source>Match on row %0</source>
-        <translation>Correspondance à la ligne %0</translation>
+        <translation type="vanished">Correspondance à la ligne %0</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1712"/>
+        <location filename="../MainWindow.cpp" line="1883"/>
+        <location filename="../MainWindow.cpp" line="2005"/>
         <source>The current profile could not be read; temporary audio remains active</source>
         <translation>Impossible de lire le profil actuel ; l’état audio temporaire reste actif</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1725"/>
+        <location filename="../MainWindow.cpp" line="1890"/>
+        <location filename="../MainWindow.cpp" line="2018"/>
         <source>External profile change</source>
         <translation>Modification externe du profil</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1726"/>
-        <location filename="../MainWindow.cpp" line="2070"/>
+        <location filename="../MainWindow.cpp" line="1891"/>
+        <location filename="../MainWindow.cpp" line="2019"/>
+        <location filename="../MainWindow.cpp" line="2363"/>
         <source>This profile changed in another program while temporary audio was active. Restore saved profile will overwrite those external changes.</source>
         <translation>Ce profil a été modifié dans un autre programme alors que l’état audio temporaire était actif. « Rétablir le profil enregistré » écrasera ces modifications externes.</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1732"/>
-        <location filename="../MainWindow.cpp" line="2076"/>
+        <location filename="../MainWindow.cpp" line="1897"/>
+        <location filename="../MainWindow.cpp" line="2025"/>
+        <location filename="../MainWindow.cpp" line="2369"/>
         <source>Keep external changes</source>
         <translation>Conserver les modifications externes</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1739"/>
-        <location filename="../MainWindow.cpp" line="2237"/>
-        <location filename="../MainWindow.cpp" line="2282"/>
-        <location filename="../MainWindow.cpp" line="2397"/>
-        <location filename="../MainWindow.cpp" line="2447"/>
+        <location filename="../MainWindow.cpp" line="1918"/>
+        <location filename="../MainWindow.cpp" line="2032"/>
+        <location filename="../MainWindow.cpp" line="2530"/>
+        <location filename="../MainWindow.cpp" line="2575"/>
+        <location filename="../MainWindow.cpp" line="2690"/>
+        <location filename="../MainWindow.cpp" line="2740"/>
         <source>Kept external profile changes</source>
         <translation>Modifications externes du profil conservées</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2069"/>
+        <location filename="../MainWindow.cpp" line="2362"/>
         <source>Temporary audio recovery</source>
         <translation>Récupération audio temporaire</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1730"/>
-        <location filename="../MainWindow.cpp" line="2074"/>
+        <location filename="../MainWindow.cpp" line="1895"/>
+        <location filename="../MainWindow.cpp" line="2023"/>
+        <location filename="../MainWindow.cpp" line="2367"/>
         <source>Restore saved profile</source>
         <translation>Rétablir le profil enregistré</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2085"/>
-        <location filename="../MainWindow.cpp" line="2117"/>
+        <location filename="../MainWindow.cpp" line="2378"/>
+        <location filename="../MainWindow.cpp" line="2410"/>
         <source>Kept the current profile; no file was overwritten</source>
         <translation>Profil actuel conservé ; aucun fichier n’a été écrasé</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1746"/>
-        <location filename="../MainWindow.cpp" line="1814"/>
-        <location filename="../MainWindow.cpp" line="1951"/>
-        <location filename="../MainWindow.cpp" line="1962"/>
-        <location filename="../MainWindow.cpp" line="2123"/>
-        <location filename="../MainWindow.cpp" line="2189"/>
-        <location filename="../MainWindow.cpp" line="2222"/>
-        <location filename="../MainWindow.cpp" line="2267"/>
-        <location filename="../MainWindow.cpp" line="2308"/>
-        <location filename="../MainWindow.cpp" line="2320"/>
-        <location filename="../MainWindow.cpp" line="2336"/>
-        <location filename="../MainWindow.cpp" line="2368"/>
-        <location filename="../MainWindow.cpp" line="2431"/>
-        <location filename="../MainWindow.cpp" line="2478"/>
-        <location filename="../MainWindow.cpp" line="2504"/>
+        <location filename="../MainWindow.cpp" line="1765"/>
+        <location filename="../MainWindow.cpp" line="1831"/>
+        <location filename="../MainWindow.cpp" line="1836"/>
+        <location filename="../MainWindow.cpp" line="2039"/>
+        <location filename="../MainWindow.cpp" line="2107"/>
+        <location filename="../MainWindow.cpp" line="2244"/>
+        <location filename="../MainWindow.cpp" line="2255"/>
+        <location filename="../MainWindow.cpp" line="2416"/>
+        <location filename="../MainWindow.cpp" line="2482"/>
+        <location filename="../MainWindow.cpp" line="2515"/>
+        <location filename="../MainWindow.cpp" line="2560"/>
+        <location filename="../MainWindow.cpp" line="2601"/>
+        <location filename="../MainWindow.cpp" line="2613"/>
+        <location filename="../MainWindow.cpp" line="2629"/>
+        <location filename="../MainWindow.cpp" line="2661"/>
+        <location filename="../MainWindow.cpp" line="2724"/>
+        <location filename="../MainWindow.cpp" line="2771"/>
+        <location filename="../MainWindow.cpp" line="2800"/>
         <source>A temporary audio state could not be recovered automatically</source>
         <translation>Impossible de récupérer automatiquement un état audio temporaire</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="640"/>
+        <location filename="../MainWindow.cpp" line="715"/>
         <source>Dock analysis panel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="643"/>
+        <location filename="../MainWindow.cpp" line="718"/>
         <source>Return the analysis panel to the bottom of the editor</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2129"/>
+        <location filename="../MainWindow.cpp" line="794"/>
+        <source>Equalizer APO %1 Configuration Editor</source>
+        <translation>Equalizer APO %1 Éditeur de configuration</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="924"/>
+        <source>Automatic (%1)</source>
+        <translation>Automatique (%1)</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1230"/>
+        <source>Equalizer APO · %1</source>
+        <translation>Equalizer APO · %1</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1265"/>
+        <source>No configuration profiles were found in %1</source>
+        <translation>Aucun profil de configuration trouvé dans %1</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1266"/>
+        <source>Open a configuration profile from %1</source>
+        <translation>Ouvrir un profil de configuration depuis %1</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1308"/>
+        <location filename="../MainWindow.cpp" line="1395"/>
+        <source>Opened %1</source>
+        <translation>%1 ouvert</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1430"/>
+        <location filename="../MainWindow.cpp" line="1489"/>
+        <location filename="../MainWindow.cpp" line="1553"/>
+        <source>A profile named %1 already exists.</source>
+        <translation>Un profil nommé %1 existe déjà.</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1440"/>
+        <source>Created %1</source>
+        <translation>%1 créé</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1493"/>
+        <source>References to %1 inside other configuration files are not changed automatically. Rename it anyway?</source>
+        <translation>Les références à %1 dans d’autres fichiers de configuration ne sont pas modifiées automatiquement. Le renommer quand même ?</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1525"/>
+        <source>Renamed profile to %1</source>
+        <translation>Profil renommé en %1</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1566"/>
+        <source>Imported %1</source>
+        <translation>%1 importé</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1590"/>
+        <source>Exported profile to %1</source>
+        <translation>Profil exporté vers %1</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1625"/>
+        <source>Linked %1 to the selected device</source>
+        <translation>%1 lié à l’appareil sélectionné</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1654"/>
+        <location filename="../MainWindow.cpp" line="1672"/>
+        <source>No filter or setting matches “%1”</source>
+        <translation>Aucun filtre ni réglage ne correspond à « %1 »</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1656"/>
+        <location filename="../MainWindow.cpp" line="1674"/>
+        <source>Match on row %1</source>
+        <translation>Correspondance à la ligne %1</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1754"/>
+        <source>Save the profile before configuring MIDI</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1788"/>
+        <location filename="../MainWindow.cpp" line="1815"/>
+        <source>The profile changed outside the editor; MIDI configuration was not started</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1847"/>
+        <source>This row temporarily released its MIDI input</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="2422"/>
         <source>Recovered the profile from an interrupted temporary audio state</source>
         <translation>Profil récupéré depuis un état audio temporaire interrompu</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2140"/>
-        <location filename="../MainWindow.cpp" line="2201"/>
+        <location filename="../MainWindow.cpp" line="2433"/>
+        <location filename="../MainWindow.cpp" line="2494"/>
         <source>Save the profile before starting an audible A/B comparison</source>
         <translation>Enregistrez le profil avant de lancer une comparaison A/B audible</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2168"/>
+        <location filename="../MainWindow.cpp" line="2461"/>
         <source>Captured comparison A. Make changes, then choose Compare A.</source>
         <translation>Comparaison A capturée. Effectuez vos modifications, puis choisissez « Comparer A ».</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2180"/>
+        <location filename="../MainWindow.cpp" line="2473"/>
         <source>Comparison A belongs to another profile. Capture it again here.</source>
         <translation>La comparaison A appartient à un autre profil. Capturez-la à nouveau ici.</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2238"/>
-        <location filename="../MainWindow.cpp" line="2249"/>
-        <location filename="../MainWindow.cpp" line="2283"/>
+        <location filename="../MainWindow.cpp" line="2531"/>
+        <location filename="../MainWindow.cpp" line="2542"/>
+        <location filename="../MainWindow.cpp" line="2576"/>
         <source>Could not activate comparison A</source>
         <translation>Impossible d’activer la comparaison A</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2263"/>
-        <location filename="../MainWindow.cpp" line="2290"/>
-        <location filename="../MainWindow.cpp" line="2305"/>
+        <location filename="../MainWindow.cpp" line="2556"/>
+        <location filename="../MainWindow.cpp" line="2583"/>
+        <location filename="../MainWindow.cpp" line="2598"/>
         <source>Return to B</source>
         <translation>Revenir à B</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2291"/>
+        <location filename="../MainWindow.cpp" line="2584"/>
         <source>Listening to captured A</source>
         <translation>Écoute de A capturé</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2319"/>
+        <location filename="../MainWindow.cpp" line="2612"/>
         <source>Returned to current B</source>
         <translation>Retour à B actuel</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2348"/>
+        <location filename="../MainWindow.cpp" line="2641"/>
         <source>Save the profile before using audible bypass</source>
         <translation>Enregistrez le profil avant d’utiliser le contournement audible</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2398"/>
-        <location filename="../MainWindow.cpp" line="2414"/>
-        <location filename="../MainWindow.cpp" line="2448"/>
+        <location filename="../MainWindow.cpp" line="2691"/>
+        <location filename="../MainWindow.cpp" line="2707"/>
+        <location filename="../MainWindow.cpp" line="2741"/>
         <source>Could not activate temporary bypass</source>
         <translation>Impossible d’activer le contournement temporaire</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2427"/>
-        <location filename="../MainWindow.cpp" line="2454"/>
-        <location filename="../MainWindow.cpp" line="2476"/>
+        <location filename="../MainWindow.cpp" line="2720"/>
+        <location filename="../MainWindow.cpp" line="2747"/>
+        <location filename="../MainWindow.cpp" line="2769"/>
         <source>Restore audio</source>
         <translation>Rétablir l’audio</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2455"/>
+        <location filename="../MainWindow.cpp" line="2748"/>
         <source>Current profile is temporarily bypassed</source>
         <translation>Le profil actuel est temporairement contourné</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2458"/>
+        <location filename="../MainWindow.cpp" line="2751"/>
         <source>Equalizer APO bypassed</source>
         <translation>Equalizer APO contourné</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2459"/>
+        <location filename="../MainWindow.cpp" line="2752"/>
         <source>Choose Restore audio to re-enable the current profile.</source>
         <translation>Choisissez « Rétablir l’audio » pour réactiver le profil actuel.</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2491"/>
+        <location filename="../MainWindow.cpp" line="1918"/>
+        <location filename="../MainWindow.cpp" line="2784"/>
         <source>Audio processing restored</source>
         <translation>Traitement audio rétabli</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2652"/>
+        <location filename="../MainWindow.cpp" line="2948"/>
         <source>Registry problem</source>
         <translation>Problème de registre</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2652"/>
+        <location filename="../MainWindow.cpp" line="2948"/>
         <source>A registry value that is required for the operation of Equalizer APO is not set correctly.
 Do you want to run the Device Selector application to fix the problem?</source>
         <translation>Une valeur de registre requise pour le fonctionnement d’Equalizer APO n’est pas définie correctement.
 Voulez-vous exécuter l’application Device Selector (Sélecteur de périphérique) pour résoudre le problème?</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2661"/>
+        <location filename="../MainWindow.cpp" line="2957"/>
         <source>APO not installed to device</source>
         <translation>APO non installé sur le périphérique</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2661"/>
+        <location filename="../MainWindow.cpp" line="2957"/>
         <source>Equalizer APO has not been installed to the selected device.
 Do you want to run the Device Selector application to fix the problem?</source>
         <translation>Equalizer APO n’a pas été installé sur le périphérique sélectionné.
 Voulez-vous exécuter l’application Device Selector (Sélecteur de périphérique) pour résoudre le problème?</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2692"/>
+        <location filename="../MainWindow.cpp" line="2988"/>
         <source>Audio enhancements disabled</source>
         <translation>Améliorations audio désactivées</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2692"/>
         <source>Audio enhancements are not enabled for the device
 %0 %1.
 Do you want to run the Device Selector application to fix the problem?</source>
-        <translation>Les améliorations audio ne sont pas activées pour le périphérique
+        <translation type="vanished">Les améliorations audio ne sont pas activées pour le périphérique
 %0 %1.
 Voulez-vous exécuter l’application Device Selector (Sélecteur de périphérique) pour résoudre le problème?</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2738"/>
-        <location filename="../MainWindow.cpp" line="2811"/>
-        <location filename="../MainWindow.cpp" line="2826"/>
+        <location filename="../MainWindow.cpp" line="3034"/>
+        <location filename="../MainWindow.cpp" line="3107"/>
+        <location filename="../MainWindow.cpp" line="3122"/>
         <source>Error</source>
         <translation>Erreur</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2738"/>
         <source>Error while reading configuration file: %0</source>
-        <translation>Erreur lors de la lecture du fichier de configuration: %0</translation>
+        <translation type="vanished">Erreur lors de la lecture du fichier de configuration: %0</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2811"/>
         <source>Error while writing configuration file: %0</source>
-        <translation>Erreur lors de l&apos;écriture du fichier de configuration: %0</translation>
+        <translation type="vanished">Erreur lors de l&apos;écriture du fichier de configuration: %0</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2826"/>
         <source>Only %0/%1 bytes have been written!</source>
-        <translation>Seuls %0/%1 octets ont été écrits!</translation>
+        <translation type="vanished">Seuls %0/%1 octets ont été écrits!</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2856"/>
+        <location filename="../MainWindow.cpp" line="3152"/>
         <source>Equalizer APO is still running</source>
         <translation>Equalizer APO est toujours en cours d’exécution</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2857"/>
+        <location filename="../MainWindow.cpp" line="3153"/>
         <source>Use the notification-area icon to reopen profiles or restore bypassed audio.</source>
         <translation>Utilisez l’icône de la zone de notification pour rouvrir les profils ou rétablir l’audio contourné.</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2915"/>
-        <location filename="../MainWindow.cpp" line="2917"/>
-        <location filename="../MainWindow.cpp" line="2919"/>
-        <location filename="../MainWindow.cpp" line="2923"/>
+        <location filename="../MainWindow.cpp" line="3211"/>
+        <location filename="../MainWindow.cpp" line="3213"/>
+        <location filename="../MainWindow.cpp" line="3215"/>
+        <location filename="../MainWindow.cpp" line="3219"/>
         <source>From device</source>
         <translation>Depuis le périphérique</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="2940"/>
         <source>Opened the profile linked to this device: %0</source>
-        <translation>Profil lié à cet appareil ouvert : %0</translation>
+        <translation type="vanished">Profil lié à cet appareil ouvert : %0</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3091"/>
+        <location filename="../MainWindow.cpp" line="3392"/>
         <source>Open file</source>
         <translation>Ouvrir un fichier</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3471"/>
+        <location filename="../MainWindow.cpp" line="3661"/>
+        <location filename="../MainWindow.cpp" line="3666"/>
+        <source>%1 dB</source>
+        <translation>%1 dB</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="3677"/>
+        <source>%1 ms (%2 s.)</source>
+        <translation>%1 ms (%2 é.)</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="3679"/>
+        <source>%1 ms</source>
+        <translation>%1 ms</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="3686"/>
+        <source>%1 % (one core)</source>
+        <translation>%1 % (un cœur)</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="3759"/>
         <source>Run a fresh Current file analysis before adjusting Preamp</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3483"/>
+        <location filename="../MainWindow.cpp" line="3771"/>
         <source>Auto preamp cannot safely edit this configuration; add or adjust a root Preamp manually</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3489"/>
+        <location filename="../MainWindow.cpp" line="3777"/>
         <source>selected channel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3492"/>
+        <location filename="../MainWindow.cpp" line="3780"/>
         <source>Apply estimated Preamp safety cut</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3496"/>
+        <location filename="../MainWindow.cpp" line="3784"/>
         <source>The latest analysis estimates a +%1 dB peak for %2.
 
 No root Preamp with enough editable range was found. Add a new %3 dB Preamp at the beginning of this file?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3505"/>
+        <location filename="../MainWindow.cpp" line="3793"/>
         <source>The latest analysis estimates a +%1 dB peak for %2.
 
 Change the first editable root Preamp from %3 dB to %4 dB?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3513"/>
+        <location filename="../MainWindow.cpp" line="3801"/>
         <source>This one-time cut uses the sampled linear response and current Windows-volume snapshot for the selected channel. It is not a limiter and cannot guarantee later volume or source changes, nonlinear processing, or intersample peaks. Review the edit and save it manually.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3535"/>
-        <location filename="../MainWindow.cpp" line="3546"/>
+        <location filename="../MainWindow.cpp" line="3823"/>
+        <location filename="../MainWindow.cpp" line="3834"/>
         <source>The profile or analysis changed; no Preamp adjustment was made</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3555"/>
+        <location filename="../MainWindow.cpp" line="3843"/>
         <source>Reduced Preamp by %1 dB for %2; save the file to apply it</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3991"/>
+        <location filename="../MainWindow.cpp" line="4342"/>
+        <source>The configuration file %1 has unsaved changes.</source>
+        <translation>Le fichier de configuration %1 comporte des modifications non enregistrées.</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="4397"/>
         <source>Analyzing the current signal path…</source>
         <translation>Analyse du chemin du signal actuel…</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="4048"/>
+        <location filename="../MainWindow.cpp" line="4452"/>
         <source>Select an installed playback device to run analysis</source>
         <translation>Sélectionnez un appareil de lecture installé pour lancer l’analyse</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="1450"/>
-        <location filename="../MainWindow.cpp" line="1499"/>
-        <location filename="../MainWindow.cpp" line="3093"/>
-        <location filename="../MainWindow.cpp" line="3151"/>
+        <location filename="../MainWindow.cpp" line="1533"/>
+        <location filename="../MainWindow.cpp" line="1582"/>
+        <location filename="../MainWindow.cpp" line="3394"/>
+        <location filename="../MainWindow.cpp" line="3452"/>
         <source>E-APO configurations (*.txt)</source>
         <translation>Configurations E-APO (*.txt)</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3148"/>
+        <location filename="../MainWindow.cpp" line="2988"/>
+        <source>Audio enhancements are not enabled for the device
+%1 %2.
+Do you want to run the Device Selector application to fix the problem?</source>
+        <translation>Les améliorations audio ne sont pas activées pour le périphérique
+%1 %2.
+Voulez-vous exécuter l’application Device Selector (Sélecteur de périphérique) pour résoudre le problème?</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="3034"/>
+        <source>Error while reading configuration file: %1</source>
+        <translation>Erreur lors de la lecture du fichier de configuration: %1</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="3107"/>
+        <source>Error while writing configuration file: %1</source>
+        <translation>Erreur lors de l&apos;écriture du fichier de configuration: %1</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="3122"/>
+        <source>Only %1/%2 bytes have been written!</source>
+        <translation>Seuls %1/%2 octets ont été écrits!</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="3236"/>
+        <source>Opened the profile linked to this device: %1</source>
+        <translation>Profil lié à cet appareil ouvert : %1</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="3449"/>
         <source>Save file as</source>
         <translation>Enregistrer le fichier sous</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3179"/>
+        <location filename="../MainWindow.cpp" line="3480"/>
         <source>Unsaved</source>
         <translation>Non enregistré</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3340"/>
-        <location filename="../MainWindow.cpp" line="3414"/>
+        <location filename="../MainWindow.cpp" line="3641"/>
+        <location filename="../MainWindow.cpp" line="3699"/>
         <source>Analysis is unavailable for the selected device</source>
         <translation>Analyse indisponible pour l’appareil sélectionné</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3365"/>
-        <location filename="../MainWindow.cpp" line="3370"/>
         <source>%0 dB</source>
-        <translation>%0 dB</translation>
+        <translation type="vanished">%0 dB</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3377"/>
         <source>%0 dB of estimated headroom</source>
-        <translation>%0 dB de marge estimée</translation>
+        <translation type="vanished">%0 dB de marge estimée</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3392"/>
         <source>%0 ms (%1 s.)</source>
-        <translation>%0 ms (%1 é.)</translation>
+        <translation type="vanished">%0 ms (%1 é.)</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3394"/>
         <source>%0 ms</source>
-        <translation>%0 ms</translation>
+        <translation type="vanished">%0 ms</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3401"/>
         <source>%0 % (one core)</source>
-        <translation>%0 % (un cœur)</translation>
+        <translation type="vanished">%0 % (un cœur)</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3420"/>
+        <location filename="../MainWindow.cpp" line="3708"/>
         <source>Clipping risk detected · lower preamp gain</source>
         <translation>Risque d’écrêtage détecté · réduisez le gain du préampli</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3421"/>
+        <location filename="../MainWindow.cpp" line="3709"/>
         <source>Response analysis is up to date</source>
         <translation>L’analyse de la réponse est à jour</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3572"/>
-        <location filename="../MainWindow.cpp" line="3595"/>
-        <location filename="../MainWindow.cpp" line="3616"/>
+        <location filename="../MainWindow.cpp" line="3860"/>
+        <location filename="../MainWindow.cpp" line="3883"/>
+        <location filename="../MainWindow.cpp" line="3904"/>
         <source>Restart required</source>
         <translation>Redémarrage requis</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3572"/>
-        <location filename="../MainWindow.cpp" line="3595"/>
-        <location filename="../MainWindow.cpp" line="3616"/>
+        <location filename="../MainWindow.cpp" line="3860"/>
+        <location filename="../MainWindow.cpp" line="3883"/>
+        <location filename="../MainWindow.cpp" line="3904"/>
         <source>Configuration Editor will be restarted to apply the changed settings. Proceed?</source>
         <translation>L&apos;éditeur de configuration sera redémarré pour appliquer les paramètres modifiés. Procéder?</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3935"/>
+        <location filename="../MainWindow.cpp" line="4341"/>
         <source>Unsaved changes</source>
         <translation>Modifications non enregistrées</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3936"/>
         <source>The configuration file %0 has unsaved changes.</source>
-        <translation>Le fichier de configuration %0 comporte des modifications non enregistrées.</translation>
+        <translation type="vanished">Le fichier de configuration %0 comporte des modifications non enregistrées.</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="3937"/>
+        <location filename="../MainWindow.cpp" line="4343"/>
         <source>Do you want to save the changes before closing the file?</source>
         <translation>Voulez-vous enregistrer les modifications avant de fermer le fichier?</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1743"/>
+        <location filename="../MainWindow.cpp" line="1800"/>
+        <location filename="../MainWindow.cpp" line="1825"/>
+        <source>A temporary audio state could not be activated</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1755"/>
+        <source>Save the profile before starting calibration</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1789"/>
+        <location filename="../MainWindow.cpp" line="1816"/>
+        <source>The profile changed outside the editor; calibration was not started</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1835"/>
+        <source>Audio processing was not restored</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="1848"/>
+        <source>Calibration contour is temporarily bypassed</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>OriginalLoudnessCorrectionCalibrationDialog</name>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="89"/>
+        <source>Original loudness correction calibration</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="95"/>
+        <source>Use a sound-level meter at the listening position. While this window is open, only this original loudness-correction row is temporarily bypassed. Play one speaker, measure the pink noise, then enter the slow-response, Z-weighted reading.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="103"/>
+        <source>Speaker</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="105"/>
+        <source>Left</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="106"/>
+        <source>Right</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="114"/>
+        <source>Play pink noise</source>
+        <translation type="unfinished">Lire le bruit rose</translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="115"/>
+        <source>Stop</source>
+        <translation type="unfinished">Arrêt</translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="116"/>
+        <source>Plays the bundled calibration signal on the selected speaker.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="132"/>
+        <source> dB SPL</source>
+        <translation type="unfinished"> dB SPL</translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="133"/>
+        <source>Measured sound pressure level</source>
+        <translation type="unfinished">Niveau de pression acoustique mesuré</translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="134"/>
+        <source>Measured level:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="141"/>
+        <source>Use measurement</source>
+        <translation type="unfinished">Utiliser la mesure</translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="234"/>
+        <source>Calibration playback status</source>
+        <translation type="unfinished">État de la lecture d’étalonnage</translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="252"/>
+        <source>Ready to play</source>
+        <translation type="unfinished">Prêt à lire</translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="269"/>
+        <source>Playback blocked - Windows default devices do not match</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="272"/>
+        <source>Playback device mismatch</source>
+        <translation type="unfinished">Appareil de lecture incompatible</translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="273"/>
+        <source>Set the same audible device as both the Windows Console and Multimedia default, then reopen calibration. No test noise was played.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="279"/>
+        <source>Playback blocked - endpoint is muted or at zero volume</source>
+        <translation type="unfinished">Lecture bloquée - point de terminaison en sourdine ou à volume nul</translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="282"/>
+        <source>Playback endpoint is inaudible</source>
+        <translation type="unfinished">Le point de terminaison de lecture est inaudible</translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="283"/>
+        <source>Unmute the default playback endpoint and raise its Windows volume before playing the calibration signal.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="289"/>
+        <source>Playback blocked - endpoint volume is unavailable</source>
+        <translation type="unfinished">Lecture bloquée - volume du point de terminaison indisponible</translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="292"/>
+        <source>Playback endpoint unavailable</source>
+        <translation type="unfinished">Point de terminaison de lecture indisponible</translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="293"/>
+        <source>The default Multimedia playback volume cannot be read. Reconnect the device before calibrating.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="312"/>
+        <source>Preparing pink noise…</source>
+        <translation type="unfinished">Préparation du bruit rose…</translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="317"/>
+        <source>Pink-noise resource could not be opened</source>
+        <translation type="unfinished">Impossible d’ouvrir la ressource de bruit rose</translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="326"/>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="362"/>
+        <source>Calibration signal could not be prepared</source>
+        <translation type="unfinished">Impossible de préparer le signal d’étalonnage</translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="373"/>
+        <source>Windows could not start calibration playback</source>
+        <translation type="unfinished">Windows n’a pas pu démarrer la lecture d’étalonnage</translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="383"/>
+        <source>Playing on the left speaker</source>
+        <translation type="unfinished">Lecture sur le haut-parleur gauche</translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionCalibrationDialog.cpp" line="384"/>
+        <source>Playing on the right speaker</source>
+        <translation type="unfinished">Lecture sur le haut-parleur droit</translation>
+    </message>
+</context>
+<context>
+    <name>OriginalLoudnessCorrectionFilterGUI</name>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="114"/>
+        <source>Loudness correction (original):</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="116"/>
+        <source>Enabled</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="118"/>
+        <source>Enables only the original two-shelf correction component.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="121"/>
+        <source>Original shelf curve by Alexander Walch · Mixomo fork</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="127"/>
+        <source>Reference level:</source>
+        <translation type="unfinished">Niveau de référence:</translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="133"/>
+        <source>Reference offset:</source>
+        <translation type="unfinished">Décalage de référence (offset):</translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="139"/>
+        <source>Correction strength:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="155"/>
+        <source>Default master volume:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="164"/>
+        <source>Windows default master volume</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="179"/>
+        <source>Reset original curve</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="180"/>
+        <source>Resets the original reference, offset, and correction strength. The enabled state is preserved.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="183"/>
+        <source>Calibrate original…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="184"/>
+        <source>Calibrates this original component against the Windows default Multimedia playback volume.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="324"/>
+        <source>Following Windows volume</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="331"/>
+        <source>Unavailable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="333"/>
+        <source>Unavailable - paused</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="338"/>
+        <source>Original correction volume status</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="378"/>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="393"/>
+        <source>Original calibration not started</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="379"/>
+        <source>The Windows default Multimedia playback endpoint is unavailable, muted, or at zero volume.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="394"/>
+        <source>Save the current profile and resolve any temporary audio state before calibrating.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="406"/>
+        <source>Audio processing was not restored</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="407"/>
+        <source>The temporary original-calibration state could not be restored automatically. Close the editor and use temporary audio recovery before continuing.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="420"/>
+        <source>Original calibration not applied</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUI.cpp" line="421"/>
+        <source>Playback became muted or unavailable. The measurement was discarded.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>OriginalLoudnessCorrectionFilterGUIFactory</name>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUIFactory.cpp" line="47"/>
+        <source>Loudness correction (original)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/OriginalLoudnessCorrectionFilterGUIFactory.cpp" line="49"/>
+        <source>Advanced filters</source>
+        <translation type="unfinished">Filtres avancés</translation>
     </message>
 </context>
 <context>
     <name>PanFilterGUIFactory</name>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1070"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1075"/>
         <source>Pan</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1070"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1075"/>
         <source>Basic filters</source>
         <translation type="unfinished">Filtres basiques</translation>
     </message>
@@ -3257,12 +3819,12 @@ Change the first editable root Preamp from %3 dB to %4 dB?</source>
 <context>
     <name>ReverbFilterGUIFactory</name>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1100"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1105"/>
         <source>Reverb</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1100"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1105"/>
         <source>Effects</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3312,21 +3874,333 @@ Change the first editable root Preamp from %3 dB to %4 dB?</source>
 <context>
     <name>ToneGeneratorFilterGUIFactory</name>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1060"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1065"/>
         <source>Tone generator</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1060"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1065"/>
         <source>Basic filters</source>
         <translation type="unfinished">Filtres basiques</translation>
+    </message>
+</context>
+<context>
+    <name>VSTMidiMappingDialog</name>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="54"/>
+        <source>Control change</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="56"/>
+        <source>Note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="58"/>
+        <source>Pitch bend</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="60"/>
+        <source>Unknown</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="66"/>
+        <source>Toggle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="67"/>
+        <source>Absolute</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="80"/>
+        <source>VST MIDI control</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="98"/>
+        <source>MIDI configuration ignored</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="99"/>
+        <source>The saved MIDI mapping is invalid. The VST remains active, but MIDI control is disabled until you save a new mapping.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="103"/>
+        <source>Bind a hardware MIDI knob, fader, or button to an automatable VST parameter. Mappings run in the audio host even after Configuration Editor is closed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="107"/>
+        <source>MIDI mapping help</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="117"/>
+        <source>MIDI input device</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="119"/>
+        <source>Refresh</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="121"/>
+        <source>Refresh MIDI devices</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="124"/>
+        <source>MIDI input device:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="130"/>
+        <source>VST target parameter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="139"/>
+        <source>Parameter %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="143"/>
+        <source>%1 · %2 #%3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="146"/>
+        <source>Target parameter:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="155"/>
+        <source>MIDI value mode</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="156"/>
+        <source>Automatic (recommended)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="157"/>
+        <source>Absolute knob or fader</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="159"/>
+        <source>Toggle button</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="161"/>
+        <source>Any channel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="162"/>
+        <source>Accept the learned controller on every MIDI channel instead of only the channel used while learning.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="166"/>
+        <source>Control behavior:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="172"/>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="174"/>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="350"/>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="365"/>
+        <source>Learn MIDI control</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="175"/>
+        <source>Choose a target, then start learning.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="178"/>
+        <source>MIDI learn status</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="185"/>
+        <source>MIDI mappings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="188"/>
+        <source>Message</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="188"/>
+        <source>Channel</source>
+        <translation type="unfinished">Canal</translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="188"/>
+        <source>Control</source>
+        <translation type="unfinished">Contrôle</translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="189"/>
+        <source>Behavior</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="189"/>
+        <source>VST parameter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="202"/>
+        <source>Remove selected</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="203"/>
+        <source>Clear all</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="210"/>
+        <source>Save mappings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="261"/>
+        <source> · device %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="271"/>
+        <source>%1 (disconnected)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="274"/>
+        <source>The saved MIDI device is unavailable. Existing mappings are kept; reconnect it and refresh, choose another device, or cancel without saving.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="285"/>
+        <source>No MIDI input devices were found. Existing mappings are kept; connect a device and refresh, or cancel without saving.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="332"/>
+        <source>MIDI learn cancelled.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="338"/>
+        <source>Select a MIDI device and a VST parameter first.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="346"/>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="449"/>
+        <source>Connecting to the MIDI input… You can cancel learning at any time.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="454"/>
+        <source>Connected and listening. Move a knob or fader, or press a MIDI button…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="459"/>
+        <source>This MIDI input is busy in another application or process. Close the other MIDI user and wait for automatic retry, or cancel learning.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="464"/>
+        <source>The MIDI input is unavailable. Reconnect it and wait for automatic retry, refresh to choose another device, or cancel learning. Existing mappings are unchanged.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="469"/>
+        <source>Too many MIDI inputs or listeners are active in this process. Close another MIDI mapping window or disable an unused mapping, then try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="474"/>
+        <source>The MIDI input could not be started. Refresh the device list or cancel without saving; existing mappings are unchanged.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="344"/>
+        <source>Cancel learning</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="429"/>
+        <source>Mapped %1 on channel %2 to %3.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="496"/>
+        <source>%1 (parameter unavailable)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="507"/>
+        <source>Bend</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="509"/>
+        <source>Any</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="535"/>
+        <source>Clear MIDI mappings?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="536"/>
+        <source>Remove every MIDI mapping from this VST row?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="575"/>
+        <source>MIDI device required</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="576"/>
+        <source>Choose the MIDI input device used by these mappings.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="582"/>
+        <source>MIDI mappings not saved</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTMidiMappingDialog.cpp" line="583"/>
+        <source>The MIDI mapping data exceeded its safety limits.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>VSTPluginFilterGUI</name>
     <message>
         <location filename="../guis/VSTPluginFilterGUI.ui" line="44"/>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="235"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="297"/>
         <source>Open panel</source>
         <translation>Ouvrir le panneau</translation>
     </message>
@@ -3351,119 +4225,220 @@ Change the first editable root Preamp from %3 dB to %4 dB?</source>
         <translation>VST plugin:</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="539"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="717"/>
         <source>No file selected.</source>
         <translation>Aucun fichier sélectionné.</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="549"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="727"/>
         <source>File not found.</source>
         <translation>Fichier non trouvé.</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="552"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="730"/>
         <source>Library could not be loaded.</source>
         <translation>La bibliothèque n&apos;a pas pu être chargée.</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="555"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="733"/>
         <source>Library does not contain needed functions.</source>
         <translation>La bibliothèque ne contient pas les fonctions nécessaires.</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="563"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="741"/>
         <source>Library has the wrong architecture. Only %1-bit libraries are supported.</source>
         <translation>La bibliothèque a une mauvaise architecture. Seules les bibliothèques %1 bits sont prises en charge.</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="583"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="761"/>
         <source>Plugin crashed during initialization.</source>
         <translation>Le plugin a planté lors de l&apos;initialisation.</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="82"/>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="83"/>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="684"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="140"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="141"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="981"/>
         <source>Select VST plugin</source>
         <translation>Sélectionnez un plugin VST</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="174"/>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="490"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="236"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="665"/>
         <source>Out-of-process VST host</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="236"/>
-        <source>Out-of-process VST host reloading</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="240"/>
-        <source>VST plugin reloading</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="277"/>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="292"/>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="341"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="441"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="464"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="516"/>
         <source>Hide panel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="283"/>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="489"/>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="706"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="454"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="664"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="1003"/>
         <source>Show panel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="293"/>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="342"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="465"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="517"/>
         <source>Out-of-process VST panel is open</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="305"/>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="317"/>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="332"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="477"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="492"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="507"/>
         <source>VST plugin</source>
         <translation type="unfinished">VST plugin</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="305"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="477"/>
         <source>%1 was not found next to Editor.exe.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="317"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="492"/>
         <source>Could not create temporary VST host configuration.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="332"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="507"/>
         <source>Could not start the out-of-process VST host.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="686"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="983"/>
         <source>VST plugins (*.dll *.vst3)</source>
         <translation>Modules VST (*.dll *.vst3)</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="776"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="1078"/>
         <source>The library is not readable by the audio service.
 Change the file permissions or copy the file to the VSTPlugins directory.</source>
         <translation>La bibliothèque n&apos;est pas lisible par le service audio.
 Modifiez les autorisations du fichier ou copiez le fichier dans le répertoire VSTPlugins.</translation>
     </message>
     <message>
-        <location filename="../guis/VSTPluginFilterGUI.cpp" line="821"/>
         <source>The plugin seemingly accesses these files not readable by the audio service:
 %0
 Change the file permissions or copy the files to the config directory.</source>
-        <translation>Le plugin accède apparemment à ces fichiers non lisibles par le service audio:
+        <translation type="vanished">Le plugin accède apparemment à ces fichiers non lisibles par le service audio:
 %0
+Modifiez les autorisations des fichiers ou copiez les fichiers dans le répertoire de configuration.</translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.ui" line="114"/>
+        <source>VST3 class:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.ui" line="124"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="937"/>
+        <source>Bind MIDI knobs, faders, and buttons to VST parameters</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.ui" line="127"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="936"/>
+        <source>MIDI control…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="142"/>
+        <source>VST3 plug-in class</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="144"/>
+        <source>MIDI control</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="146"/>
+        <source>VST status</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="298"/>
+        <source>Out-of-process VST reload requested</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="302"/>
+        <source>VST plugin reload requested</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="321"/>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="346"/>
+        <source>VST MIDI control</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="323"/>
+        <source>Open the out-of-process panel once and close it after the plug-in state has been captured. MIDI mapping then has stable parameter IDs to target.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="324"/>
+        <source>This plug-in did not expose any writable parameters for MIDI control.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="347"/>
+        <source>Save the current profile and resolve any temporary audio state before configuring MIDI.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="370"/>
+        <source>Audio processing was not restored</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="371"/>
+        <source>The temporary MIDI-learning state could not be restored automatically. Close the editor and use temporary audio recovery before continuing.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="396"/>
+        <source>Change VST3 plug-in class?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="397"/>
+        <source>Changing the class clears the saved plug-in state and any parameter-specific controls for this row.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="799"/>
+        <source>Change VST plug-in?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="800"/>
+        <source>Changing the plug-in may clear its saved state and MIDI mappings. Continue?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="928"/>
+        <source>MIDI control… (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="930"/>
+        <source>%1 MIDI mapping(s) active</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../guis/VSTPluginFilterGUI.cpp" line="1123"/>
+        <source>The plugin seemingly accesses these files not readable by the audio service:
+%1
+Change the file permissions or copy the files to the config directory.</source>
+        <translation>Le plugin accède apparemment à ces fichiers non lisibles par le service audio:
+%1
 Modifiez les autorisations des fichiers ou copiez les fichiers dans le répertoire de configuration.</translation>
     </message>
 </context>
@@ -3502,12 +4477,12 @@ Modifiez les autorisations des fichiers ou copiez les fichiers dans le répertoi
 <context>
     <name>VUMeterFilterGUIFactory</name>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1110"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1115"/>
         <source>VU meter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1110"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="1115"/>
         <source>Analysis</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3515,12 +4490,12 @@ Modifiez les autorisations des fichiers ou copiez les fichiers dans le répertoi
 <context>
     <name>VUMeterPanel</name>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="222"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="223"/>
         <source>APO Loudness / VU Meter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="227"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="228"/>
         <source>Waiting for VU meter data</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3528,17 +4503,17 @@ Modifiez les autorisations des fichiers ou copiez les fichiers dans le répertoi
 <context>
     <name>VUMeterStatsPanel</name>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="426"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="427"/>
         <source>Waiting for meter data</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="450"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="451"/>
         <source>Detailed readout</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="504"/>
+        <location filename="../guis/AudioToolFilterGUIFactory.cpp" line="505"/>
         <source>Global</source>
         <translation type="unfinished"></translation>
     </message>

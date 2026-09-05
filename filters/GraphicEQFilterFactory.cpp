@@ -61,7 +61,8 @@ vector<IFilter*> GraphicEQFilterFactory::createFilter(const wstring& configPath,
 		TraceF(L"Graphic equalizer with %d nodes", nodes.size());
 
 		void* mem = MemoryHelper::alloc(sizeof(GraphicEQFilter));
-		filter = new(mem) GraphicEQFilter(nodes, 16384);
+		if (mem != NULL)
+			filter = new(mem) GraphicEQFilter(nodes, 16384);
 	}
 
 	if (filter == NULL)

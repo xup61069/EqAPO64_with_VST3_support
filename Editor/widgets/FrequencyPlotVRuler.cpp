@@ -68,7 +68,7 @@ void FrequencyPlotVRuler::paintEvent(QPaintEvent*)
 		if (y != -1)
 		{
 			const qreal center = clampTextCenter(y - topLeft.y() - 1);
-			painter.drawText(0, qRound(center), width(), 0, Qt::TextDontClip | Qt::AlignCenter, QString("%0").arg(db));
+			painter.drawText(0, qRound(center), width(), 0, Qt::TextDontClip | Qt::AlignCenter, QString("%1").arg(db));
 		}
 	}
 
@@ -81,7 +81,7 @@ void FrequencyPlotVRuler::paintEvent(QPaintEvent*)
 		double y = s->dbToY(db);
 		if (y != -1)
 		{
-			QString text = QString("%0").arg(db, 0, 'f', 1);
+			QString text = QString("%1").arg(db, 0, 'f', 1);
 			QFontMetrics metrics = painter.fontMetrics();
 			QRectF rect = metrics.boundingRect(text);
 			const qreal center = clampTextCenter(y - topLeft.y() - 1);

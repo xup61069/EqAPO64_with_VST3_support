@@ -90,15 +90,21 @@ LoudnessCorrectionStudioDialog::LoudnessCorrectionStudioDialog(
 {
 	ui->setupUi(this);
 	setAttribute(Qt::WA_StyledBackground, true);
-	setMinimumSize(GUIHelper::scale(520), GUIHelper::scale(480));
+	QSize minimumDialogSize = GUIHelper::scale(QSize(520, 480));
 	QSize preferredSize = GUIHelper::scale(QSize(1040, 640));
-	if (QScreen* availableScreen = QGuiApplication::primaryScreen())
+	QScreen* availableScreen = parentWidget() != nullptr
+		? parentWidget()->screen() : QGuiApplication::screenAt(frameGeometry().center());
+	if (availableScreen == nullptr)
+		availableScreen = QGuiApplication::primaryScreen();
+	if (availableScreen != nullptr)
 	{
 		const QSize screenMargin = GUIHelper::scale(QSize(32, 32));
 		const QSize availableSize =
 			availableScreen->availableGeometry().size() - screenMargin;
+		minimumDialogSize = minimumDialogSize.boundedTo(availableSize);
 		preferredSize = preferredSize.boundedTo(availableSize);
 	}
+	setMinimumSize(minimumDialogSize);
 	resize(preferredSize.expandedTo(minimumSize()));
 
 	{
@@ -119,8 +125,7 @@ LoudnessCorrectionStudioDialog::LoudnessCorrectionStudioDialog(
 		ui->strengthSlider->setValue(qRound(attenuation * 100.0));
 		ui->strengthSpinBox->setValue(attenuation);
 		ui->bindingComboBox->setCurrentIndex(globalBinding ? 1 : 0);
-		ui->manualVolumeCheckBox->setChecked(
-			useManualVolume || !automaticVolumeAvailable);
+		ui->manualVolumeCheckBox->setChecked(useManualVolume);
 		ui->volumeSpinBox->setValue(volume);
 	}
 
@@ -602,11 +607,17 @@ void LoudnessCorrectionStudioDialog::updateModernUi()
 	}
 	else
 	{
-		ui->trackingStatusLabel->setText(tr("Manual volume required"));
+		ui->trackingStatusLabel->setText(tr("Automatic volume unavailable · paused"));
 		ui->volumeHintLabel->setText(tr(
-			"Automatic volume is unavailable for the current playback binding."));
+			"Automatic mode is preserved. Runtime correction resumes when the endpoint volume is readable again."));
 		refreshStatusStyle("required");
 	}
+	ui->trackingStatusLabel->setAccessibleDescription(
+		ui->trackingStatusLabel->text() + QStringLiteral(". ") +
+		ui->volumeHintLabel->text());
+	ui->curvePreview->setAccessibleDescription(
+		ui->curveMetaLabel->text() + QStringLiteral(". ") +
+		ui->profileSummaryLabel->text());
 
 	ui->curvePreview->update();
 }

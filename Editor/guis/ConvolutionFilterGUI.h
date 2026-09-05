@@ -60,5 +60,4 @@ private:
 	QToolButton* bundledIrButton = nullptr;
 	QVector<QString> bundledImpulsePaths;
 	int currentBundledImpulseListIndex = -1;
-	bool autoMatchingSampleRate = false;
 };

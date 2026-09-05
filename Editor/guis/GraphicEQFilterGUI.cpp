@@ -296,7 +296,7 @@ void GraphicEQFilterGUI::store(QString& command, QString& parameters)
 		else
 			parameters += "; ";
 
-		parameters += QString("%0 %1").arg(node.freq).arg(node.dbGain);
+		parameters += QString("%1 %2").arg(node.freq).arg(node.dbGain);
 	}
 }
 
@@ -386,10 +386,10 @@ void GraphicEQFilterGUI::insertRow(int index, double hz, double db)
 {
 	ui->tableWidget->blockSignals(true);
 	ui->tableWidget->insertRow(index);
-	QTableWidgetItem* freqItem = new QTableWidgetItem(QString("%0").arg(hz));
+	QTableWidgetItem* freqItem = new QTableWidgetItem(QString("%1").arg(hz));
 	ui->tableWidget->setItem(index, 0, freqItem);
 
-	QTableWidgetItem* gainItem = new QTableWidgetItem(QString("%0").arg(db));
+	QTableWidgetItem* gainItem = new QTableWidgetItem(QString("%1").arg(db));
 	ui->tableWidget->setItem(index, 1, gainItem);
 	ui->tableWidget->blockSignals(false);
 }
@@ -405,10 +405,10 @@ void GraphicEQFilterGUI::updateRow(int index, double hz, double db)
 {
 	ui->tableWidget->blockSignals(true);
 	QTableWidgetItem* freqItem = ui->tableWidget->item(index, 0);
-	freqItem->setText(QString("%0").arg(hz));
+	freqItem->setText(QString("%1").arg(hz));
 
 	QTableWidgetItem* gainItem = ui->tableWidget->item(index, 1);
-	gainItem->setText(QString("%0").arg(db));
+	gainItem->setText(QString("%1").arg(db));
 	ui->tableWidget->blockSignals(false);
 }
 
@@ -460,7 +460,7 @@ void GraphicEQFilterGUI::on_tableWidget_cellChanged(int row, int column)
 		else
 		{
 			freq = scene->getNodes()[row].freq;
-			freqItem->setText(QString("%0").arg(freq));
+			freqItem->setText(QString("%1").arg(freq));
 		}
 	}
 	else if (column == 1)
@@ -476,7 +476,7 @@ void GraphicEQFilterGUI::on_tableWidget_cellChanged(int row, int column)
 		else
 		{
 			gain = scene->getNodes()[row].dbGain;
-			gainItem->setText(QString("%0").arg(gain));
+			gainItem->setText(QString("%1").arg(gain));
 		}
 	}
 }
@@ -656,7 +656,7 @@ void GraphicEQFilterGUI::on_actionExportFIR_triggered()
 	nameFilters.append(tr("All files (*.*)"));
 	dialog.setNameFilters(nameFilters);
 	dialog.setDefaultSuffix(".wav");
-	dialog.selectFile(QString("GraphicEQ_FIR_%0Hz.wav").arg(sampleRate));
+	dialog.selectFile(QString("GraphicEQ_FIR_%1Hz.wav").arg(sampleRate));
 
 	if (dialog.exec() != QDialog::Accepted)
 		return;
@@ -688,7 +688,7 @@ void GraphicEQFilterGUI::on_actionExportFIR_triggered()
 		return;
 	}
 
-	QMessageBox::information(this, tr("Export FIR"), tr("Exported FIR at %0 Hz.").arg(sampleRate));
+	QMessageBox::information(this, tr("Export FIR"), tr("Exported FIR at %1 Hz.").arg(sampleRate));
 }
 
 void GraphicEQFilterGUI::on_actionInvertResponse_triggered()

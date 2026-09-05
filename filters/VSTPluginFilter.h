@@ -21,12 +21,13 @@
 
 #include "IFilter.h"
 #include "helpers/VSTPluginLibrary.h"
+#include "helpers/WinMidiInput.h"
 
 #pragma AVRT_VTABLES_BEGIN
 class VSTPluginFilter : public IFilter
 {
 public:
-	VSTPluginFilter(std::shared_ptr<VSTPluginLibrary> library, std::wstring chunkData, std::unordered_map<std::wstring, float> paramMap, int vst3ClassIndex = 0);
+	VSTPluginFilter(std::shared_ptr<VSTPluginLibrary> library, std::wstring chunkData, std::unordered_map<std::wstring, float> paramMap, int vst3ClassIndex = 0, std::wstring midiConfig = L"");
 	~VSTPluginFilter();
 
 	bool getInPlace() override {return false;}
@@ -38,15 +39,19 @@ public:
 	std::wstring getChunkData() const;
 	std::unordered_map<std::wstring, float> getParamMap() const;
 	int getVST3ClassIndex() const;
+	std::wstring getMidiConfig() const;
 
 private:
 	void cleanup();
+	void applyMidiUpdates();
 
 	std::shared_ptr<VSTPluginLibrary> library;
 	std::wstring libPath;
 	std::wstring chunkData;
 	std::unordered_map<std::wstring, float> paramMap;
 	int vst3ClassIndex = 0;
+	std::wstring midiConfig;
+	VSTMidiRuntime midiRuntime;
 	size_t channelCount = 0;
 	unsigned effectChannelCount = 0;
 	size_t effectCount = 0;

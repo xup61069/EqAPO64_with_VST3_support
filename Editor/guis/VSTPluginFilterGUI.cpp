@@ -18,6 +18,8 @@
 */
 
 #include <QFileInfo>
+#include <algorithm>
+#include <cstdint>
 #include <QFileDialog>
 #include <QCoreApplication>
 #include <QDialog>
@@ -26,6 +28,7 @@
 #include <QMessageBox>
 #include <QProcess>
 #include <QSettings>
+#include <QSignalBlocker>
 #include <QStyle>
 #include <QStringList>
 #include <QTextStream>
@@ -42,6 +45,7 @@
 #include "helpers/UiSnapshot.h"
 #include "Editor/MainWindow.h"
 #include "VSTPluginFilterGUIDialog.h"
+#include "VSTMidiMappingDialog.h"
 #include "VSTPluginFilterGUI.h"
 #include "ui_VSTPluginFilterGUI.h"
 
@@ -60,6 +64,20 @@ static QString makeOutProcObjectName(const QString& hostId, const wchar_t* suffi
 	return "Global\\EqApoOutProcVST_" + safeId + "_" + QString::fromWCharArray(suffix);
 }
 
+static QString canonicalVSTPath(const QString& value)
+{
+	if (value.trimmed().isEmpty())
+		return QString();
+
+	QDir pluginsDir(QString::fromStdWString(
+		VSTPluginLibrary::getDefaultPluginPath()));
+	QFileInfo fileInfo(pluginsDir, value.trimmed());
+	QString canonical = fileInfo.canonicalFilePath();
+	if (canonical.isEmpty())
+		canonical = fileInfo.absoluteFilePath();
+	return QDir::toNativeSeparators(QDir::cleanPath(canonical));
+}
+
 static void appendOutProcDebugLog(const QString& message)
 {
 	QFile file(QDir::temp().absoluteFilePath("EqApoOutProcHost-debug.log"));
@@ -70,8 +88,50 @@ static void appendOutProcDebugLog(const QString& message)
 	}
 }
 
-VSTPluginFilterGUI::VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library, const std::wstring& chunkData, const std::unordered_map<std::wstring, float>& paramMap, bool outProcMode, const QString& hostId, int vst3ClassIndex)
-	: ui(new Ui::VSTPluginFilterGUI), library(library), chunkData(chunkData), paramMap(paramMap), outProcMode(outProcMode), hostId(hostId), vst3ClassIndex(vst3ClassIndex)
+static std::vector<VSTParameterDescriptor> convertOutProcParameterDescriptors(
+	const std::vector<OutProcVSTParameterDescriptor>& source)
+{
+	std::vector<VSTParameterDescriptor> result;
+	result.reserve(source.size());
+	for (const OutProcVSTParameterDescriptor& serialized : source)
+	{
+		VSTParameterDescriptor descriptor;
+		descriptor.api = serialized.api == OutProcVSTParameterApi::VST3
+			? VSTParameterApi::VST3 : VSTParameterApi::VST2;
+		descriptor.stableId = serialized.stableId;
+		descriptor.name = serialized.name;
+		descriptor.stepCount = serialized.stepCount;
+		descriptor.normalizedValue = serialized.normalizedValue;
+		descriptor.readOnly = serialized.readOnly;
+		descriptor.hidden = serialized.hidden;
+		result.push_back(std::move(descriptor));
+	}
+	return result;
+}
+
+static std::vector<OutProcVSTParameterDescriptor> convertOutProcParameterDescriptors(
+	const std::vector<VSTParameterDescriptor>& source)
+{
+	std::vector<OutProcVSTParameterDescriptor> result;
+	result.reserve(source.size());
+	for (const VSTParameterDescriptor& parameter : source)
+	{
+		OutProcVSTParameterDescriptor descriptor;
+		descriptor.api = parameter.api == VSTParameterApi::VST3
+			? OutProcVSTParameterApi::VST3 : OutProcVSTParameterApi::VST2;
+		descriptor.stableId = parameter.stableId;
+		descriptor.name = parameter.name;
+		descriptor.stepCount = parameter.stepCount;
+		descriptor.normalizedValue = parameter.normalizedValue;
+		descriptor.readOnly = parameter.readOnly;
+		descriptor.hidden = parameter.hidden;
+		result.push_back(std::move(descriptor));
+	}
+	return result;
+}
+
+VSTPluginFilterGUI::VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library, const std::wstring& chunkData, const std::unordered_map<std::wstring, float>& paramMap, bool outProcMode, const QString& hostId, int vst3ClassIndex, const std::wstring& midiConfig)
+	: ui(new Ui::VSTPluginFilterGUI), library(library), chunkData(chunkData), paramMap(paramMap), midiConfig(midiConfig), outProcMode(outProcMode), hostId(hostId), vst3ClassIndex(vst3ClassIndex)
 {
 	ui->setupUi(this);
 	ui->selectButton->setIcon(GUIHelper::createThemeIcon(GUIHelper::ThemeIcon::OpenFolder));
@@ -79,6 +139,11 @@ VSTPluginFilterGUI::VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library
 	ui->pathLineEdit->setAccessibleName(ui->label->text());
 	ui->selectButton->setToolTip(tr("Select VST plugin"));
 	ui->selectButton->setAccessibleName(tr("Select VST plugin"));
+	ui->vst3ClassComboBox->setAccessibleName(tr("VST3 plug-in class"));
+	ui->classLabel->setBuddy(ui->vst3ClassComboBox);
+	ui->midiButton->setAccessibleName(tr("MIDI control"));
+	ui->statusLabel->setWordWrap(true);
+	ui->statusLabel->setAccessibleName(tr("VST status"));
 	ui->warningTextEdit->setProperty("statusLevel", "warning");
 	ui->warningTextEdit->setReadOnly(true);
 	ui->warningTextEdit->setLineWrapMode(QPlainTextEdit::WidgetWidth);
@@ -96,10 +161,13 @@ VSTPluginFilterGUI::VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library
 		relativePath = absolutePath;
 	ui->pathLineEdit->setText(relativePath);
 	refreshVST3ClassComboBox();
+	updateMidiButton();
 
 	connect(&idleTimer, &QTimer::timeout, this, &VSTPluginFilterGUI::on_idle);
-	idleTimer.setTimerType(Qt::PreciseTimer);
-	idleTimer.setInterval(16);
+	// This timer only coalesces state persistence and polls out-of-process
+	// status. The plug-in editor owns its own high-frequency idle timer.
+	idleTimer.setTimerType(Qt::CoarseTimer);
+	idleTimer.setInterval(100);
 }
 
 VSTPluginFilterGUI::~VSTPluginFilterGUI()
@@ -111,6 +179,14 @@ VSTPluginFilterGUI::~VSTPluginFilterGUI()
 }
 
 void VSTPluginFilterGUI::store(QString& command, QString& parameters)
+{
+	storeWithMidiConfig(command, parameters, midiConfig);
+}
+
+void VSTPluginFilterGUI::storeWithMidiConfig(
+	QString& command,
+	QString& parameters,
+	const std::wstring& serializedMidiConfig) const
 {
 	command = outProcMode ? "OutProcVSTPlugin" : "VSTPlugin";
 
@@ -127,6 +203,8 @@ void VSTPluginFilterGUI::store(QString& command, QString& parameters)
 		parameters += " ClassIndex " + QString::number(vst3ClassIndex);
 	if (outProcMode)
 		parameters += " HostId " + hostId;
+	if (!serializedMidiConfig.empty())
+		parameters += " MidiConfig \"" + QString::fromStdWString(serializedMidiConfig) + "\"";
 	if (chunkData != L"")
 	{
 		parameters += " ChunkData \"" + QString::fromStdWString(chunkData) + "\"";
@@ -217,14 +295,92 @@ void VSTPluginFilterGUI::on_reloadButton_clicked()
 		terminateOutProcPanel();
 		hostId = QUuid::createUuid().toString(QUuid::WithoutBraces);
 		ui->openPanelButton->setText(tr("Open panel"));
-		ui->statusLabel->setText(tr("Out-of-process VST host reloading"));
+		ui->statusLabel->setText(tr("Out-of-process VST reload requested"));
 	}
 	else
 	{
-		ui->statusLabel->setText(tr("VST plugin reloading"));
+		ui->statusLabel->setText(tr("VST plugin reload requested"));
 	}
 
 	// Rewriting the row makes the APO audio engine reconstruct its VST instance.
+	emit updateModel();
+}
+
+void VSTPluginFilterGUI::on_midiButton_clicked()
+{
+	if (!outProcMode)
+		initPlugin();
+	if (outProcMode && outProcGuiRunning && !midiConfig.empty())
+		terminateOutProcPanel();
+	const std::vector<VSTParameterDescriptor> parameters =
+		availableMidiParameters();
+	if (parameters.empty())
+	{
+		QMessageBox::information(
+			this,
+			tr("VST MIDI control"),
+			outProcMode
+				? tr("Open the out-of-process panel once and close it after the plug-in state has been captured. MIDI mapping then has stable parameter IDs to target.")
+				: tr("This plug-in did not expose any writable parameters for MIDI control."));
+		return;
+	}
+
+	MainWindow* mainWindow = NULL;
+	const bool releaseRuntimeMidi = !midiConfig.empty();
+	if (releaseRuntimeMidi)
+	{
+		mainWindow = qobject_cast<MainWindow*>(window());
+		QString temporaryCommand;
+		QString temporaryParameters;
+		storeWithMidiConfig(
+			temporaryCommand, temporaryParameters, std::wstring());
+		if (mainWindow == NULL ||
+			!mainWindow->beginTemporaryFilterConfiguration(
+				this,
+				temporaryCommand,
+				temporaryParameters,
+				QStringLiteral("vst-midi-learn")))
+		{
+			QMessageBox::warning(
+				this,
+				tr("VST MIDI control"),
+				tr("Save the current profile and resolve any temporary audio state before configuring MIDI."));
+			return;
+		}
+	}
+
+	int dialogResult = QDialog::Rejected;
+	std::wstring updatedConfiguration = midiConfig;
+	{
+		// Destroy the learner (and close its WinMM handle) before restoring the
+		// runtime row, otherwise single-client MIDI drivers can remain busy.
+		VSTMidiMappingDialog dialog(parameters, midiConfig, this);
+		dialogResult = dialog.exec();
+		if (dialogResult == QDialog::Accepted)
+			updatedConfiguration = dialog.getEncodedConfiguration();
+	}
+
+	if (releaseRuntimeMidi)
+	{
+		bool keptExternal = false;
+		if (!mainWindow->restoreTemporaryFilterConfiguration(&keptExternal))
+		{
+			QMessageBox::critical(
+				this,
+				tr("Audio processing was not restored"),
+				tr("The temporary MIDI-learning state could not be restored automatically. Close the editor and use temporary audio recovery before continuing."));
+			return;
+		}
+		if (keptExternal)
+			return;
+	}
+
+	if (dialogResult != QDialog::Accepted)
+		return;
+	if (updatedConfiguration == midiConfig)
+		return;
+	midiConfig = updatedConfiguration;
+	updateMidiButton();
 	emit updateModel();
 }
 
@@ -233,19 +389,38 @@ void VSTPluginFilterGUI::on_vst3ClassComboBox_currentIndexChanged(int index)
 	if (index < 0 || index == vst3ClassIndex)
 		return;
 
-	vst3ClassIndex = index;
-	chunkData = L"";
-	paramMap.clear();
+	if (!chunkData.empty() || !paramMap.empty() || !midiConfig.empty())
+	{
+		const QMessageBox::StandardButton answer = QMessageBox::question(
+			this,
+			tr("Change VST3 plug-in class?"),
+			tr("Changing the class clears the saved plug-in state and any parameter-specific controls for this row."),
+			QMessageBox::Yes | QMessageBox::Cancel,
+			QMessageBox::Cancel);
+		if (answer != QMessageBox::Yes)
+		{
+			QSignalBlocker blocker(ui->vst3ClassComboBox);
+			ui->vst3ClassComboBox->setCurrentIndex(vst3ClassIndex);
+			return;
+		}
+	}
+
 	if (outProcMode)
 	{
 		terminateOutProcPanel();
 		hostId = QUuid::createUuid().toString(QUuid::WithoutBraces);
 	}
 	else
-	{
 		releasePluginInstance();
+
+	vst3ClassIndex = index;
+	chunkData = L"";
+	paramMap.clear();
+	midiConfig.clear();
+	outProcParameterDescriptors.clear();
+	updateMidiButton();
+	if (!outProcMode)
 		initPlugin();
-	}
 	emit updateModel();
 	updatePermissionWarning();
 }
@@ -256,17 +431,30 @@ void VSTPluginFilterGUI::openOutProcPanel()
 	{
 		if (outProcGuiHidden)
 		{
-			signalOutProcPanel(L"GuiShow");
-			outProcGuiHidden = false;
-			ui->openPanelButton->setText(tr("Hide panel"));
+			if (!signalOutProcPanel(L"GuiShow"))
+			{
+				terminateOutProcPanel();
+			}
+			else
+			{
+				outProcGuiHidden = false;
+				ui->openPanelButton->setText(tr("Hide panel"));
+				return;
+			}
 		}
 		else
 		{
-			signalOutProcPanel(L"GuiHide");
-			outProcGuiHidden = true;
-			ui->openPanelButton->setText(tr("Show panel"));
+			if (!signalOutProcPanel(L"GuiHide"))
+			{
+				terminateOutProcPanel();
+			}
+			else
+			{
+				outProcGuiHidden = true;
+				ui->openPanelButton->setText(tr("Show panel"));
+				return;
+			}
 		}
-		return;
 	}
 
 	if (signalOutProcPanel(L"GuiShow"))
@@ -296,6 +484,9 @@ void VSTPluginFilterGUI::openOutProcPanel()
 	config.vst3ClassIndex = vst3ClassIndex;
 	config.chunkData = chunkData;
 	config.paramMap = paramMap;
+	config.midiConfig = midiConfig;
+	config.parameterDescriptors =
+		convertOutProcParameterDescriptors(outProcParameterDescriptors);
 	if (!OutProcWriteVSTConfig(outProcGuiConfigPath.toStdWString(), config))
 	{
 		QMessageBox::warning(this, tr("VST plugin"), tr("Could not create temporary VST host configuration."));
@@ -477,6 +668,7 @@ void VSTPluginFilterGUI::closeOutProcPanel()
 
 void VSTPluginFilterGUI::terminateOutProcPanel()
 {
+	idleTimer.stop();
 	appendOutProcDebugLog("terminate panel hostId=" + hostId + " running=" + QString(outProcGuiRunning ? "true" : "false") + " pid=" + QString::number(outProcGuiPid));
 	signalOutProcPanel(L"GuiExit");
 	terminateOutProcPidForHostId(hostId);
@@ -490,6 +682,8 @@ void VSTPluginFilterGUI::terminateOutProcPanel()
 		{
 			chunkData = updatedConfig.chunkData;
 			paramMap = updatedConfig.paramMap;
+			outProcParameterDescriptors = convertOutProcParameterDescriptors(
+				updatedConfig.parameterDescriptors);
 		}
 		QFile::remove(outProcGuiConfigPath);
 	}
@@ -501,8 +695,8 @@ void VSTPluginFilterGUI::terminateOutProcPanel()
 
 void VSTPluginFilterGUI::applyDialog()
 {
-	effect->readFromEffect(chunkData, paramMap);
-	updateModel();
+	if (capturePluginStateIfChanged())
+		updateModel();
 	updatePermissionWarning();
 }
 
@@ -582,23 +776,40 @@ void VSTPluginFilterGUI::releasePluginInstance()
 
 	idleTimer.stop();
 	effect->setAutomateFunc(nullptr);
+	effect->setParameterAutomateFunc(nullptr);
 	effect->setSizeWindowFunc(nullptr);
 	effect->stopEditing();
 
-	if (library->isVST3())
-	{
-		effect = NULL;
-		return;
-	}
-
-	delete effect;
+	VSTPluginInstance* instance = effect;
 	effect = NULL;
+	delete instance;
 }
 
 void VSTPluginFilterGUI::on_pathLineEdit_editingFinished()
 {
-	if (QString::fromStdWString(library->getLibPath()) != ui->pathLineEdit->text())
+	const QString requestedPath = canonicalVSTPath(ui->pathLineEdit->text());
+	const QString currentPath = canonicalVSTPath(
+		QString::fromStdWString(library->getLibPath()));
+	if (QString::compare(requestedPath, currentPath, Qt::CaseInsensitive) != 0)
 	{
+		if (!currentPath.isEmpty() &&
+			(!chunkData.empty() || !paramMap.empty() || !midiConfig.empty()) &&
+			QMessageBox::question(
+				this,
+				tr("Change VST plug-in?"),
+				tr("Changing the plug-in may clear its saved state and MIDI mappings. Continue?"),
+				QMessageBox::Yes | QMessageBox::Cancel,
+				QMessageBox::Cancel) != QMessageBox::Yes)
+		{
+			QDir pluginsDir(QString::fromStdWString(
+				VSTPluginLibrary::getDefaultPluginPath()));
+			QString displayPath = QDir::toNativeSeparators(
+				pluginsDir.relativeFilePath(currentPath));
+			if (displayPath.startsWith(QDir::toNativeSeparators("../../")))
+				displayPath = currentPath;
+			ui->pathLineEdit->setText(displayPath);
+			return;
+		}
 		int oldId = 0;
 		if (outProcMode)
 		{
@@ -611,11 +822,7 @@ void VSTPluginFilterGUI::on_pathLineEdit_editingFinished()
 			releasePluginInstance();
 		}
 
-		QDir pluginsDir(QString::fromStdWString(VSTPluginLibrary::getDefaultPluginPath()));
-		QString path = ui->pathLineEdit->text();
-		if (path.length() > 0)
-			path = QDir::toNativeSeparators(QFileInfo(pluginsDir, ui->pathLineEdit->text()).absoluteFilePath());
-		library = VSTPluginLibrary::getInstance(path.toStdWString());
+		library = VSTPluginLibrary::getInstance(requestedPath.toStdWString());
 		vst3ClassIndex = 0;
 		refreshVST3ClassComboBox();
 		if (!outProcMode)
@@ -625,6 +832,9 @@ void VSTPluginFilterGUI::on_pathLineEdit_editingFinished()
 		{
 			chunkData = L"";
 			paramMap.clear();
+			midiConfig.clear();
+			outProcParameterDescriptors.clear();
+			updateMidiButton();
 		}
 
 		updateModel();
@@ -632,11 +842,113 @@ void VSTPluginFilterGUI::on_pathLineEdit_editingFinished()
 	}
 }
 
+bool VSTPluginFilterGUI::capturePluginStateIfChanged()
+{
+	if (effect == NULL)
+		return false;
+
+	std::wstring updatedChunkData;
+	std::unordered_map<std::wstring, float> updatedParamMap;
+	effect->readFromEffect(updatedChunkData, updatedParamMap);
+	if (updatedChunkData == chunkData && updatedParamMap == paramMap)
+		return false;
+
+	chunkData = std::move(updatedChunkData);
+	paramMap = std::move(updatedParamMap);
+	return true;
+}
+
+std::vector<VSTParameterDescriptor> VSTPluginFilterGUI::availableMidiParameters() const
+{
+	auto eligibleParameters = [](const std::vector<VSTParameterDescriptor>& source) {
+		std::vector<VSTParameterDescriptor> result;
+		result.reserve(source.size());
+		for (const VSTParameterDescriptor& parameter : source)
+		{
+			if (!parameter.readOnly && !parameter.hidden)
+				result.push_back(parameter);
+		}
+		return result;
+	};
+
+	if (effect != NULL)
+		return eligibleParameters(effect->getParameterDescriptors());
+	if (!outProcParameterDescriptors.empty())
+		return eligibleParameters(outProcParameterDescriptors);
+	// A VST3 parameter title cannot be recovered from its stable ParamID.
+	// Require one successful host snapshot instead of presenting invented names.
+	if (outProcMode && library->isVST3())
+		return {};
+
+	std::vector<VSTParameterDescriptor> result;
+	for (const auto& entry : paramMap)
+	{
+		const std::wstring& key = entry.first;
+		if (key.size() < 2 || key[0] != L'#')
+			continue;
+		wchar_t* end = NULL;
+		const unsigned long id = wcstoul(key.c_str() + 1, &end, 10);
+		if (end == key.c_str() + 1 || id > UINT32_MAX)
+			continue;
+
+		VSTParameterDescriptor descriptor;
+		descriptor.api = library->isVST3()
+			? VSTParameterApi::VST3 : VSTParameterApi::VST2;
+		descriptor.stableId = static_cast<std::uint32_t>(id);
+		descriptor.normalizedValue = entry.second;
+		if (descriptor.api == VSTParameterApi::VST2)
+		{
+			if (*end != L':' || *(end + 1) == L'\0')
+				continue;
+			descriptor.name = end + 1;
+		}
+		else
+		{
+			if (*end != L'\0')
+				continue;
+			descriptor.name.clear();
+		}
+		result.push_back(std::move(descriptor));
+	}
+	std::sort(result.begin(), result.end(),
+		[](const VSTParameterDescriptor& left,
+			const VSTParameterDescriptor& right) {
+			return left.stableId < right.stableId;
+		});
+	return result;
+}
+
+void VSTPluginFilterGUI::updateMidiButton()
+{
+	VSTMidiConfiguration configuration;
+	const bool valid = !midiConfig.empty() &&
+		VSTMidiBindingCodec::deserialize(midiConfig, configuration);
+	if (valid && !configuration.bindings.empty())
+	{
+		ui->midiButton->setText(tr("MIDI control… (%1)")
+			.arg(configuration.bindings.size()));
+		ui->midiButton->setToolTip(tr("%1 MIDI mapping(s) active")
+			.arg(configuration.bindings.size()));
+		ui->midiButton->setProperty("statusLevel", "normal");
+	}
+	else
+	{
+		ui->midiButton->setText(tr("MIDI control…"));
+		ui->midiButton->setToolTip(tr(
+			"Bind MIDI knobs, faders, and buttons to VST parameters"));
+		ui->midiButton->setProperty("statusLevel",
+			midiConfig.empty() ? QVariant() : QVariant("warning"));
+	}
+	ui->midiButton->style()->unpolish(ui->midiButton);
+	ui->midiButton->style()->polish(ui->midiButton);
+}
+
 void VSTPluginFilterGUI::refreshVST3ClassComboBox()
 {
 	ui->vst3ClassComboBox->blockSignals(true);
 	ui->vst3ClassComboBox->clear();
 	ui->vst3ClassComboBox->setVisible(false);
+	ui->classLabel->setVisible(false);
 
 	if (library != NULL && library->isVST3() && library->initialize() >= 0 && library->getVST3ClassCount() > 1)
 	{
@@ -646,6 +958,7 @@ void VSTPluginFilterGUI::refreshVST3ClassComboBox()
 			vst3ClassIndex = 0;
 		ui->vst3ClassComboBox->setCurrentIndex(vst3ClassIndex);
 		ui->vst3ClassComboBox->setVisible(true);
+		ui->classLabel->setVisible(true);
 	}
 
 	ui->vst3ClassComboBox->blockSignals(false);
@@ -695,28 +1008,37 @@ void VSTPluginFilterGUI::on_idle()
 		if (!lastReadTimer.isValid() || lastReadTimer.elapsed() > 500)
 		{
 			OutProcVSTConfig updatedConfig;
-			if (OutProcReadVSTConfig(outProcGuiConfigPath.toStdWString(), updatedConfig)
-				&& (chunkData != updatedConfig.chunkData || paramMap != updatedConfig.paramMap))
+			if (OutProcReadVSTConfig(outProcGuiConfigPath.toStdWString(), updatedConfig))
 			{
+				std::vector<VSTParameterDescriptor> updatedDescriptors =
+					convertOutProcParameterDescriptors(updatedConfig.parameterDescriptors);
+				const bool stateChanged = chunkData != updatedConfig.chunkData ||
+					paramMap != updatedConfig.paramMap;
 				chunkData = updatedConfig.chunkData;
 				paramMap = updatedConfig.paramMap;
-				updateModel();
+				outProcParameterDescriptors = std::move(updatedDescriptors);
+				if (stateChanged)
+				{
+					updateModel();
+				}
 			}
 			lastReadTimer.restart();
 		}
 	}
 
-	if (effect != NULL)
+	if (effect != NULL && autoApplyDialog)
 	{
-		if (autoApplyDialog)
+		const qint64 elapsed = lastReadTimer.isValid()
+			? lastReadTimer.elapsed() : 1000;
+		// A plug-in may omit automation notifications, so retain a slow
+		// fallback poll. Continuous controls are coalesced to one save rather
+		// than serializing and rebuilding the APO for every MIDI/drag event.
+		if ((automationDirty && elapsed >= 75) || elapsed >= 1000)
 		{
-			if (!lastReadTimer.isValid() || lastReadTimer.elapsed() > 1000)
-			{
-				effect->readFromEffect(chunkData, paramMap);
+			if (capturePluginStateIfChanged())
 				updateModel();
-				updatePermissionWarning();
-				lastReadTimer.restart();
-			}
+			automationDirty = false;
+			lastReadTimer.restart();
 		}
 	}
 }
@@ -724,11 +1046,7 @@ void VSTPluginFilterGUI::on_idle()
 void VSTPluginFilterGUI::onAutomate()
 {
 	if (autoApplyDialog)
-	{
-		effect->readFromEffect(chunkData, paramMap);
-		updateModel();
-		updatePermissionWarning();
-	}
+		automationDirty = true;
 }
 
 void VSTPluginFilterGUI::onSizeWindow(int w, int h)
@@ -803,7 +1121,7 @@ void VSTPluginFilterGUI::updatePermissionWarning()
 	{
 		files.removeDuplicates();
 		QString text = tr("The plugin seemingly accesses these files not readable by the audio service:\n"
-				"%0\n"
+				"%1\n"
 				"Change the file permissions or copy the files to the config directory.").arg(files.join("\n"));
 		ui->warningTextEdit->setPlainText(text);
 		ui->warningTextEdit->setVisible(true);

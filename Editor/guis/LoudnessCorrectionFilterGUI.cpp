@@ -18,6 +18,7 @@
 */
 
 #include "Editor/helpers/GUIHelper.h"
+#include "Editor/MainWindow.h"
 #include "LoudnessCorrectionFilterGUIDialog.h"
 #include "LoudnessCorrectionFilterGUI.h"
 #include "LoudnessCorrectionStudioDialog.h"
@@ -53,6 +54,7 @@ LoudnessCorrectionFilterGUI::LoudnessCorrectionFilterGUI(
 	  lastVolume(std::numeric_limits<double>::quiet_NaN())
 {
 	ui->setupUi(this);
+	setMinimumWidth(0);
 
 	const QSize compactDialSize = GUIHelper::scale(QSize(60, 48));
 	ui->refLevelDial->setFixedSize(compactDialSize);
@@ -61,6 +63,7 @@ LoudnessCorrectionFilterGUI::LoudnessCorrectionFilterGUI(
 	ui->refLevelDial->setAccessibleName(ui->refLevelLabel->text());
 	ui->refOffsetDial->setAccessibleName(ui->refOffsetLabel->text());
 	ui->attDial->setAccessibleName(ui->attLabel->text());
+	ui->volumeSpinBox->setAccessibleName(tr("Listening volume"));
 
 	if (refLevel <= 0)
 		refLevel = 80;
@@ -78,13 +81,14 @@ LoudnessCorrectionFilterGUI::LoudnessCorrectionFilterGUI(
 	ui->attDial->setProperty("resetTarget", QVariant::fromValue(static_cast<QObject*>(ui->attSpinBox)));
 	ui->attDial->setProperty("defaultTargetValue", 1.0);
 
-	QPushButton* resetButton = new QPushButton(tr("Reset"), this);
+	QPushButton* resetButton = new QPushButton(tr("Reset contour"), this);
 	resetButton->setObjectName(QStringLiteral("loudnessResetButton"));
 	resetButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 	resetButton->setMinimumWidth(GUIHelper::scale(88));
+	resetButton->setToolTip(tr(
+		"Reset reference level, offset, and correction strength; listening and engine options are preserved."));
 	ui->actionsLayout->insertWidget(1, resetButton);
 	connect(resetButton, &QPushButton::clicked, this, [this]() {
-		this->state = true;
 		ui->refLevelSpinBox->setValue(80);
 		ui->refOffsetSpinBox->setValue(0);
 		ui->attSpinBox->setValue(1.0);
@@ -109,19 +113,25 @@ LoudnessCorrectionFilterGUI::LoudnessCorrectionFilterGUI(
 	updateAutomaticVolumeUi();
 
 	bool blocked = ui->manualVolumeCheckBox->blockSignals(true);
-	ui->manualVolumeCheckBox->setChecked(
-		useManualVolume || !this->automaticVolumeAvailable);
+	// Availability is an observation, not a user preference. A temporarily
+	// unreadable endpoint must not silently turn an automatic row into
+	// "Volume 0.0" the next time any other field is edited.
+	ui->manualVolumeCheckBox->setChecked(useManualVolume);
 	ui->manualVolumeCheckBox->blockSignals(blocked);
-	ui->volumeSpinBox->setEnabled(
-		useManualVolume || !this->automaticVolumeAvailable);
-	if (useManualVolume || !this->automaticVolumeAvailable)
+	ui->volumeSpinBox->setEnabled(useManualVolume);
+	if (useManualVolume)
 	{
 		ui->volumeSpinBox->setValue(manualVolume);
 		lastVolume = manualVolume;
 	}
-	else
+	else if (this->automaticVolumeAvailable)
 	{
 		ui->volumeSpinBox->setValue(lastVolume);
+	}
+	else
+	{
+		ui->volumeSpinBox->setSpecialValueText(tr("Unavailable"));
+		ui->volumeSpinBox->setValue(ui->volumeSpinBox->minimum());
 	}
 
 	connect(&timer, SIGNAL(timeout()), this, SLOT(updateVolume()));
@@ -145,12 +155,12 @@ void LoudnessCorrectionFilterGUI::store(QString& command, QString& parameters)
 		.arg(ui->refOffsetSpinBox->value());
 	double att = ui->attSpinBox->value();
 	if (att == 0.0 || att == 1.0)
-		parameters += QString("%0").arg(att, 0, 'f', 1);
+		parameters += QString("%1").arg(att, 0, 'f', 1);
 	else
-		parameters += QString("%0").arg(att);
+		parameters += QString("%1").arg(att);
 
 	if (ui->manualVolumeCheckBox->isChecked())
-		parameters += QString(" Volume %0").arg(
+		parameters += QString(" Volume %1").arg(
 			ui->volumeSpinBox->value(), 0, 'f', 1);
 
 	if (ui->fastEngineCheckBox->isChecked())
@@ -240,20 +250,26 @@ void LoudnessCorrectionFilterGUI::refreshVolumeController()
 
 void LoudnessCorrectionFilterGUI::updateAutomaticVolumeUi()
 {
+	ui->manualVolumeCheckBox->setText(tr("Manual volume:"));
 	if (automaticVolumeAvailable)
 	{
-		ui->manualVolumeCheckBox->setText(tr("Manual volume:"));
 		ui->manualVolumeCheckBox->setToolTip(tr(
 			"Use this when a DAC or amplifier hardware knob controls the real listening level."));
+		ui->volumeSpinBox->setSpecialValueText(QString());
 	}
 	else
 	{
-		ui->manualVolumeCheckBox->setText(tr("Manual volume (required):"));
 		ui->manualVolumeCheckBox->setToolTip(tr(
-			"Automatic volume is unavailable for this playback binding. "
-			"Use manual volume for an input or unreadable endpoint."));
+			"Automatic volume is temporarily unavailable. The saved automatic mode is preserved and runtime correction pauses safely until the endpoint returns. Enable manual volume only if you want to replace automatic tracking."));
+		if (!ui->manualVolumeCheckBox->isChecked())
+		{
+			ui->volumeSpinBox->setSpecialValueText(tr("Unavailable"));
+			ui->volumeSpinBox->setValue(ui->volumeSpinBox->minimum());
+		}
 	}
 	ui->volumeSpinBox->setToolTip(ui->manualVolumeCheckBox->toolTip());
+	ui->volumeSpinBox->setAccessibleDescription(
+		ui->manualVolumeCheckBox->toolTip());
 }
 
 void LoudnessCorrectionFilterGUI::on_refLevelSpinBox_valueChanged(int value)
@@ -288,17 +304,22 @@ void LoudnessCorrectionFilterGUI::on_bindingComboBox_currentIndexChanged(int ind
 	refreshVolumeController();
 	updateAutomaticVolumeUi();
 
-	if (!automaticVolumeAvailable)
+	if (manual)
 	{
-		bool blocked = ui->manualVolumeCheckBox->blockSignals(true);
-		ui->manualVolumeCheckBox->setChecked(true);
-		ui->manualVolumeCheckBox->blockSignals(blocked);
 		ui->volumeSpinBox->setValue(manualVolume);
 		ui->volumeSpinBox->setEnabled(true);
 	}
-	else if (!manual)
+	else if (automaticVolumeAvailable)
 	{
+		ui->volumeSpinBox->setSpecialValueText(QString());
 		ui->volumeSpinBox->setValue(lastVolume);
+		ui->volumeSpinBox->setEnabled(false);
+	}
+	else
+	{
+		ui->volumeSpinBox->setSpecialValueText(tr("Unavailable"));
+		ui->volumeSpinBox->setValue(ui->volumeSpinBox->minimum());
+		ui->volumeSpinBox->setEnabled(false);
 	}
 
 	emit updateModel();
@@ -306,24 +327,13 @@ void LoudnessCorrectionFilterGUI::on_bindingComboBox_currentIndexChanged(int ind
 
 void LoudnessCorrectionFilterGUI::on_manualVolumeCheckBox_toggled(bool checked)
 {
-	if (!checked && !automaticVolumeAvailable)
-	{
-		bool blocked = ui->manualVolumeCheckBox->blockSignals(true);
-		ui->manualVolumeCheckBox->setChecked(true);
-		ui->manualVolumeCheckBox->blockSignals(blocked);
-		ui->volumeSpinBox->setEnabled(true);
-		QToolTip::showText(
-			ui->manualVolumeCheckBox->mapToGlobal(
-				QPoint(0, ui->manualVolumeCheckBox->height())),
-			ui->manualVolumeCheckBox->toolTip(),
-			ui->manualVolumeCheckBox);
-		emit updateModel();
-		return;
-	}
-
 	ui->volumeSpinBox->setEnabled(checked);
 	if (checked)
 	{
+		ui->volumeSpinBox->setSpecialValueText(QString());
+		if (!std::isfinite(lastVolume))
+			lastVolume = -20.0;
+		ui->volumeSpinBox->setValue(lastVolume);
 		lastVolume = ui->volumeSpinBox->value();
 	}
 	else
@@ -338,10 +348,7 @@ void LoudnessCorrectionFilterGUI::on_manualVolumeCheckBox_toggled(bool checked)
 			automaticVolumeAvailable = false;
 			volumeController.reset();
 			updateAutomaticVolumeUi();
-			bool blocked = ui->manualVolumeCheckBox->blockSignals(true);
-			ui->manualVolumeCheckBox->setChecked(true);
-			ui->manualVolumeCheckBox->blockSignals(blocked);
-			ui->volumeSpinBox->setEnabled(true);
+			ui->volumeSpinBox->setEnabled(false);
 			QToolTip::showText(
 				ui->manualVolumeCheckBox->mapToGlobal(
 					QPoint(0, ui->manualVolumeCheckBox->height())),
@@ -350,6 +357,9 @@ void LoudnessCorrectionFilterGUI::on_manualVolumeCheckBox_toggled(bool checked)
 			emit updateModel();
 			return;
 		}
+		automaticVolumeAvailable = true;
+		ui->volumeSpinBox->setSpecialValueText(QString());
+		updateAutomaticVolumeUi();
 		lastVolume = endpointVolumeState.levelDb;
 		endpointId = volumeController->getEndpointId();
 		ui->volumeSpinBox->setValue(lastVolume);
@@ -413,8 +423,7 @@ void LoudnessCorrectionFilterGUI::on_studioButton_clicked()
 
 	refreshVolumeController();
 	updateAutomaticVolumeUi();
-	const bool useManualVolume =
-		dialog.getUseManualVolume() || !automaticVolumeAvailable;
+	const bool useManualVolume = dialog.getUseManualVolume();
 	{
 		QSignalBlocker manualBlocker(ui->manualVolumeCheckBox);
 		QSignalBlocker volumeBlocker(ui->volumeSpinBox);
@@ -427,7 +436,16 @@ void LoudnessCorrectionFilterGUI::on_studioButton_clicked()
 		}
 		else
 		{
-			ui->volumeSpinBox->setValue(lastVolume);
+			if (automaticVolumeAvailable)
+			{
+				ui->volumeSpinBox->setSpecialValueText(QString());
+				ui->volumeSpinBox->setValue(lastVolume);
+			}
+			else
+			{
+				ui->volumeSpinBox->setSpecialValueText(tr("Unavailable"));
+				ui->volumeSpinBox->setValue(ui->volumeSpinBox->minimum());
+			}
 		}
 	}
 
@@ -461,11 +479,11 @@ void LoudnessCorrectionFilterGUI::on_calibrateButton_clicked()
 		ui->volumeSpinBox->setValue(lastVolume);
 	}
 
-	const bool previousState = state;
-	const double previousAttenuation = ui->attSpinBox->value();
 	const bool keepVolumeFollow =
 		getVolumeFollowMode() !=
 		LoudnessCorrectionFilter::FilterParameters::VOLUME_FOLLOW_OFF;
+	const bool previousState = state;
+	const double previousAttenuation = ui->attSpinBox->value();
 	if (keepVolumeFollow)
 	{
 		// Keep the APO-owned master-volume attenuation active while removing
@@ -481,13 +499,9 @@ void LoudnessCorrectionFilterGUI::on_calibrateButton_clicked()
 	{
 		state = false;
 	}
-	emit updateModel();
-
-	LoudnessCorrectionFilterGUIDialog dialog(
-		endpointId,
-		automaticVolumeAvailable,
-		getBindingMode() == LoudnessCorrectionFilter::FilterParameters::BINDING_ALL);
-	const int dialogResult = dialog.exec();
+	QString temporaryCommand;
+	QString temporaryParameters;
+	store(temporaryCommand, temporaryParameters);
 	state = previousState;
 	if (keepVolumeFollow)
 	{
@@ -496,7 +510,35 @@ void LoudnessCorrectionFilterGUI::on_calibrateButton_clicked()
 		ui->attDial->setValue(qRound(previousAttenuation * 100.0));
 		ui->attSpinBox->setValue(previousAttenuation);
 	}
-	emit updateModel();
+
+	MainWindow* mainWindow = qobject_cast<MainWindow*>(window());
+	if (mainWindow == NULL || !mainWindow->beginTemporaryFilterConfiguration(
+		this, temporaryCommand, temporaryParameters,
+		QStringLiteral("loudness-calibration")))
+	{
+		QMessageBox::warning(
+			this,
+			tr("Calibration not started"),
+			tr("Save the current profile and resolve any temporary audio state before calibrating."));
+		return;
+	}
+
+	LoudnessCorrectionFilterGUIDialog dialog(
+		endpointId,
+		automaticVolumeAvailable,
+		getBindingMode() == LoudnessCorrectionFilter::FilterParameters::BINDING_ALL);
+	const int dialogResult = dialog.exec();
+	bool keptExternal = false;
+	if (!mainWindow->restoreTemporaryFilterConfiguration(&keptExternal))
+	{
+		QMessageBox::critical(
+			this,
+			tr("Audio processing was not restored"),
+			tr("The temporary calibration state could not be restored automatically. Close the editor and use temporary audio recovery before continuing."));
+		return;
+	}
+	if (keptExternal)
+		return;
 
 	if (dialogResult == QDialog::Accepted)
 	{
@@ -568,13 +610,24 @@ bool LoudnessCorrectionFilterGUI::tryReadEndpointVolumeState(
 
 bool LoudnessCorrectionFilterGUI::tryUpdateVolume()
 {
-	if (ui->manualVolumeCheckBox->isChecked() || !automaticVolumeAvailable ||
-		!volumeController)
+	if (ui->manualVolumeCheckBox->isChecked())
 		return false;
+	if (!volumeController)
+		refreshVolumeController();
+	if (!volumeController)
+	{
+		updateAutomaticVolumeUi();
+		return false;
+	}
 
 	EndpointVolumeState volumeState;
 	if (tryReadEndpointVolumeState(volumeState))
 	{
+		if (!automaticVolumeAvailable)
+		{
+			automaticVolumeAvailable = true;
+			updateAutomaticVolumeUi();
+		}
 		const double volume = volumeState.levelDb;
 		if (!std::isfinite(lastVolume) || std::abs(volume - lastVolume) > 0.05)
 			ui->volumeSpinBox->setValue(volume);
@@ -582,7 +635,10 @@ bool LoudnessCorrectionFilterGUI::tryUpdateVolume()
 		return true;
 	}
 
+	automaticVolumeAvailable = false;
 	lastVolume = std::numeric_limits<double>::quiet_NaN();
+	volumeController.reset();
+	updateAutomaticVolumeUi();
 	return false;
 }
 
@@ -612,6 +668,7 @@ QSize LoudnessCorrectionFilterGUI::sizeHint() const
 QSize LoudnessCorrectionFilterGUI::minimumSizeHint() const
 {
 	QSize size = QWidget::minimumSizeHint();
+	size.setWidth(0);
 	size.setHeight(preferredHeight());
 	return size;
 }

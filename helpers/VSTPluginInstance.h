@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <array>
+#include <atomic>
 #include <string>
 #include <memory>
 #include <functional>
@@ -35,6 +37,32 @@
 #include "pluginterfaces/gui/iplugview.h"
 
 class VSTPluginLibrary;
+
+namespace Steinberg
+{
+	namespace Vst
+	{
+		class ParameterChanges;
+	}
+}
+
+enum class VSTParameterApi
+{
+	VST2,
+	VST3
+};
+
+struct VSTParameterDescriptor
+{
+	VSTParameterApi api = VSTParameterApi::VST2;
+	// Stable VST3 ParamID or stable VST2 parameter index.
+	std::uint32_t stableId = 0;
+	std::wstring name;
+	std::uint32_t stepCount = 0;
+	double normalizedValue = 0.0;
+	bool readOnly = false;
+	bool hidden = false;
+};
 
 class VSTPluginInstance
 {
@@ -62,6 +90,8 @@ public:
 	void prepareForProcessing(float sampleRate, int blockSize);
 	void writeToEffect(const std::wstring& chunkData, const std::unordered_map<std::wstring, float>& paramMap);
 	void readFromEffect(std::wstring& chunkData, std::unordered_map<std::wstring, float>& paramMap) const;
+	const std::vector<VSTParameterDescriptor>& getParameterDescriptors() const;
+	bool setParameterNormalized(const VSTParameterDescriptor& parameter, double value, bool realtimeThread = false);
 
 	void startProcessing();
 	void processDoubleReplacing(double** inputArray, double** outputArray, int frameCount);
@@ -74,7 +104,10 @@ public:
 	void stopEditing();
 
 	void setAutomateFunc(std::function<void()> func);
+	void setParameterAutomateFunc(std::function<void(const VSTParameterDescriptor&, double)> func);
 	void onAutomate();
+	void onAutomate(Steinberg::Vst::ParamID id, Steinberg::Vst::ParamValue value);
+	void onAutomate(int index, float value);
 
 	void setSizeWindowFunc(std::function<void(int, int)> func);
 	void onSizeWindow(int w, int h);
@@ -83,6 +116,26 @@ public:
 private:
 	class VST3HostContext;
 	class VST3MemoryStream;
+	struct VST3ParameterChange
+	{
+		Steinberg::Vst::ParamID id = Steinberg::Vst::kNoParamId;
+		Steinberg::Vst::ParamValue value = 0.0;
+	};
+	class VST3ParameterChangeQueue
+	{
+	public:
+		bool tryPush(const VST3ParameterChange& change);
+		bool tryPop(VST3ParameterChange& change);
+		void clear();
+
+	private:
+		static constexpr std::uint32_t capacity = 1024;
+		static_assert((capacity & (capacity - 1)) == 0, "VST3 change queue capacity must be a power of two");
+		static_assert(std::atomic<std::uint32_t>::is_always_lock_free, "VST3 change queue requires lock-free atomics");
+		std::array<VST3ParameterChange, capacity> entries = {};
+		std::atomic<std::uint32_t> readIndex{ 0 };
+		std::atomic<std::uint32_t> writeIndex{ 0 };
+	};
 
 	bool initializeVST2();
 	bool initializeVST3();
@@ -90,6 +143,11 @@ private:
 	void configureVST3Buses(int requestedChannelCount);
 	Steinberg::Vst::SpeakerArrangement speakerArrangementForChannelCount(int count) const;
 	void queueVST3ParameterChange(Steinberg::Vst::ParamID id, Steinberg::Vst::ParamValue value);
+	void prewarmVST3InputParameterChanges();
+	void prepareVST3InputParameterChanges();
+	void rebuildParameterDescriptors();
+	const VSTParameterDescriptor* findVST3Parameter(Steinberg::Vst::ParamID id) const;
+	const VSTParameterDescriptor* findVST2Parameter(int index) const;
 
 	std::shared_ptr<VSTPluginLibrary> library;
 	vst_effect_t* effect = NULL;
@@ -110,8 +168,13 @@ private:
 	bool vst3Processing = false;
 	Steinberg::Vst::ProcessContext vst3ProcessContext = {};
 	Steinberg::Vst::TSamples vst3SamplePosition = 0;
-	std::vector<std::pair<Steinberg::Vst::ParamID, Steinberg::Vst::ParamValue>> pendingVST3ParameterChanges;
+	VST3ParameterChangeQueue vst3ParameterChangeQueue;
+	std::array<VST3ParameterChange, 256> realtimeVST3ParameterChanges = {};
+	std::uint32_t realtimeVST3ParameterChangeCount = 0;
+	std::unique_ptr<Steinberg::Vst::ParameterChanges> vst3InputParameterChanges;
+	std::vector<VSTParameterDescriptor> parameterDescriptors;
 	std::function<void()> automateFunc;
+	std::function<void(const VSTParameterDescriptor&, double)> parameterAutomateFunc;
 	std::function<void(int, int)> sizeWindowFunc;
 	float sampleRate = 0.0f;
 	int usedChannelCount = -1;

@@ -69,6 +69,7 @@
 #include "filters/GraphicEQFilterFactory.h"
 #include "filters/VSTPluginFilterFactory.h"
 #include "filters/loudnessCorrection/LoudnessCorrectionFilterFactory.h"
+#include "filters/loudnessCorrection/OriginalLoudnessCorrectionFilterFactory.h"
 
 using namespace std;
 using namespace mup;
@@ -190,6 +191,7 @@ FilterEngine::FilterEngine()
 	factories.push_back(new GraphicEQFilterFactory());
 	factories.push_back(new VSTPluginFilterFactory());
 	factories.push_back(new LoudnessCorrectionFilterFactory());
+	factories.push_back(new OriginalLoudnessCorrectionFilterFactory());
 }
 
 FilterEngine::~FilterEngine()
