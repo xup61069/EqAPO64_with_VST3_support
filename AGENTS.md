@@ -66,6 +66,7 @@ git worktree list
 - Audio callback 內不得配置或釋放記憶體、等待或取得可能阻塞的鎖、寫 log、呼叫系統 API，或執行不可預測的 I/O。
 - 昂貴的輪廓擬合、端點查詢、峰值搜尋與係數準備必須在非即時路徑完成；callback 只消費已發布且生命週期安全的狀態。
 - 保留既有 raw → common-A 安全交接、預熱、淡入、雙 bank 係數交叉淡化及失敗時 bypass 的行為。
+- Settled callback 會使用 `initialize()` 依 `maxFrameCount` 預先配置的 scratch buffer 走 section-major block 路徑；交接、預熱、crossfade 與 bypass fade 仍走 sample-major fallback。修改這兩條路徑時，必須保留原生 block/scalar、in-place/out-of-place 的逐樣本等價測試。
 - 輸出餘裕掃描只降低校正分支，不得把共同的次聲頻路徑一起壓低。它不是 limiter；文件不可暗示能保證 sample peak 或 true peak。
 
 ### 設定與相容性
@@ -103,6 +104,18 @@ C++、DSP、project wiring 或 installer 變更再執行：
 ```powershell
 .\scripts\build-installer-x64.ps1 -Configuration Release
 .\scripts\test-runtime-loudness.ps1 -Configuration Release
+```
+
+響度效能變更另以 Release build 執行可重現的原生量測；數字必須連同取樣率、聲道數與 batch size 記錄，不能只寫「更快」：
+
+```powershell
+$previousPath = $env:Path
+try {
+    $env:Path = (Resolve-Path '.\Setup\lib64').Path + ';' + $previousPath
+    .\Benchmark\x64\Release\Benchmark.exe --nopause --loudness-performance
+} finally {
+    $env:Path = $previousPath
+}
 ```
 
 行程外 VST host 變更再執行：
