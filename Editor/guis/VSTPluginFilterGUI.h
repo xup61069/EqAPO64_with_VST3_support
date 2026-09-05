@@ -23,8 +23,10 @@
 #include <QElapsedTimer>
 #include <QString>
 #include <QTimer>
+#include <vector>
 #include "Editor/IFilterGUI.h"
 #include "helpers/VSTPluginLibrary.h"
+#include "helpers/VSTPluginInstance.h"
 
 namespace Ui {
 class VSTPluginFilterGUI;
@@ -35,7 +37,7 @@ class VSTPluginFilterGUI : public IFilterGUI
 	Q_OBJECT
 
 public:
-	explicit VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library, const std::wstring& chunkData, const std::unordered_map<std::wstring, float>& paramMap, bool outProcMode = false, const QString& hostId = QString(), int vst3ClassIndex = 0);
+	explicit VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library, const std::wstring& chunkData, const std::unordered_map<std::wstring, float>& paramMap, bool outProcMode = false, const QString& hostId = QString(), int vst3ClassIndex = 0, const std::wstring& midiConfig = std::wstring());
 	~VSTPluginFilterGUI();
 
 	void store(QString& command, QString& parameters) override;
@@ -48,6 +50,7 @@ public:
 private slots:
 	void on_openPanelButton_clicked();
 	void on_reloadButton_clicked();
+	void on_midiButton_clicked();
 	void on_vst3ClassComboBox_currentIndexChanged(int index);
 	void applyDialog();
 	void autoApplyToggled(bool checked);
@@ -56,6 +59,10 @@ private slots:
 	void on_idle();
 
 private:
+	void storeWithMidiConfig(
+		QString& command,
+		QString& parameters,
+		const std::wstring& serializedMidiConfig) const;
 	void initPlugin();
 	void openOutProcPanel();
 	bool signalOutProcPanel(const wchar_t* suffix);
@@ -65,6 +72,9 @@ private:
 	void releasePluginInstance();
 	void refreshVST3ClassComboBox();
 	void updatePermissionWarning();
+	bool capturePluginStateIfChanged();
+	std::vector<VSTParameterDescriptor> availableMidiParameters() const;
+	void updateMidiButton();
 
 	Ui::VSTPluginFilterGUI* ui;
 	std::shared_ptr<VSTPluginLibrary> library;
@@ -72,6 +82,8 @@ private:
 	QTimer idleTimer;
 	std::wstring chunkData;
 	std::unordered_map<std::wstring, float> paramMap;
+	std::wstring midiConfig;
+	std::vector<VSTParameterDescriptor> outProcParameterDescriptors;
 	bool outProcMode = false;
 	QString hostId;
 	bool outProcGuiRunning = false;
@@ -81,4 +93,5 @@ private:
 	bool autoApplyDialog = false;
 	QElapsedTimer lastReadTimer;
 	int vst3ClassIndex = 0;
+	bool automationDirty = false;
 };

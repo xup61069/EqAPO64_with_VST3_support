@@ -70,6 +70,20 @@ LegacyLoudnessCorrectionFilterGUI::LegacyLoudnessCorrectionFilterGUI(
 	warning->setWordWrap(true);
 	layout->addWidget(warning, 1);
 
+	if (unmarkedEntry && canConvertShelf)
+	{
+		QPushButton* keepOriginalButton = new QPushButton(
+			tr("Keep as original component"), this);
+		keepOriginalButton->setToolTip(tr(
+			"Moves this row to the separate original shelf component, "
+			"preserving its original curve values and enabled state."));
+		layout->addWidget(keepOriginalButton);
+		connect(keepOriginalButton, &QPushButton::clicked, this, [this]() {
+			migration = Migration::KeepOriginal;
+			emit updateModel();
+		});
+	}
+
 	if (canKeepFormula)
 	{
 		QPushButton* keepFormulaButton = new QPushButton(
@@ -115,6 +129,18 @@ void LegacyLoudnessCorrectionFilterGUI::store(QString& command, QString& paramet
 	}
 
 	command = "LoudnessCorrection";
+	if (migration == Migration::KeepOriginal)
+	{
+		command = "LoudnessCorrectionOriginal";
+		parameters = QString(
+			"Schema 1 Model MixomoShelfV1 State %1 ReferenceLevel %2 "
+			"ReferenceOffset %3 Attenuation %4")
+			.arg(wasEnabled ? 1 : 0)
+			.arg(referenceLevel, 0, 'f', 1)
+			.arg(referenceOffset, 0, 'f', 1)
+			.arg(strength, 0, 'f', 3);
+		return;
+	}
 	if (migration == Migration::KeepFormula)
 	{
 		parameters = QString("Schema 1 Model FormulaLoudnessV1 Binding Single State %1 ReferenceLevel %2 ReferenceOffset %3 Attenuation %4")

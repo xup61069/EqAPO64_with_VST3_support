@@ -26,7 +26,9 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include <algorithm>
+#include <atomic>
 #include <string>
+#include <thread>
 #include <vector>
 #include <sndfile.h>
 #include <tclap/CmdLine.h>
@@ -39,7 +41,13 @@
 #include "../helpers/StringHelper.h"
 #include "../helpers/PrecisionTimer.h"
 #include "../helpers/MemoryHelper.h"
+#include "../helpers/FFTWHelper.h"
+#include "../helpers/VSTMidiBindingCodec.h"
+#include "../filters/ConvolutionFilter.h"
+#include "../filters/GraphicEQFilter.h"
 #include "../filters/loudnessCorrection/LoudnessCorrectionFilter.h"
+#include "../filters/loudnessCorrection/OriginalLoudnessCorrectionFilter.h"
+#include "../filters/loudnessCorrection/OriginalLoudnessCorrectionFilterFactory.h"
 
 using namespace std;
 
@@ -381,6 +389,145 @@ public:
 	}
 };
 
+class OriginalLoudnessCorrectionFilterTestAccess
+{
+public:
+	static void calculateTransfer(
+		const OriginalLoudnessCorrectionFilter::FilterParameters& parameters,
+		double volumeDb,
+		double& lowShelfGainDb,
+		double& highShelfGainDb,
+		double& outputGainLinear,
+		bool& identity)
+	{
+		const OriginalLoudnessCorrectionFilter::Transfer transfer =
+			OriginalLoudnessCorrectionFilter::calculateTransfer(
+				parameters, volumeDb);
+		lowShelfGainDb = transfer.lowShelfGainDb;
+		highShelfGainDb = transfer.highShelfGainDb;
+		outputGainLinear = transfer.outputGainLinear;
+		identity = transfer.identity;
+	}
+
+	static void enableWithoutTracking(OriginalLoudnessCorrectionFilter& filter)
+	{
+		filter._parameters.state = true;
+	}
+
+	static void publishVolumeUpdate(
+		OriginalLoudnessCorrectionFilter& filter,
+		double volumeDb)
+	{
+		filter.publishVolumeUpdate(volumeDb);
+	}
+
+	static bool settledOnNonIdentityBank(
+		const OriginalLoudnessCorrectionFilter& filter)
+	{
+		return !filter._warmupActive && !filter._crossfadeActive &&
+			!filter._bankSnapshots[filter._activeBankIndex].identity;
+	}
+
+	static double maximumSnapshotPoleRadius(
+		const OriginalLoudnessCorrectionFilter::FilterParameters& parameters,
+		double volumeDb,
+		double sampleRate,
+		bool& highShelfIdentity)
+	{
+		const OriginalLoudnessCorrectionFilter::CoefficientSnapshot snapshot =
+			OriginalLoudnessCorrectionFilter::makeSnapshot(
+				OriginalLoudnessCorrectionFilter::calculateTransfer(
+					parameters, volumeDb),
+				sampleRate);
+		auto maximumRadius = [](double a1, double a2)
+		{
+			const std::complex<double> root = std::sqrt(
+				std::complex<double>(a1 * a1 - 4.0 * a2, 0.0));
+			return (std::max)(
+				std::abs((-a1 + root) / 2.0),
+				std::abs((-a1 - root) / 2.0));
+		};
+		highShelfIdentity = snapshot.highShelfA0 == 1.0;
+		for (size_t index = 0; index < 4; ++index)
+			highShelfIdentity = highShelfIdentity &&
+				snapshot.highShelf[index] == 0.0;
+		return (std::max)(
+			maximumRadius(snapshot.lowShelf[2], snapshot.lowShelf[3]),
+			maximumRadius(snapshot.highShelf[2], snapshot.highShelf[3]));
+	}
+
+	static bool concurrentPublicationIsCoherent(
+		OriginalLoudnessCorrectionFilter& filter)
+	{
+		OriginalLoudnessCorrectionFilter::CoefficientSnapshot signatures[2] = {};
+		for (size_t signature = 0; signature < 2; ++signature)
+		{
+			const double base = signature == 0 ? 10.0 : 100.0;
+			for (size_t index = 0; index < 4; ++index)
+			{
+				signatures[signature].lowShelf[index] = base + index;
+				signatures[signature].highShelf[index] = base + 10.0 + index;
+			}
+			signatures[signature].lowShelfA0 = base + 20.0;
+			signatures[signature].highShelfA0 = base + 21.0;
+			signatures[signature].outputGainLinear = base + 22.0;
+			signatures[signature].identity = signature != 0;
+		}
+
+		auto matches = [](
+			const OriginalLoudnessCorrectionFilter::CoefficientSnapshot& actual,
+			const OriginalLoudnessCorrectionFilter::CoefficientSnapshot& expected)
+		{
+			if (actual.lowShelfA0 != expected.lowShelfA0 ||
+				actual.highShelfA0 != expected.highShelfA0 ||
+				actual.outputGainLinear != expected.outputGainLinear ||
+				actual.identity != expected.identity)
+			{
+				return false;
+			}
+			for (size_t index = 0; index < 4; ++index)
+			{
+				if (actual.lowShelf[index] != expected.lowShelf[index] ||
+					actual.highShelf[index] != expected.highShelf[index])
+				{
+					return false;
+				}
+			}
+			return true;
+		};
+
+		std::atomic<bool> start(false);
+		std::atomic<bool> done(false);
+		std::thread writer([&]()
+		{
+			while (!start.load(std::memory_order_acquire))
+				std::this_thread::yield();
+			for (size_t iteration = 0; iteration < 100000; ++iteration)
+				filter.publishSnapshot(signatures[iteration & 1]);
+			done.store(true, std::memory_order_release);
+		});
+
+		start.store(true, std::memory_order_release);
+		bool coherent = true;
+		size_t observed = 0;
+		do
+		{
+			OriginalLoudnessCorrectionFilter::CoefficientSnapshot
+				observedSnapshot = {};
+			std::uint64_t sequence = 0;
+			if (filter.readPublishedSnapshot(observedSnapshot, sequence))
+			{
+				coherent = coherent &&
+					(matches(observedSnapshot, signatures[0]) ||
+						matches(observedSnapshot, signatures[1]));
+				++observed;
+			}
+		} while (!done.load(std::memory_order_acquire));
+		writer.join();
+		return coherent && observed != 0;
+	}
+};
+
 namespace
 {
 	int nextPowerOfTwo(int value)
@@ -510,8 +657,15 @@ namespace
 
 		referenceConvolutionFft(input, impulse, reference);
 
-		HConvSingle filter;
-		hcInitSingle(&filter, impulse.data(), impulseLength, frameLength, 1);
+		HConvSingle filter = {};
+		if (!hcInitSingle(
+				&filter, impulse.data(), impulseLength, frameLength, 1))
+		{
+			fprintf(stderr,
+				"HybridConv initialization failed for flen=%d hlen=%d.\n",
+				frameLength, impulseLength);
+			return false;
+		}
 		for (int blockIndex = 0; blockIndex < blocks; ++blockIndex)
 		{
 			hcPutSingle(
@@ -560,6 +714,315 @@ namespace
 		return passed;
 	}
 
+	bool writeAsyncConvolutionTestImpulse(std::wstring& filename)
+	{
+		wchar_t tempDirectory[MAX_PATH] = {};
+		wchar_t tempFilename[MAX_PATH] = {};
+		if (GetTempPathW(MAX_PATH, tempDirectory) == 0 ||
+			GetTempFileNameW(tempDirectory, L"EAP", 0, tempFilename) == 0)
+		{
+			return false;
+		}
+
+		SF_INFO info = {};
+		info.samplerate = 48000;
+		info.channels = 1;
+		info.format = SF_FORMAT_WAV | SF_FORMAT_DOUBLE;
+		SNDFILE* file = sf_wchar_open(tempFilename, SFM_WRITE, &info);
+		if (file == NULL)
+		{
+			DeleteFileW(tempFilename);
+			return false;
+		}
+
+		const double impulse[] = { 0.5 };
+		const sf_count_t written = sf_writef_double(file, impulse, 1);
+		const int closeResult = sf_close(file);
+		if (written != 1 || closeResult != 0)
+		{
+			DeleteFileW(tempFilename);
+			return false;
+		}
+
+		filename = tempFilename;
+		return true;
+	}
+
+	bool runAsyncConvolutionFilterCase(
+		const char* name,
+		ConvolutionFilter& filter,
+		double expectedScale,
+		bool inPlace,
+		bool verifyCallbackBound)
+	{
+		const unsigned sampleRate = 48000;
+		const unsigned maximumFrameCount = 1024;
+		const unsigned actualFrameCount = 480;
+		const unsigned channelCount = 2;
+		vector<wstring> channelNames = { L"L", L"R" };
+		filter.initialize(
+			static_cast<float>(sampleRate), maximumFrameCount, channelNames);
+
+		vector<vector<double>> input(
+			channelCount, vector<double>(actualFrameCount));
+		vector<vector<double>> output(
+			channelCount, vector<double>(actualFrameCount));
+		vector<double*> inputChannels(channelCount);
+		vector<double*> outputChannels(channelCount);
+		auto prepareBlock = [&]()
+		{
+			for (unsigned channel = 0; channel < channelCount; ++channel)
+			{
+				const double value = channel == 0 ? 0.125 : -0.25;
+				std::fill(input[channel].begin(), input[channel].end(), value);
+				std::fill(output[channel].begin(), output[channel].end(), 123.0);
+				inputChannels[channel] = input[channel].data();
+				outputChannels[channel] = inPlace ?
+					input[channel].data() : output[channel].data();
+			}
+		};
+		auto maximumError = [&](double scale)
+		{
+			double error = 0.0;
+			for (unsigned channel = 0; channel < channelCount; ++channel)
+			{
+				const double expected =
+					(channel == 0 ? 0.125 : -0.25) * scale;
+				for (double sample : inPlace ? input[channel] : output[channel])
+					error = (std::max)(error, std::abs(sample - expected));
+			}
+			return error;
+		};
+
+		bool passed = true;
+		if (verifyCallbackBound)
+		{
+			std::atomic<bool> plannerHeld(false);
+			std::thread plannerBlocker([&]()
+			{
+				FFTWPlannerGuard plannerGuard;
+				plannerHeld.store(true, std::memory_order_release);
+				Sleep(750);
+			});
+			while (!plannerHeld.load(std::memory_order_acquire))
+				std::this_thread::yield();
+
+			prepareBlock();
+			PrecisionTimer timer;
+			timer.start();
+			filter.process(
+				outputChannels.data(), inputChannels.data(), actualFrameCount);
+			const double firstCallbackMilliseconds = timer.stop() * 1000.0;
+			passed = maximumError(1.0) < 1.0e-12 && passed;
+			Sleep(25);
+			prepareBlock();
+			timer.start();
+			filter.process(
+				outputChannels.data(), inputChannels.data(), actualFrameCount);
+			const double secondCallbackMilliseconds = timer.stop() * 1000.0;
+			const double callbackMilliseconds = (std::max)(
+				firstCallbackMilliseconds, secondCallbackMilliseconds);
+			plannerBlocker.join();
+			const bool bounded = callbackMilliseconds < 100.0;
+			printf("%s callback while rebuild blocked: %.3f ms (%s)\n",
+				name, callbackMilliseconds, bounded ? "bounded" : "BLOCKED");
+			passed = bounded && maximumError(1.0) < 1.0e-12 && passed;
+		}
+		else
+		{
+			prepareBlock();
+			filter.process(
+				outputChannels.data(), inputChannels.data(), actualFrameCount);
+			passed = maximumError(1.0) < 1.0e-12 && passed;
+		}
+
+		bool reachedWet = false;
+		bool sawValidTransition = false;
+		for (unsigned attempt = 0; attempt < 500 && !reachedWet; ++attempt)
+		{
+			prepareBlock();
+			filter.process(
+				outputChannels.data(), inputChannels.data(), actualFrameCount);
+			const double dryError = maximumError(1.0);
+			const double wetError = maximumError(expectedScale);
+			reachedWet = wetError < 1.0e-5;
+			if (!reachedWet && dryError > 1.0e-8 && !sawValidTransition)
+			{
+				double transitionError = 0.0;
+				for (unsigned channel = 0; channel < channelCount; ++channel)
+				{
+					const double dry = channel == 0 ? 0.125 : -0.25;
+					const vector<double>& rendered =
+						inPlace ? input[channel] : output[channel];
+					for (unsigned frame = 0; frame < actualFrameCount; ++frame)
+					{
+						const double wet = static_cast<double>(frame + 1) /
+							actualFrameCount;
+						const double expected = dry *
+							(1.0 + (expectedScale - 1.0) * wet);
+						transitionError = (std::max)(transitionError,
+							std::abs(rendered[frame] - expected));
+					}
+				}
+				sawValidTransition = transitionError < 1.0e-5;
+			}
+			if (!reachedWet)
+				Sleep(2);
+		}
+
+		passed = reachedWet && sawValidTransition && passed;
+		printf("%s: %s\n", name, passed ? "PASS" : "FAIL");
+		return passed;
+	}
+
+	bool runAsyncConvolutionFrameMismatchTests()
+	{
+		bool passed = true;
+		std::wstring impulseFilename;
+		if (!writeAsyncConvolutionTestImpulse(impulseFilename))
+		{
+			fprintf(stderr, "Could not create the async convolution test IR.\n");
+			return false;
+		}
+
+		{
+			ConvolutionFilter filter(impulseFilename);
+			passed = runAsyncConvolutionFilterCase(
+				"IR out-of-place", filter, 0.5, false, true) && passed;
+		}
+		{
+			ConvolutionFilter filter(impulseFilename);
+			passed = runAsyncConvolutionFilterCase(
+				"IR in-place", filter, 0.5, true, false) && passed;
+		}
+		DeleteFileW(impulseFilename.c_str());
+
+		const vector<FilterNode> nodes = {
+			FilterNode(20.0, 6.0), FilterNode(20000.0, 6.0)
+		};
+		const double graphicEqScale = pow(10.0, 6.0 / 20.0);
+		{
+			GraphicEQFilter filter(nodes, 1024);
+			passed = runAsyncConvolutionFilterCase(
+				"GraphicEQ out-of-place", filter, graphicEqScale,
+				false, false) && passed;
+		}
+		{
+			GraphicEQFilter filter(nodes, 1024);
+			passed = runAsyncConvolutionFilterCase(
+				"GraphicEQ in-place", filter, graphicEqScale,
+				true, false) && passed;
+		}
+
+		printf("Async convolution frame mismatch: %s\n",
+			passed ? "PASS" : "FAIL");
+		return passed;
+	}
+
+	bool runHybridConvPartitionLimitTests()
+	{
+		const int frameLength = 1;
+		vector<double> allowedImpulse(HC_MAX_SINGLE_PARTITIONS, 0.0);
+		allowedImpulse[0] = 1.0;
+		HConvSingle allowedFilter = {};
+		const bool allowedInitialized = hcInitSingle(
+			&allowedFilter,
+			allowedImpulse.data(),
+			static_cast<int>(allowedImpulse.size()),
+			frameLength,
+			1);
+		hcCloseSingle(&allowedFilter);
+
+		vector<double> rejectedImpulse(
+			static_cast<size_t>(HC_MAX_SINGLE_PARTITIONS) + 1, 0.0);
+		rejectedImpulse[0] = 1.0;
+		HConvSingle rejectedFilter = {};
+		PrecisionTimer timer;
+		timer.start();
+		const bool rejectedInitialized = hcInitSingle(
+			&rejectedFilter,
+			rejectedImpulse.data(),
+			HC_MAX_SINGLE_PARTITIONS + 1,
+			frameLength,
+			1);
+		const double rejectionMilliseconds = timer.stop() * 1000.0;
+		hcCloseSingle(&rejectedFilter);
+
+		const bool passed = allowedInitialized && !rejectedInitialized &&
+			rejectionMilliseconds < 100.0;
+		printf(
+			"HybridConv partition limit: %d accepted, %d rejected in %.3f ms (%s)\n",
+			HC_MAX_SINGLE_PARTITIONS,
+			HC_MAX_SINGLE_PARTITIONS + 1,
+			rejectionMilliseconds,
+			passed ? "PASS" : "FAIL");
+		return passed;
+	}
+
+	bool runHybridConvLegacyWrapperFailureTests()
+	{
+		const int shortFrameLength = 1;
+		const int dualLongFrameLength =
+			HC_MAX_SINGLE_PARTITIONS / 2 + 1;
+		vector<double> dualImpulse(
+			static_cast<size_t>(2 * dualLongFrameLength) + 1, 0.0);
+		dualImpulse[0] = 1.0;
+		HConvDual dualFilter = {};
+		const bool dualInitialized = hcInitDual(
+			&dualFilter,
+			dualImpulse.data(),
+			static_cast<int>(dualImpulse.size()),
+			shortFrameLength,
+			dualLongFrameLength);
+		const bool dualRejectedCleanly =
+			!dualInitialized &&
+			dualFilter.f_short == NULL &&
+			dualFilter.f_long == NULL &&
+			dualFilter.in_long == NULL &&
+			dualFilter.out_long == NULL;
+		hcCloseDual(&dualFilter);
+		hcCloseDual(&dualFilter);
+
+		const int mediumFrameLength = 1;
+		const int trippleLongFrameLength =
+			HC_MAX_SINGLE_PARTITIONS / 2 + 1;
+		vector<double> trippleImpulse(
+			static_cast<size_t>(mediumFrameLength) +
+				2 * static_cast<size_t>(trippleLongFrameLength) + 1,
+			0.0);
+		trippleImpulse[0] = 1.0;
+		HConvTripple trippleFilter = {};
+		const bool trippleInitialized = hcInitTripple(
+			&trippleFilter,
+			trippleImpulse.data(),
+			static_cast<int>(trippleImpulse.size()),
+			shortFrameLength,
+			mediumFrameLength,
+			trippleLongFrameLength);
+		const bool trippleRejectedCleanly =
+			!trippleInitialized &&
+			trippleFilter.f_short == NULL &&
+			trippleFilter.f_medium == NULL &&
+			trippleFilter.in_medium == NULL &&
+			trippleFilter.out_medium == NULL;
+		hcCloseTripple(&trippleFilter);
+		hcCloseTripple(&trippleFilter);
+
+		const double failedProcTime = getProcTime(
+			1, HC_MAX_SINGLE_PARTITIONS + 1, 0.001);
+		const bool procTimeRejectedCleanly =
+			isfinite(failedProcTime) && failedProcTime < 0.0;
+		const bool passed = dualRejectedCleanly &&
+			trippleRejectedCleanly && procTimeRejectedCleanly;
+		printf(
+			"HybridConv legacy wrapper failure rollback: dual %s, tripple %s, timing %s (%s)\n",
+			dualRejectedCleanly ? "PASS" : "FAIL",
+			trippleRejectedCleanly ? "PASS" : "FAIL",
+			procTimeRejectedCleanly ? "PASS" : "FAIL",
+			passed ? "PASS" : "FAIL");
+		return passed;
+	}
+
 	int runConvolutionSelfTest()
 	{
 		struct TestCase
@@ -588,6 +1051,9 @@ namespace
 				test.impulseLength,
 				test.blocks) && passed;
 		}
+		passed = runHybridConvPartitionLimitTests() && passed;
+		passed = runHybridConvLegacyWrapperFailureTests() && passed;
+		passed = runAsyncConvolutionFrameMismatchTests() && passed;
 
 		printf("HybridConv correctness benchmark: %s\n",
 			passed ? "PASS" : "FAIL");
@@ -622,6 +1088,460 @@ namespace
 			"100Hz-80phon", 7, 80.0, 92.460642396735) && passed;
 		passed = checkLoudnessFormulaValue(
 			"12500Hz-80phon", 28, 80.0, 85.605878244606) && passed;
+		return passed;
+	}
+
+	bool runOriginalLoudnessTests()
+	{
+		auto checkCase = [](const char* name, bool result)
+		{
+			if (!result)
+				fprintf(stderr, "Original loudness case '%s' failed.\n", name);
+			return result;
+		};
+		auto nearlyEqual = [](double actual, double expected, double tolerance)
+		{
+			return std::isfinite(actual) &&
+				std::abs(actual - expected) <= tolerance;
+		};
+
+		OriginalLoudnessCorrectionFilter::FilterParameters source;
+		source.state = false;
+		source.referenceLevel = 75.5f;
+		source.referenceOffset = -2.25f;
+		source.attenuation = 0.75f;
+		const std::vector<char> serialized = source.serialize();
+		const std::string serializedText(serialized.begin(), serialized.end());
+		OriginalLoudnessCorrectionFilter::FilterParameters roundTrip(serialized);
+		bool passed = checkCase("codec-round-trip",
+			serializedText.rfind("Schema 1 Model MixomoShelfV1 ", 0) == 0 &&
+			roundTrip.isInitialized() && !roundTrip.state &&
+			std::abs(roundTrip.referenceLevel - 75.5f) < 1.0e-6f &&
+			std::abs(roundTrip.referenceOffset + 2.25f) < 1.0e-6f &&
+			std::abs(roundTrip.attenuation - 0.75f) < 1.0e-6f);
+
+		OriginalLoudnessCorrectionFilter::FilterParameters commaDecimal(
+			std::wstring(L"Schema 1 Model MixomoShelfV1 State 1 "
+				L"ReferenceLevel 75,5 ReferenceOffset -2,25 Attenuation 0,75"));
+		passed = checkCase("comma-decimal",
+			commaDecimal.isInitialized() && commaDecimal.state &&
+			std::abs(commaDecimal.referenceLevel - 75.5f) < 1.0e-6f &&
+			std::abs(commaDecimal.referenceOffset + 2.25f) < 1.0e-6f &&
+			std::abs(commaDecimal.attenuation - 0.75f) < 1.0e-6f) && passed;
+
+		OriginalLoudnessCorrectionFilter::FilterParameters missingAttenuation(
+			std::wstring(L"Schema 1 Model MixomoShelfV1 State 1 "
+				L"ReferenceLevel 0 ReferenceOffset 0"));
+		OriginalLoudnessCorrectionFilter::FilterParameters malformedAttenuation(
+			std::wstring(L"Schema 1 Model MixomoShelfV1 State 1 "
+				L"ReferenceLevel 0 ReferenceOffset 0 Attenuation broken"));
+		passed = checkCase("strict-attenuation-required",
+			!missingAttenuation.isInitialized() &&
+			!malformedAttenuation.isInitialized()) && passed;
+
+		const std::wstring invalidPayloads[] = {
+			L"State 1 ReferenceLevel 0 ReferenceOffset 0 Attenuation 1",
+			L"Schema 1 Model FormulaLoudnessV1 State 1 ReferenceLevel 0 ReferenceOffset 0 Attenuation 1",
+			L"Schema 1 Model MixomoShelfV1 State 1 ReferenceLevel 0",
+			L"Schema 1 Schema 1 Model MixomoShelfV1 State 1 ReferenceLevel 0 ReferenceOffset 0 Attenuation 1",
+			L"Schema 1 Model MixomoShelfV1 Model MixomoShelfV1 State 1 ReferenceLevel 0 ReferenceOffset 0 Attenuation 1",
+			L"Schema 1 Model MixomoShelfV1 State 1 State 0 ReferenceLevel 0 ReferenceOffset 0 Attenuation 1",
+			L"Schema 1 Model MixomoShelfV1 State 1 ReferenceLevel 0 ReferenceLevel 1 ReferenceOffset 0 Attenuation 1",
+			L"Schema 1 Model MixomoShelfV1 State 1 ReferenceLevel 0 ReferenceOffset 0 ReferenceOffset 1 Attenuation 1",
+			L"Schema 1 Model MixomoShelfV1 State 1 ReferenceLevel 0 ReferenceOffset 0 Attenuation 1 Attenuation 0.5",
+			L"Schema 1 Model MixomoShelfV1 State 1 ReferenceLevel 0 ReferenceOffset 0 Attenuation 1.5"
+		};
+		bool invalidsRejected = true;
+		for (const std::wstring& payload : invalidPayloads)
+		{
+			OriginalLoudnessCorrectionFilter::FilterParameters parameters(payload);
+			invalidsRejected = invalidsRejected && !parameters.isInitialized();
+		}
+		passed = checkCase("strict-parse-fail-closed", invalidsRejected) && passed;
+
+		OriginalLoudnessCorrectionFilter::FilterParameters extension(
+			std::wstring(L"Schema 1 Model MixomoShelfV1 State 1 ReferenceLevel 0 "
+				L"ReferenceOffset 0 Attenuation 1 FutureToken value"));
+		passed = checkCase("unknown-extension-is-ignored",
+			extension.isInitialized()) && passed;
+
+		OriginalLoudnessCorrectionFilterFactory factory;
+		std::wstring originalCommand = L"LoudnessCorrectionOriginal";
+		std::wstring originalParameters =
+			L"Schema 1 Model MixomoShelfV1 State 0 ReferenceLevel 0 "
+			L"ReferenceOffset 0 Attenuation 1";
+		std::vector<IFilter*> factoryFilters = factory.createFilter(
+			L"", originalCommand, originalParameters);
+		const bool factoryCreatedStandalone = factoryFilters.size() == 1;
+		for (IFilter* filter : factoryFilters)
+		{
+			static_cast<OriginalLoudnessCorrectionFilter*>(filter)->
+				~OriginalLoudnessCorrectionFilter();
+			MemoryHelper::free(filter);
+		}
+		std::wstring modernCommand = L"LoudnessCorrection";
+		std::vector<IFilter*> modernFilters = factory.createFilter(
+			L"", modernCommand, originalParameters);
+		std::wstring invalidCommand = L"LoudnessCorrectionOriginal";
+		std::wstring invalidParameters =
+			L"Schema 1 Model MixomoShelfV1 State 0 State 1 "
+			L"ReferenceLevel 0 ReferenceOffset 0 Attenuation 1";
+		std::vector<IFilter*> invalidFilters = factory.createFilter(
+			L"", invalidCommand, invalidParameters);
+		passed = checkCase("standalone-factory-command",
+			factoryCreatedStandalone && modernFilters.empty() &&
+			invalidFilters.empty()) && passed;
+
+		OriginalLoudnessCorrectionFilter::FilterParameters formula;
+		formula.state = true;
+		formula.referenceLevel = 0.0f;
+		formula.referenceOffset = 0.0f;
+		formula.attenuation = 1.0f;
+		auto checkTransfer = [&](const char* name, double volumeDb,
+			double expectedLow, double expectedHigh, double expectedOutput,
+			bool expectedIdentity)
+		{
+			double low = 0.0;
+			double high = 0.0;
+			double output = 0.0;
+			bool identity = false;
+			OriginalLoudnessCorrectionFilterTestAccess::calculateTransfer(
+				formula, volumeDb, low, high, output, identity);
+			return checkCase(name,
+				nearlyEqual(low, expectedLow, 1.0e-9) &&
+				nearlyEqual(high, expectedHigh, 1.0e-9) &&
+				nearlyEqual(output, expectedOutput, 1.0e-12) &&
+				identity == expectedIdentity);
+		};
+		passed = checkTransfer("d-zero-is-unity", 0.0,
+			0.0, 0.0, 1.0, true) && passed;
+		passed = checkTransfer("minus-0.1db-has-no-identity-dead-zone", -0.1,
+			0.12222222222222223, 0.0498890122542803,
+			0.985979550168123, false) && passed;
+		passed = checkTransfer("plus-0.1db-has-no-identity-dead-zone", 0.1,
+			-0.0549389228269354, -0.0174781386661802,
+			1.0, false) && passed;
+		passed = checkTransfer("minus-10db-golden", -10.0,
+			12.222222222222223, 4.00368701458404,
+			0.24366365228060777, false) && passed;
+		passed = checkTransfer("minus-20db-golden", -20.0,
+			24.444444444444446, 6.411803884299546,
+			0.05937197544272493, false) && passed;
+
+		formula.referenceLevel = -20.0f;
+		passed = checkTransfer("negative-difference-golden", -10.0,
+			-4.9216162424790335, -1.544369579523042,
+			1.0, false) && passed;
+
+		formula.referenceLevel = 0.0f;
+		const unsigned sampleRates[] = {
+			8000, 11025, 12000, 16000, 22050, 48000
+		};
+		bool sampleRateCoefficientsSafe = true;
+		for (unsigned sampleRate : sampleRates)
+		{
+			bool highShelfIdentity = false;
+			const double maximumPoleRadius =
+				OriginalLoudnessCorrectionFilterTestAccess::
+					maximumSnapshotPoleRadius(
+						formula, -10.0, sampleRate, highShelfIdentity);
+			const bool shouldOmitHighShelf =
+				10000.0 * 2.0 >= sampleRate;
+			const bool safe = std::isfinite(maximumPoleRadius) &&
+				maximumPoleRadius < 1.0 &&
+				highShelfIdentity == shouldOmitHighShelf;
+			if (!safe)
+			{
+				fprintf(stderr,
+					"Original loudness %u Hz coefficients unsafe: "
+					"pole %.12f, high identity %d (expected %d).\n",
+					sampleRate,
+					maximumPoleRadius,
+					highShelfIdentity,
+					shouldOmitHighShelf);
+			}
+			sampleRateCoefficientsSafe = sampleRateCoefficientsSafe && safe;
+		}
+		passed = checkCase("sample-rate-coefficient-safety",
+			sampleRateCoefficientsSafe) && passed;
+
+		OriginalLoudnessCorrectionFilter publicationProbe(formula);
+		passed = checkCase("concurrent-snapshot-publication",
+			OriginalLoudnessCorrectionFilterTestAccess::
+				concurrentPublicationIsCoherent(publicationProbe)) && passed;
+
+		bool lowRateCallbackBounded = true;
+		for (unsigned sampleRate : sampleRates)
+		{
+			OriginalLoudnessCorrectionFilter::FilterParameters parameters = formula;
+			parameters.state = false;
+			OriginalLoudnessCorrectionFilter filter(parameters);
+			filter.initialize(static_cast<float>(sampleRate), 64, { L"C" });
+			OriginalLoudnessCorrectionFilterTestAccess::enableWithoutTracking(
+				filter);
+			OriginalLoudnessCorrectionFilterTestAccess::publishVolumeUpdate(
+				filter, -10.0);
+
+			const unsigned blockCount = (sampleRate / 4 + 63) / 64;
+			for (unsigned block = 0; block < blockCount; ++block)
+			{
+				double inputSamples[64];
+				double outputSamples[65] = {};
+				for (unsigned frame = 0; frame < 64; ++frame)
+				{
+					const double time = static_cast<double>(block * 64 + frame) /
+						static_cast<double>(sampleRate);
+					inputSamples[frame] = 0.5 * std::sin(
+						2.0 * M_PI * 997.0 * time);
+				}
+				outputSamples[64] = 67890.0;
+				double* input[] = { inputSamples };
+				double* output[] = { outputSamples };
+				filter.process(output, input, 64);
+				for (unsigned frame = 0; frame < 64; ++frame)
+				{
+					const double sample = outputSamples[frame];
+					lowRateCallbackBounded = lowRateCallbackBounded &&
+						std::isfinite(sample) && std::abs(sample) < 16.0;
+				}
+				lowRateCallbackBounded = lowRateCallbackBounded &&
+					outputSamples[64] == 67890.0;
+			}
+			lowRateCallbackBounded = lowRateCallbackBounded &&
+				OriginalLoudnessCorrectionFilterTestAccess::
+					settledOnNonIdentityBank(filter);
+		}
+		passed = checkCase("low-rate-callback-finite-and-bounded",
+			lowRateCallbackBounded) && passed;
+
+		OriginalLoudnessCorrectionFilter::FilterParameters bypassParameters;
+		bypassParameters.state = false;
+		bypassParameters.referenceLevel = 0.0f;
+		bypassParameters.referenceOffset = 0.0f;
+		bypassParameters.attenuation = 1.0f;
+		OriginalLoudnessCorrectionFilter bypass(bypassParameters);
+		const std::vector<std::wstring> channels = { L"L", L"R" };
+		bypass.initialize(48000.0f, 8, channels);
+		double inputLeft[10] = { -1.0, -0.5, -0.25, 0.0, 0.25,
+			0.5, 0.75, 1.0, 1234.0, 5678.0 };
+		double inputRight[10] = { 1.0, 0.75, 0.5, 0.25, 0.0,
+			-0.25, -0.5, -1.0, 4321.0, 8765.0 };
+		double outputLeft[10] = {};
+		double outputRight[10] = {};
+		outputLeft[8] = 9001.0;
+		outputLeft[9] = 9002.0;
+		outputRight[8] = 9003.0;
+		outputRight[9] = 9004.0;
+		double* input[] = { inputLeft, inputRight };
+		double* output[] = { outputLeft, outputRight };
+		bypass.process(output, input, 8);
+		bool stateZeroIdentity = bypass.getInPlace();
+		for (size_t channel = 0; channel < 2; ++channel)
+		{
+			for (unsigned frame = 0; frame < 8; ++frame)
+				stateZeroIdentity = stateZeroIdentity &&
+					output[channel][frame] == input[channel][frame];
+		}
+		stateZeroIdentity = stateZeroIdentity &&
+			outputLeft[8] == 9001.0 && outputLeft[9] == 9002.0 &&
+			outputRight[8] == 9003.0 && outputRight[9] == 9004.0;
+		passed = checkCase("state-zero-callback-identity",
+			stateZeroIdentity) && passed;
+
+		OriginalLoudnessCorrectionFilter outOfPlace(bypassParameters);
+		OriginalLoudnessCorrectionFilter inPlace(bypassParameters);
+		outOfPlace.initialize(48000.0f, 64, channels);
+		inPlace.initialize(48000.0f, 64, channels);
+		OriginalLoudnessCorrectionFilterTestAccess::enableWithoutTracking(
+			outOfPlace);
+		OriginalLoudnessCorrectionFilterTestAccess::enableWithoutTracking(
+			inPlace);
+		OriginalLoudnessCorrectionFilterTestAccess::publishVolumeUpdate(
+			outOfPlace, -20.0);
+		OriginalLoudnessCorrectionFilterTestAccess::publishVolumeUpdate(
+			inPlace, -20.0);
+		bool callbackContract = true;
+		bool becameAudible = false;
+		for (unsigned block = 0; block < 32; ++block)
+		{
+			double sourceLeft[65] = {};
+			double sourceRight[65] = {};
+			double processedLeft[65] = {};
+			double processedRight[65] = {};
+			double inPlaceLeft[65] = {};
+			double inPlaceRight[65] = {};
+			for (unsigned frame = 0; frame < 64; ++frame)
+			{
+				const double phase = static_cast<double>(block * 64 + frame);
+				sourceLeft[frame] = std::sin(phase * 0.013);
+				sourceRight[frame] = std::cos(phase * 0.017) * 0.5;
+				inPlaceLeft[frame] = sourceLeft[frame];
+				inPlaceRight[frame] = sourceRight[frame];
+			}
+			processedLeft[64] = 12345.0;
+			processedRight[64] = 23456.0;
+			inPlaceLeft[64] = 34567.0;
+			inPlaceRight[64] = 45678.0;
+			double* source[] = { sourceLeft, sourceRight };
+			double* processed[] = { processedLeft, processedRight };
+			double* aliased[] = { inPlaceLeft, inPlaceRight };
+			outOfPlace.process(processed, source, 64);
+			inPlace.process(aliased, aliased, 64);
+			for (unsigned frame = 0; frame < 64; ++frame)
+			{
+				callbackContract = callbackContract &&
+					nearlyEqual(processedLeft[frame], inPlaceLeft[frame], 1.0e-12) &&
+					nearlyEqual(processedRight[frame], inPlaceRight[frame], 1.0e-12);
+				becameAudible = becameAudible ||
+					std::abs(processedLeft[frame] - sourceLeft[frame]) > 1.0e-6 ||
+					std::abs(processedRight[frame] - sourceRight[frame]) > 1.0e-6;
+			}
+			callbackContract = callbackContract &&
+				processedLeft[64] == 12345.0 &&
+				processedRight[64] == 23456.0 &&
+				inPlaceLeft[64] == 34567.0 &&
+				inPlaceRight[64] == 45678.0;
+		}
+		callbackContract = callbackContract && becameAudible &&
+			OriginalLoudnessCorrectionFilterTestAccess::settledOnNonIdentityBank(
+				outOfPlace) &&
+			OriginalLoudnessCorrectionFilterTestAccess::settledOnNonIdentityBank(
+				inPlace);
+		passed = checkCase("callback-in-place-out-of-place-contract",
+			callbackContract) && passed;
+
+		printf("Original loudness formula/codec/callback: %s\n",
+			passed ? "passed" : "failed");
+		return passed;
+	}
+
+	bool runVSTMidiBindingCodecTests()
+	{
+		auto checkCase = [](const char* name, bool result)
+		{
+			if (!result)
+				fprintf(stderr, "VST MIDI codec case '%s' failed.\n", name);
+			return result;
+		};
+
+		VSTMidiConfiguration source;
+		source.device.manufacturerId = 0x1234;
+		source.device.productId = 0xabcd;
+		source.device.driverVersion = 0x01020304;
+		source.device.nameOrdinal = 2;
+		source.device.name = L"MIDI Controller";
+
+		VSTMidiBinding cc;
+		cc.messageType = VSTMidiMessageType::ControlChange;
+		cc.channel = 2;
+		cc.controlNumber = 74;
+		cc.valueMode = VSTMidiValueMode::Absolute;
+		cc.parameterType = VSTMidiParameterType::VST3ParamID;
+		cc.parameterId = 0xf1234567;
+		cc.parameterName = L"Cutoff";
+		cc.stepCount = 0;
+		source.bindings.push_back(cc);
+
+		VSTMidiBinding note;
+		note.messageType = VSTMidiMessageType::Note;
+		note.channel = 15;
+		note.controlNumber = 60;
+		note.valueMode = VSTMidiValueMode::Toggle;
+		note.parameterType = VSTMidiParameterType::VST2ParameterIndex;
+		note.parameterId = 7;
+		note.parameterName = L"Bypass";
+		note.stepCount = 1;
+		source.bindings.push_back(note);
+
+		VSTMidiBinding pitch;
+		pitch.messageType = VSTMidiMessageType::PitchBend;
+		pitch.channel = 0xff;
+		pitch.controlNumber = 0;
+		pitch.valueMode = VSTMidiValueMode::Absolute;
+		pitch.parameterType = VSTMidiParameterType::VST3ParamID;
+		pitch.parameterId = 42;
+		pitch.parameterName = L"Pitch";
+		pitch.stepCount = 127;
+		source.bindings.push_back(pitch);
+
+		std::wstring encoded;
+		VSTMidiConfiguration decoded;
+		bool passed = checkCase("round-trip",
+			VSTMidiBindingCodec::serialize(source, encoded) &&
+			encoded.rfind(L"EAMIDI1:", 0) == 0 &&
+			VSTMidiBindingCodec::deserialize(encoded, decoded) &&
+			decoded.version == VST_MIDI_CONFIG_VERSION &&
+			decoded.device.manufacturerId == source.device.manufacturerId &&
+			decoded.device.productId == source.device.productId &&
+			decoded.device.driverVersion == source.device.driverVersion &&
+			decoded.device.nameOrdinal == source.device.nameOrdinal &&
+			decoded.device.name == source.device.name &&
+			decoded.bindings.size() == 3);
+		if (decoded.bindings.size() == 3)
+		{
+			passed = checkCase("cc-vst3-id",
+				decoded.bindings[0].messageType ==
+					VSTMidiMessageType::ControlChange &&
+				decoded.bindings[0].channel == 2 &&
+				decoded.bindings[0].controlNumber == 74 &&
+				decoded.bindings[0].valueMode == VSTMidiValueMode::Absolute &&
+				decoded.bindings[0].parameterType ==
+					VSTMidiParameterType::VST3ParamID &&
+				decoded.bindings[0].parameterId == 0xf1234567 &&
+				decoded.bindings[0].parameterName == L"Cutoff" &&
+				decoded.bindings[0].stepCount == 0) && passed;
+			passed = checkCase("note-vst2-toggle",
+				decoded.bindings[1].messageType == VSTMidiMessageType::Note &&
+				decoded.bindings[1].channel == 15 &&
+				decoded.bindings[1].controlNumber == 60 &&
+				decoded.bindings[1].valueMode == VSTMidiValueMode::Toggle &&
+				decoded.bindings[1].parameterType ==
+					VSTMidiParameterType::VST2ParameterIndex &&
+				decoded.bindings[1].parameterId == 7 &&
+				decoded.bindings[1].parameterName == L"Bypass" &&
+				decoded.bindings[1].stepCount == 1) && passed;
+			passed = checkCase("pitch-bend-omni-stepped",
+				decoded.bindings[2].messageType == VSTMidiMessageType::PitchBend &&
+				decoded.bindings[2].channel == 0xff &&
+				decoded.bindings[2].parameterType ==
+					VSTMidiParameterType::VST3ParamID &&
+				decoded.bindings[2].parameterId == 42 &&
+				decoded.bindings[2].stepCount == 127) && passed;
+		}
+
+		VSTMidiConfiguration ignored;
+		std::wstring oddHex = encoded;
+		oddHex.push_back(L'0');
+		std::wstring nonHex = encoded;
+		if (nonHex.size() > 8)
+			nonHex[8] = L'Z';
+		std::wstring truncated = encoded;
+		if (truncated.size() >= 2)
+			truncated.resize(truncated.size() - 2);
+		std::wstring trailing = encoded + L"00";
+		passed = checkCase("invalid-wire-tokens",
+			!VSTMidiBindingCodec::deserialize(L"BAD:" + encoded, ignored) &&
+			!VSTMidiBindingCodec::deserialize(oddHex, ignored) &&
+			!VSTMidiBindingCodec::deserialize(nonHex, ignored) &&
+			!VSTMidiBindingCodec::deserialize(truncated, ignored) &&
+			!VSTMidiBindingCodec::deserialize(trailing, ignored)) && passed;
+
+		VSTMidiConfiguration invalidVst2 = source;
+		invalidVst2.bindings[1].parameterName.clear();
+		std::wstring invalidVst2Encoded;
+		const bool invalidVst2Serialized =
+			VSTMidiBindingCodec::serialize(invalidVst2, invalidVst2Encoded);
+		passed = checkCase("vst2-name-guard",
+			!invalidVst2Serialized && invalidVst2Encoded.empty()) && passed;
+
+		VSTMidiConfiguration tooMany;
+		tooMany.bindings.resize(VST_MIDI_MAX_BINDINGS + 1);
+		std::wstring tooManyEncoded;
+		passed = checkCase("binding-limit",
+			!VSTMidiBindingCodec::serialize(tooMany, tooManyEncoded)) && passed;
+
+		printf("VST MIDI binding codec: %s\n",
+			passed ? "passed" : "failed");
 		return passed;
 	}
 
@@ -2463,6 +3383,8 @@ namespace
 	int runLoudnessTransitionTests()
 	{
 		bool passed = runLoudnessFormulaTests();
+		passed = runOriginalLoudnessTests() && passed;
+		passed = runVSTMidiBindingCodecTests() && passed;
 		passed = runLoudnessParameterCodecTests() && passed;
 		passed = runLoudnessVolumeFollowTests() && passed;
 		passed = runLoudnessNearZeroHeadroomTests() && passed;

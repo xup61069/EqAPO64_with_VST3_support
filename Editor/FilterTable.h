@@ -71,6 +71,14 @@ public:
 	void updateGuis();
 	void propagateChannels();
 	QList<QString> getLines();
+	// The stored row GUI may be a decorator (for example CommentFilterGUI),
+	// while a workflow is initiated by the concrete IFilterGUI it contains.
+	// Accept either the row GUI itself or one of its descendants as the target.
+	bool makeLinesWithGuiOverride(
+		IFilterGUI* target,
+		const QString& command,
+		const QString& parameters,
+		QList<QString>* lines) const;
 	bool planPreampReduction(double reductionDb, PreampAdjustmentPlan* plan) const;
 	bool applyPreampReduction(const PreampAdjustmentPlan& plan);
 	void setLines(const QString& configPath, const QList<QString>& lines);

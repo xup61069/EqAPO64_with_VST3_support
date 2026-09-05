@@ -36,6 +36,7 @@ vector<IFilter*> VSTPluginFilterFactory::createFilter(const wstring& configPath,
 	{
 		shared_ptr<VSTPluginLibrary> library;
 		wstring chunkData;
+		wstring midiConfig;
 		int vst3ClassIndex = 0;
 		unordered_map<wstring, float> paramMap;
 		vector<wstring> parts = StringHelper::splitQuoted(parameters, ' ');
@@ -79,6 +80,11 @@ vector<IFilter*> VSTPluginFilterFactory::createFilter(const wstring& configPath,
 			else if (key == L"ClassIndex")
 			{
 				vst3ClassIndex = _wtoi(value.c_str());
+				i += 2;
+			}
+			else if (key == L"MidiConfig")
+			{
+				midiConfig = value;
 				i += 2;
 			}
 			else if (key == L"Engine")
@@ -132,7 +138,7 @@ vector<IFilter*> VSTPluginFilterFactory::createFilter(const wstring& configPath,
 			if (create)
 			{
 				void* mem = MemoryHelper::alloc(sizeof(VSTPluginFilter));
-				filter = new(mem) VSTPluginFilter(library, chunkData, paramMap, vst3ClassIndex);
+				filter = new(mem) VSTPluginFilter(library, chunkData, paramMap, vst3ClassIndex, midiConfig);
 			}
 		}
 	}

@@ -4,7 +4,7 @@
 <context>
     <name>DeviceSelector</name>
     <message>
-        <location filename="../DeviceSelector.cpp" line="+152"/>
+        <location filename="../DeviceSelector.cpp" line="+154"/>
         <source>Playback devices</source>
         <translation>Wiedergabegeräte</translation>
     </message>
@@ -389,12 +389,12 @@ ACHTUNG: Einige Soundkartentreiber erzeugen unerwünschte Geräusche, wenn diese
         <translation>Nicht getestet</translation>
     </message>
     <message>
-        <location line="+33"/>
+        <location line="+57"/>
         <source>Stopping device test…</source>
         <translation>Gerätetest wird beendet…</translation>
     </message>
     <message>
-        <location line="+39"/>
+        <location line="+38"/>
         <location line="+66"/>
         <source>Error</source>
         <translation>Fehler</translation>
@@ -462,19 +462,19 @@ ACHTUNG: Einige Soundkartentreiber erzeugen unerwünschte Geräusche, wenn diese
 <context>
     <name>DeviceTestThread</name>
     <message>
-        <location filename="../DeviceTestThread.cpp" line="+65"/>
-        <location line="+164"/>
+        <location filename="../DeviceTestThread.cpp" line="+69"/>
+        <location line="+171"/>
         <source>Restarting audio service...</source>
         <translation>Starte Audio-Dienst neu...</translation>
     </message>
     <message>
-        <location line="-159"/>
-        <location line="+164"/>
+        <location line="-165"/>
+        <location line="+170"/>
         <source>Restart failed.</source>
         <translation>Neustart fehlgeschlagen.</translation>
     </message>
     <message>
-        <location line="-150"/>
+        <location line="-156"/>
         <source>Checking APO installation...</source>
         <translation>Überprüfe APO-Installation...</translation>
     </message>
@@ -484,7 +484,7 @@ ACHTUNG: Einige Soundkartentreiber erzeugen unerwünschte Geräusche, wenn diese
         <translation>Unbekannte Geräte-GUID %1 empfangen.</translation>
     </message>
     <message numerus="yes">
-        <location line="+36"/>
+        <location line="+42"/>
         <source>Check failed for %n device(s).</source>
         <translation>
             <numerusform>Überprüfung fehlgeschlagen für ein Gerät.</numerusform>

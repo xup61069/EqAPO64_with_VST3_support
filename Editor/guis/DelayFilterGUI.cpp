@@ -59,7 +59,7 @@ DelayFilterGUI::~DelayFilterGUI()
 void DelayFilterGUI::store(QString& command, QString& parameters)
 {
 	command = "Delay";
-	parameters = QString("%0").arg(ui->delaySpinBox->value());
+	parameters = QString("%1").arg(ui->delaySpinBox->value());
 	if (ui->unitComboBox->currentIndex() == 0)
 		parameters += " ms";
 	else

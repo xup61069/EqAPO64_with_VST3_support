@@ -21,6 +21,7 @@
 #include <wincrypt.h>
 #include <inttypes.h>
 #include <cstdint>
+#include <cmath>
 #include "StringHelper.h"
 #include "../Version.h"
 #include "VSTPluginLibrary.h"
@@ -168,6 +169,12 @@ static EmptyVST3EventList emptyVST3EventList;
 static const char vst2StateEnvelopeMagic[] = "EAPOVST2STATE2\n";
 static const char vst3StateEnvelopeMagic[] = "EAPOVST3STATE2\n";
 static const wchar_t vst3ParamIdPrefix[] = L"#";
+static const wchar_t vst2ParamIndexPrefix[] = L"#";
+
+static wstring makeVST2StableParameterKey(int index, const wstring& name)
+{
+	return wstring(vst2ParamIndexPrefix) + to_wstring(index) + L":" + name;
+}
 
 static bool base64Decode(const wstring& value, vector<char>& data)
 {
@@ -371,7 +378,7 @@ public:
 		if (instance != NULL)
 		{
 			instance->queueVST3ParameterChange(id, value);
-			instance->onAutomate();
+			instance->onAutomate(id, value);
 		}
 		return kResultOk;
 	}
@@ -478,7 +485,7 @@ static intptr_t callback(struct vst_effect_t* effect, int32_t opcode, int32_t in
 
 	case VST_HOST_OPCODE_AUTOMATE:
 		if (instance != NULL)
-			instance->onAutomate();
+			instance->onAutomate(index, opt);
 		return 0;
 
 	case VST_HOST_OPCODE_PARAM_START_EDIT:
@@ -523,6 +530,7 @@ VSTPluginInstance::VSTPluginInstance(const std::shared_ptr<VSTPluginLibrary>& li
 VSTPluginInstance::~VSTPluginInstance()
 {
 	automateFunc = nullptr;
+	parameterAutomateFunc = nullptr;
 	sizeWindowFunc = nullptr;
 	releaseVST3();
 	if (effect != NULL)
@@ -562,6 +570,8 @@ bool VSTPluginInstance::initializeVST2()
 	{
 		result = false;
 	}
+	if (result && effect != NULL)
+		rebuildParameterDescriptors();
 
 	return result;
 }
@@ -632,6 +642,10 @@ bool VSTPluginInstance::initializeVST3()
 		return false;
 
 	usedChannelCount = max(numInputs(), numOutputs());
+	rebuildParameterDescriptors();
+	const int parameterCount = max<int>(1, static_cast<int>(parameterDescriptors.size()));
+	vst3InputParameterChanges.reset(new ParameterChanges(parameterCount));
+	prewarmVST3InputParameterChanges();
 
 	return true;
 }
@@ -748,6 +762,114 @@ void VSTPluginInstance::setLanguage(int value)
 	language = value;
 }
 
+const vector<VSTParameterDescriptor>& VSTPluginInstance::getParameterDescriptors() const
+{
+	return parameterDescriptors;
+}
+
+bool VSTPluginInstance::setParameterNormalized(const VSTParameterDescriptor& parameter, double value, bool realtimeThread)
+{
+	if (!isfinite(value) || parameter.readOnly)
+		return false;
+	value = max(0.0, min(1.0, value));
+	if (parameter.stepCount > 0)
+		value = round(value * parameter.stepCount) / parameter.stepCount;
+
+	if (library->isVST3())
+	{
+		if (parameter.api != VSTParameterApi::VST3 || findVST3Parameter(static_cast<ParamID>(parameter.stableId)) == NULL)
+			return false;
+		if (realtimeThread)
+		{
+			if (realtimeVST3ParameterChangeCount >= realtimeVST3ParameterChanges.size())
+				return false;
+			VST3ParameterChange& change = realtimeVST3ParameterChanges[realtimeVST3ParameterChangeCount++];
+			change.id = static_cast<ParamID>(parameter.stableId);
+			change.value = value;
+			return true;
+		}
+		if (vst3Controller != NULL)
+			vst3Controller->setParamNormalized(static_cast<ParamID>(parameter.stableId), value);
+		queueVST3ParameterChange(static_cast<ParamID>(parameter.stableId), value);
+		return true;
+	}
+
+	if (effect == NULL || parameter.api != VSTParameterApi::VST2 || parameter.stableId >= static_cast<uint32_t>(effect->num_params))
+		return false;
+	const VSTParameterDescriptor* current = findVST2Parameter(static_cast<int>(parameter.stableId));
+	if (current == NULL || current->name != parameter.name)
+		return false;
+	effect->set_parameter(effect, static_cast<int32_t>(parameter.stableId), static_cast<float>(value));
+	return true;
+}
+
+void VSTPluginInstance::rebuildParameterDescriptors()
+{
+	parameterDescriptors.clear();
+	if (library->isVST3())
+	{
+		if (vst3Controller == NULL)
+			return;
+		const int32 count = max<int32>(0, vst3Controller->getParameterCount());
+		parameterDescriptors.reserve(count);
+		for (int32 i = 0; i < count; ++i)
+		{
+			ParameterInfo info = {};
+			if (vst3Controller->getParameterInfo(i, info) != kResultOk)
+				continue;
+			VSTParameterDescriptor descriptor;
+			descriptor.api = VSTParameterApi::VST3;
+			descriptor.stableId = info.id;
+			descriptor.name = reinterpret_cast<const wchar_t*>(info.title);
+			descriptor.stepCount = info.stepCount > 0 ? static_cast<uint32_t>(info.stepCount) : 0;
+			descriptor.normalizedValue = vst3Controller->getParamNormalized(info.id);
+			descriptor.readOnly = (info.flags & ParameterInfo::kIsReadOnly) != 0 ||
+				(info.flags & ParameterInfo::kCanAutomate) == 0;
+			descriptor.hidden = (info.flags & ParameterInfo::kIsHidden) != 0;
+			parameterDescriptors.push_back(std::move(descriptor));
+		}
+		return;
+	}
+
+	if (effect == NULL)
+		return;
+	parameterDescriptors.reserve(max(0, effect->num_params));
+	for (int i = 0; i < effect->num_params; ++i)
+	{
+		char name[256] = {};
+		effect->control(effect, VST_EFFECT_OPCODE_PARAM_GET_NAME, i, 0, name, 0.0f);
+		name[255] = '\0';
+		VSTParameterDescriptor descriptor;
+		descriptor.api = VSTParameterApi::VST2;
+		descriptor.stableId = static_cast<uint32_t>(i);
+		descriptor.name = StringHelper::toWString(name, CP_UTF8);
+		descriptor.normalizedValue = effect->get_parameter(effect, i);
+		parameterDescriptors.push_back(std::move(descriptor));
+	}
+}
+
+const VSTParameterDescriptor* VSTPluginInstance::findVST3Parameter(ParamID id) const
+{
+	for (const VSTParameterDescriptor& parameter : parameterDescriptors)
+	{
+		if (parameter.api == VSTParameterApi::VST3 && parameter.stableId == id)
+			return &parameter;
+	}
+	return NULL;
+}
+
+const VSTParameterDescriptor* VSTPluginInstance::findVST2Parameter(int index) const
+{
+	if (index < 0)
+		return NULL;
+	for (const VSTParameterDescriptor& parameter : parameterDescriptors)
+	{
+		if (parameter.api == VSTParameterApi::VST2 && parameter.stableId == static_cast<uint32_t>(index))
+			return &parameter;
+	}
+	return NULL;
+}
+
 void VSTPluginInstance::prepareForProcessing(float sampleRate, int blockSize)
 {
 	if (library->isVST3())
@@ -779,6 +901,26 @@ void VSTPluginInstance::writeToEffect(const std::wstring& chunkData, const std::
 {
 	if (library->isVST3())
 	{
+		auto applyParameters = [this](const unordered_map<wstring, float>& values) {
+			if (vst3Controller == NULL)
+				return;
+			// Iterate the plug-in's stable descriptor order, never unordered-map
+			// order. A ParamID alias always wins over a same-name legacy alias.
+			for (const VSTParameterDescriptor& parameter : parameterDescriptors)
+			{
+				if (parameter.api != VSTParameterApi::VST3)
+					continue;
+				const wstring idKey = wstring(vst3ParamIdPrefix) + to_wstring(parameter.stableId);
+				auto value = values.find(idKey);
+				if (value == values.end())
+					value = values.find(parameter.name);
+				if (value == values.end())
+					continue;
+				const double normalized = max(0.0, min(1.0, static_cast<double>(value->second)));
+				vst3Controller->setParamNormalized(static_cast<ParamID>(parameter.stableId), normalized);
+				queueVST3ParameterChange(static_cast<ParamID>(parameter.stableId), normalized);
+			}
+		};
 		if (chunkData != L"")
 		{
 			vector<char> data;
@@ -820,64 +962,19 @@ void VSTPluginInstance::writeToEffect(const std::wstring& chunkData, const std::
 					stream->release();
 				}
 
-				const unordered_map<wstring, float>& paramsToApply = isEnvelope ? envelopeParamMap : paramMap;
-				if (vst3Controller != NULL)
-				{
-					for (auto it : paramsToApply)
-					{
-						if (!it.first.empty() && it.first[0] == vst3ParamIdPrefix[0])
-						{
-							wchar_t* end = NULL;
-							ParamID id = static_cast<ParamID>(wcstoul(it.first.c_str() + 1, &end, 10));
-							if (end != it.first.c_str() + 1)
-							{
-								vst3Controller->setParamNormalized(id, it.second);
-								queueVST3ParameterChange(id, it.second);
-							}
-							continue;
-						}
-						for (int32 i = 0; i < vst3Controller->getParameterCount(); i++)
-						{
-							ParameterInfo info;
-							if (vst3Controller->getParameterInfo(i, info) == kResultOk
-								&& it.first == wstring((wchar_t*)info.title))
-							{
-								vst3Controller->setParamNormalized(info.id, it.second);
-								queueVST3ParameterChange(info.id, it.second);
-								break;
-							}
-						}
-					}
-				}
+				applyParameters(isEnvelope ? envelopeParamMap : paramMap);
 			}
 		}
-		else if (vst3Controller != NULL)
+		else
+			applyParameters(paramMap);
+		// State chunks can change every normalized value (and, for some plug-ins,
+		// the exposed parameter set). MIDI toggle seeds must observe this restored
+		// live state rather than the defaults captured during initialize().
+		rebuildParameterDescriptors();
+		if (vst3InputParameterChanges != nullptr)
 		{
-			for (auto it : paramMap)
-			{
-				if (!it.first.empty() && it.first[0] == vst3ParamIdPrefix[0])
-				{
-					wchar_t* end = NULL;
-					ParamID id = static_cast<ParamID>(wcstoul(it.first.c_str() + 1, &end, 10));
-					if (end != it.first.c_str() + 1)
-					{
-						vst3Controller->setParamNormalized(id, it.second);
-						queueVST3ParameterChange(id, it.second);
-					}
-					continue;
-				}
-				for (int32 i = 0; i < vst3Controller->getParameterCount(); i++)
-				{
-					ParameterInfo info;
-					if (vst3Controller->getParameterInfo(i, info) == kResultOk
-						&& it.first == wstring((wchar_t*)info.title))
-					{
-						vst3Controller->setParamNormalized(info.id, it.second);
-						queueVST3ParameterChange(info.id, it.second);
-						break;
-					}
-				}
-			}
+			vst3InputParameterChanges->setMaxParameters(max<int>(1, static_cast<int>(parameterDescriptors.size())));
+			prewarmVST3InputParameterChanges();
 		}
 		return;
 	}
@@ -907,14 +1004,14 @@ void VSTPluginInstance::writeToEffect(const std::wstring& chunkData, const std::
 
 				if (isEnvelope)
 				{
-					for (int i = 0; i < effect->num_params; i++)
+					for (const VSTParameterDescriptor& parameter : parameterDescriptors)
 					{
-						char buf[256];
-						effect->control(effect, VST_EFFECT_OPCODE_PARAM_GET_NAME, i, 0, buf, 0.0f);
-						buf[255] = '\0';
-						auto it = envelopeParamMap.find(StringHelper::toWString(buf, CP_UTF8));
-						if (it != envelopeParamMap.end())
-							effect->set_parameter(effect, i, it->second);
+						const wstring stableKey = makeVST2StableParameterKey(static_cast<int>(parameter.stableId), parameter.name);
+						auto value = envelopeParamMap.find(stableKey);
+						if (value == envelopeParamMap.end())
+							value = envelopeParamMap.find(parameter.name);
+						if (value != envelopeParamMap.end())
+							effect->set_parameter(effect, static_cast<int32_t>(parameter.stableId), value->second);
 					}
 				}
 			}
@@ -922,17 +1019,20 @@ void VSTPluginInstance::writeToEffect(const std::wstring& chunkData, const std::
 	}
 	if (!appliedChunk)
 	{
-		for (int i = 0; i < effect->num_params; i++)
+		for (const VSTParameterDescriptor& parameter : parameterDescriptors)
 		{
-			char buf[256];
-			effect->control(effect, VST_EFFECT_OPCODE_PARAM_GET_NAME, i, 0, buf, 0.0f);
-			buf[255] = '\0'; // just to be sure
-			wstring name = StringHelper::toWString(buf, CP_UTF8);
-			auto it = paramMap.find(name);
-			if (it != paramMap.end())
-				effect->set_parameter(effect, i, it->second);
+			const wstring stableKey = makeVST2StableParameterKey(static_cast<int>(parameter.stableId), parameter.name);
+			auto value = paramMap.find(stableKey);
+			if (value == paramMap.end())
+				value = paramMap.find(parameter.name);
+			if (value != paramMap.end())
+				effect->set_parameter(effect, static_cast<int32_t>(parameter.stableId), value->second);
 		}
 	}
+	// Refresh descriptor values after either setChunk or individual parameter
+	// writes. VSTMidiRuntime::configure() copies these descriptors immediately
+	// after prepareForProcessing(), so toggle mode starts from restored state.
+	rebuildParameterDescriptors();
 }
 
 void VSTPluginInstance::readFromEffect(std::wstring& chunkData, std::unordered_map<std::wstring, float>& paramMap) const
@@ -998,7 +1098,9 @@ void VSTPluginInstance::readFromEffect(std::wstring& chunkData, std::unordered_m
 			effect->control(effect, VST_EFFECT_OPCODE_PARAM_GET_NAME, i, 0, buf, 0.0f);
 			buf[255] = '\0';
 			float value = effect->get_parameter(effect, i);
-			paramMap[StringHelper::toWString(buf, CP_UTF8)] = value;
+			const wstring name = StringHelper::toWString(buf, CP_UTF8);
+			paramMap[name] = value;
+			paramMap[makeVST2StableParameterKey(i, name)] = value;
 		}
 
 		if (!chunkDataRaw.empty())
@@ -1015,7 +1117,9 @@ void VSTPluginInstance::readFromEffect(std::wstring& chunkData, std::unordered_m
 			effect->control(effect, VST_EFFECT_OPCODE_PARAM_GET_NAME, i, 0, buf, 0.0f);
 			buf[255] = '\0'; // just to be sure
 			float value = effect->get_parameter(effect, i);
-			paramMap[StringHelper::toWString(buf, CP_UTF8)] = value;
+			const wstring name = StringHelper::toWString(buf, CP_UTF8);
+			paramMap[name] = value;
+			paramMap[makeVST2StableParameterKey(i, name)] = value;
 		}
 	}
 }
@@ -1064,18 +1168,9 @@ void VSTPluginInstance::processReplacing(float** inputArray, float** outputArray
 		data.numOutputs = vst3OutputBusCount > 0 ? 1 : 0;
 		data.inputs = data.numInputs > 0 ? &inputBuffers : NULL;
 		data.outputs = data.numOutputs > 0 ? &outputBuffers : NULL;
-		ParameterChanges inputChanges(static_cast<int32>(pendingVST3ParameterChanges.size()));
-		for (const auto& change : pendingVST3ParameterChanges)
-		{
-			int32 queueIndex = -1;
-			IParamValueQueue* queue = inputChanges.addParameterData(change.first, queueIndex);
-			if (queue != NULL)
-			{
-				int32 pointIndex = -1;
-				queue->addPoint(0, change.second, pointIndex);
-			}
-		}
-		data.inputParameterChanges = pendingVST3ParameterChanges.empty() ? static_cast<IParameterChanges*>(&emptyVST3ParameterChanges) : static_cast<IParameterChanges*>(&inputChanges);
+		prepareVST3InputParameterChanges();
+		data.inputParameterChanges = vst3InputParameterChanges != nullptr && vst3InputParameterChanges->getParameterCount() > 0
+			? static_cast<IParameterChanges*>(vst3InputParameterChanges.get()) : static_cast<IParameterChanges*>(&emptyVST3ParameterChanges);
 		data.inputEvents = &emptyVST3EventList;
 		data.processContext = &vst3ProcessContext;
 		vst3ProcessContext.state = ProcessContext::kPlaying | ProcessContext::kContTimeValid;
@@ -1084,7 +1179,6 @@ void VSTPluginInstance::processReplacing(float** inputArray, float** outputArray
 		vst3ProcessContext.continousTimeSamples = vst3SamplePosition;
 		if (vst3Processor->process(data) == kResultOk)
 			vst3SamplePosition += frameCount;
-		pendingVST3ParameterChanges.clear();
 		return;
 	}
 
@@ -1114,18 +1208,9 @@ void VSTPluginInstance::processDoubleReplacing(double** inputArray, double** out
 		data.numOutputs = vst3OutputBusCount > 0 ? 1 : 0;
 		data.inputs = data.numInputs > 0 ? &inputBuffers : NULL;
 		data.outputs = data.numOutputs > 0 ? &outputBuffers : NULL;
-		ParameterChanges inputChanges(static_cast<int32>(pendingVST3ParameterChanges.size()));
-		for (const auto& change : pendingVST3ParameterChanges)
-		{
-			int32 queueIndex = -1;
-			IParamValueQueue* queue = inputChanges.addParameterData(change.first, queueIndex);
-			if (queue != NULL)
-			{
-				int32 pointIndex = -1;
-				queue->addPoint(0, change.second, pointIndex);
-			}
-		}
-		data.inputParameterChanges = pendingVST3ParameterChanges.empty() ? static_cast<IParameterChanges*>(&emptyVST3ParameterChanges) : static_cast<IParameterChanges*>(&inputChanges);
+		prepareVST3InputParameterChanges();
+		data.inputParameterChanges = vst3InputParameterChanges != nullptr && vst3InputParameterChanges->getParameterCount() > 0
+			? static_cast<IParameterChanges*>(vst3InputParameterChanges.get()) : static_cast<IParameterChanges*>(&emptyVST3ParameterChanges);
 		data.inputEvents = &emptyVST3EventList;
 		data.processContext = &vst3ProcessContext;
 		vst3ProcessContext.state = ProcessContext::kPlaying | ProcessContext::kContTimeValid;
@@ -1134,7 +1219,6 @@ void VSTPluginInstance::processDoubleReplacing(double** inputArray, double** out
 		vst3ProcessContext.continousTimeSamples = vst3SamplePosition;
 		if (vst3Processor->process(data) == kResultOk)
 			vst3SamplePosition += frameCount;
-		pendingVST3ParameterChanges.clear();
 		return;
 	}
 
@@ -1184,15 +1268,96 @@ void VSTPluginInstance::stopProcessing()
 
 void VSTPluginInstance::queueVST3ParameterChange(ParamID id, ParamValue value)
 {
-	for (auto& change : pendingVST3ParameterChanges)
+	if (findVST3Parameter(id) == NULL)
+		return;
+	VST3ParameterChange change;
+	change.id = id;
+	change.value = max(0.0, min(1.0, value));
+	vst3ParameterChangeQueue.tryPush(change);
+}
+
+bool VSTPluginInstance::VST3ParameterChangeQueue::tryPush(const VST3ParameterChange& change)
+{
+	const uint32_t write = writeIndex.load(memory_order_relaxed);
+	const uint32_t next = (write + 1) & (capacity - 1);
+	if (next == readIndex.load(memory_order_acquire))
+		return false;
+	entries[write] = change;
+	writeIndex.store(next, memory_order_release);
+	return true;
+}
+
+bool VSTPluginInstance::VST3ParameterChangeQueue::tryPop(VST3ParameterChange& change)
+{
+	const uint32_t read = readIndex.load(memory_order_relaxed);
+	if (read == writeIndex.load(memory_order_acquire))
+		return false;
+	change = entries[read];
+	readIndex.store((read + 1) & (capacity - 1), memory_order_release);
+	return true;
+}
+
+void VSTPluginInstance::VST3ParameterChangeQueue::clear()
+{
+	readIndex.store(0, memory_order_relaxed);
+	writeIndex.store(0, memory_order_relaxed);
+}
+
+void VSTPluginInstance::prepareVST3InputParameterChanges()
+{
+	if (vst3InputParameterChanges == nullptr)
 	{
-		if (change.first == id)
-		{
-			change.second = value;
+		realtimeVST3ParameterChangeCount = 0;
+		return;
+	}
+	vst3InputParameterChanges->clearQueue();
+	auto addChange = [this](const VST3ParameterChange& change) {
+		// A restored state may remove parameters after a change was queued.
+		// Filtering against the refreshed descriptor set also keeps the number
+		// of distinct queues within the non-RT setMaxParameters/prewarm bound.
+		if (findVST3Parameter(change.id) == NULL)
 			return;
+		int32 queueIndex = -1;
+		IParamValueQueue* parameterQueue = vst3InputParameterChanges->addParameterData(change.id, queueIndex);
+		if (parameterQueue != NULL)
+		{
+			int32 pointIndex = -1;
+			parameterQueue->addPoint(0, change.value, pointIndex);
+		}
+	};
+
+	VST3ParameterChange queued;
+	while (vst3ParameterChangeQueue.tryPop(queued))
+		addChange(queued);
+	for (uint32_t i = 0; i < realtimeVST3ParameterChangeCount; ++i)
+		addChange(realtimeVST3ParameterChanges[i]);
+	realtimeVST3ParameterChangeCount = 0;
+}
+
+void VSTPluginInstance::prewarmVST3InputParameterChanges()
+{
+	if (vst3InputParameterChanges == nullptr)
+		return;
+
+	// ParameterChanges(maxParameters) preconstructs every queue and the bundled
+	// ParameterValueQueue reserves five points. Exercise the exact one-point,
+	// sampleOffset-zero path used by audio processing while still off the RT
+	// thread, then retain those capacities across clearQueue().
+	vst3InputParameterChanges->clearQueue();
+	for (const VSTParameterDescriptor& parameter : parameterDescriptors)
+	{
+		if (parameter.api != VSTParameterApi::VST3)
+			continue;
+		int32 queueIndex = -1;
+		IParamValueQueue* parameterQueue = vst3InputParameterChanges->addParameterData(
+			static_cast<ParamID>(parameter.stableId), queueIndex);
+		if (parameterQueue != NULL)
+		{
+			int32 pointIndex = -1;
+			parameterQueue->addPoint(0, parameter.normalizedValue, pointIndex);
 		}
 	}
-	pendingVST3ParameterChanges.push_back(make_pair(id, value));
+	vst3InputParameterChanges->clearQueue();
 }
 
 bool VSTPluginInstance::startEditing(HWND hWnd, short* width, short* height)
@@ -1322,10 +1487,31 @@ void VSTPluginInstance::setAutomateFunc(std::function<void()> func)
 	automateFunc = func;
 }
 
+void VSTPluginInstance::setParameterAutomateFunc(std::function<void(const VSTParameterDescriptor&, double)> func)
+{
+	parameterAutomateFunc = std::move(func);
+}
+
 void VSTPluginInstance::onAutomate()
 {
 	if (automateFunc)
 		automateFunc();
+}
+
+void VSTPluginInstance::onAutomate(ParamID id, ParamValue value)
+{
+	const VSTParameterDescriptor* parameter = findVST3Parameter(id);
+	if (parameter != NULL && parameterAutomateFunc)
+		parameterAutomateFunc(*parameter, value);
+	onAutomate();
+}
+
+void VSTPluginInstance::onAutomate(int index, float value)
+{
+	const VSTParameterDescriptor* parameter = findVST2Parameter(index);
+	if (parameter != NULL && parameterAutomateFunc)
+		parameterAutomateFunc(*parameter, value);
+	onAutomate();
 }
 
 void VSTPluginInstance::setSizeWindowFunc(std::function<void(int, int)> func)
@@ -1354,6 +1540,7 @@ void VSTPluginInstance::releaseVST3()
 		return;
 
 	automateFunc = nullptr;
+	parameterAutomateFunc = nullptr;
 	sizeWindowFunc = nullptr;
 	stopEditing();
 	stopProcessing();
@@ -1398,6 +1585,10 @@ void VSTPluginInstance::releaseVST3()
 		vst3HostContext->release();
 		vst3HostContext = NULL;
 	}
+	vst3InputParameterChanges.reset();
+	vst3ParameterChangeQueue.clear();
+	realtimeVST3ParameterChangeCount = 0;
+	parameterDescriptors.clear();
 }
 
 void VSTPluginInstance::configureVST3Buses(int requestedChannelCount)

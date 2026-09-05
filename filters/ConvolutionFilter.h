@@ -19,6 +19,10 @@
 
 #pragma once
 
+#include <atomic>
+#include <cstdint>
+#include <vector>
+
 #include "IFilter.h"
 #include "libHybridConv-0.1.1/libHybridConv_eapo.h"
 
@@ -33,16 +37,37 @@ public:
 	void process(double** output, double** input, unsigned frameCount) override;
 
 protected:
-	virtual void initializeFilters(unsigned frameCount);
-	HConvSingle* filters;
+	virtual bool prepareImpulseResponse(
+		std::vector<std::vector<double>>& impulseResponses);
 	float sampleRate;
-	unsigned channelCount;
 
 private:
+	struct ConvolutionBank;
+
+	static unsigned long __stdcall bankWorkerEntry(void* context);
+	void bankWorkerLoop();
+	bool startWorker();
+	void stopWorker();
+	ConvolutionBank* createBank(unsigned frameCount);
+	void destroyBank(ConvolutionBank* bank);
 	void cleanup();
+	void copyDry(double** output, double** input, unsigned frameCount) const;
 
 	std::wstring filename;
+	unsigned channelCount;
 	unsigned maxFrameCount;
-	unsigned filterFrameCount;
+	std::vector<std::vector<double>> impulseResponses;
+	double* fadeScratch;
+	ConvolutionBank* activeBank;
+	std::atomic<ConvolutionBank*> pendingBank;
+	std::atomic<ConvolutionBank*> retiredBank;
+	std::atomic<unsigned> requestedFrameCount;
+	std::atomic<std::uint64_t> requestGeneration;
+	void* workerStopEvent;
+	void* workerThread;
+	unsigned fadeLength;
+	unsigned fadePosition;
+	unsigned lastRequestedFrame;
+	bool activeUsable;
 };
 #pragma AVRT_VTABLES_END

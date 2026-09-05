@@ -35,6 +35,7 @@ private:
 	enum class Migration
 	{
 		None,
+		KeepOriginal,
 		ConvertShelf,
 		KeepFormula
 	};

@@ -46,7 +46,7 @@ void ConvolutionFilterGUIFactory::initialize(FilterTable* filterTable)
 QList<FilterTemplate> ConvolutionFilterGUIFactory::createFilterTemplates()
 {
 	QList<FilterTemplate> list;
-	list.append(FilterTemplate(tr("Convolution (Convolution with impulse response)"), "Convolution:", QStringList(tr("Advanced filters"))));
+	list.append(FilterTemplate(tr("IR convolution"), "Convolution:", QStringList(tr("Advanced filters"))));
 	return list;
 }
 

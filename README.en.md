@@ -5,7 +5,7 @@
 [![Build](https://github.com/xup61069/loudness-correction-apo/actions/workflows/build.yml/badge.svg)](https://github.com/xup61069/loudness-correction-apo/actions/workflows/build.yml)
 [![Latest release](https://img.shields.io/github/v/release/xup61069/loudness-correction-apo)](https://github.com/xup61069/loudness-correction-apo/releases/latest)
 
-This repository is a direct Windows x64 fork of [Mixomo/EqAPO64_with_VST3_support](https://github.com/Mixomo/EqAPO64_with_VST3_support). It retains the system-wide double-precision audio pipeline and x64 VST2/VST3 audio-effect workflow, and maintains formula-based loudness correction, calibration tools, the complete Mixomo `exp` feature line, and a Traditional Chinese interface.
+This repository is a direct Windows x64 fork of [Mixomo/EqAPO64_with_VST3_support](https://github.com/Mixomo/EqAPO64_with_VST3_support). It retains the system-wide double-precision audio pipeline and x64 VST2/VST3 audio-effect workflow, and maintains separate formula-based and original-shelf loudness-correction components, their own calibration tools, the complete Mixomo `exp` feature line, and a Traditional Chinese interface.
 
 Code lineage: [Equalizer APO](https://sourceforge.net/projects/equalizerapo/) → [TheFireKahuna/equalizerAPO64](https://github.com/TheFireKahuna/equalizerAPO64) → [Mixomo/EqAPO64_with_VST3_support](https://github.com/Mixomo/EqAPO64_with_VST3_support) → this repository.
 
@@ -25,7 +25,7 @@ This fork uses Mixomo's feature-complete `exp` line. The following tools are ret
 - native Pan, Chorus, Reverb, Crossfeed, Tone Generator, and pass-through VU Meter filters;
 - the multi-band `ParametricEQ:` editor with add, remove, sort, reset, import, and export operations;
 - Headphone Calibration support for a compatible catalog supplied by the user, with GraphicEQ, parametric-EQ, and FIR export paths;
-- Convolution and GraphicEQ FIR workflows with explicit sample-rate checks, matched-FIR regeneration, and local impulse-response discovery; and
+- **IR convolution** and GraphicEQ FIR workflows with explicit sample-rate checks, manual matched-FIR rebuilding, and local impulse-response discovery; and
 - VST diagnostics, multi-class VST3 selection, filter-row clone/reset actions, and the detached out-of-process host lifecycle.
 
 These tools are separate from loudness correction. Their presence does not enable them automatically; add only the filters you intend to use and test at a safe listening level. The public source tree and installer intentionally contain no headphone-measurement catalog or impulse-response audio. Supply only data you are licensed to use: place a compatible `ash_hpcf_catalog.json` under `config\HeadphoneCalibrations`, and local convolution files under `config\IRs`. No dataset is downloaded automatically, and setup/uninstall leaves these user-data subdirectories untouched.
@@ -70,7 +70,7 @@ After a successful commit, cleanup can remain deferred while Windows still has a
 ## Quick start
 
 1. Open **Equalizer APO Configuration Editor** and select the playback endpoint you intend to use.
-2. Add **Advanced filters → Loudness correction**.
+2. Add **Advanced filters → Loudness correction**. To deliberately use Mixomo's original shelf algorithm instead, add the completely separate **Loudness correction (original)** component.
 3. Choose **Single endpoint** to follow the playback endpoint on which this APO instance is running. Choose **Global (Windows default)** only when every loudness-correction instance should deliberately share that default endpoint's master volume.
 4. Leave **Manual volume** off for automatic tracking, or enable it when Windows cannot represent the actual listening volume.
 5. Leave **APO volume follow** off for ordinary endpoints. Select a follow curve only when the Windows volume value changes but a route such as VB-Audio Matrix does not actually attenuate the audio.
@@ -137,7 +137,26 @@ A/B and bypass require a saved profile with no unsaved edits, cannot run at the 
 
 Auto preamp is deliberately unavailable for dynamic expressions or conditions, cross-channel processing, convolution dependencies, generated/time-varying/nonlinear processing, VST plug-ins, and experimental out-of-process filters. It targets only the sampled linear frequency-response peak for the selected channel and, when automatic loudness volume is used, the current endpoint-volume snapshot. It is not a limiter and cannot guarantee later volume or source changes, multichannel peaks not represented by the selected channel, or intersample/true peaks. Check the relevant channels and retain additional headroom for real playback.
 
-## Loudness-correction behavior
+## Two completely separate loudness-correction components
+
+Configuration Editor exposes two different components. They are not modes of one row and do not share parameters, calibration state, or DSP:
+
+| Component | Command/model | Volume source and purpose |
+|---|---|---|
+| **Loudness correction** | `LoudnessCorrection:` / `FormulaLoudnessV1` | This fork's 29-point formula contour, with Single/Global binding, automatic or manual volume, Full/Fast engines, and optional APO volume-follow curves. |
+| **Loudness correction (original)** | `LoudnessCorrectionOriginal:` / `MixomoShelfV1` | Mixomo's original 75 Hz and 10 kHz two-shelf algorithm, fixed to the Windows default Multimedia playback endpoint. It does not inherit formula-engine, manual-volume, or `VolumeFollow` options. |
+
+Both can appear in one configuration, but they process the signal independently in row order and normally should not be stacked. Disabling, resetting, or calibrating either component does not rewrite the other. Each calibration window temporarily bypasses only its own row and stops pink noise before closing. If temporary-state recovery keeps an externally edited file, the pending measurement is discarded instead of being written back.
+
+Complete original-component example:
+
+```text
+LoudnessCorrectionOriginal: Schema 1 Model MixomoShelfV1 State 1 ReferenceLevel 0 ReferenceOffset 0 Attenuation 1.0
+```
+
+When `ReferenceLevel - ReferenceOffset - WindowsVolumeDb` is zero, the original component remains at unity; enabling it no longer causes the fork's former roughly 1 dB startup reduction. If the endpoint becomes unreadable, only original correction pauses and audio remains transparent; recovery warms and crossfades back. Use the formula component when you need another endpoint binding, manual volume, or Matrix-style broadband attenuation.
+
+## Formula loudness-correction behavior
 
 ### Engine modes and performance
 
@@ -235,7 +254,12 @@ If the route already attenuates the audio, omit `VolumeFollow`; the default `Off
 
 ### Original Mixomo shelf-profile entries
 
-The original Mixomo filter used the same field names for a different shelf-filter model. Because some valid old shelf settings overlap the values written by early formula releases, every unmarked entry is left textually unchanged and bypassed until its meaning is chosen in Configuration Editor. When the values could represent either model, the editor offers both choices. **Convert original shelf profile** preserves the former neutral Windows-volume point by mapping `old ReferenceLevel - old ReferenceOffset` to the new `ReferenceOffset`, maps `Attenuation` to correction strength, preserves a manual volume when present, clamps volume values below −100 dB, selects `Binding All` to retain Mixomo's shared-default-volume behavior, and then enables the marked formula profile. The two response models are not identical, so review and recalibrate after conversion.
+The original Mixomo filter used the same field names for a different shelf-filter model. Because some valid old shelf settings overlap the values written by early formula releases, every unmarked entry is left textually unchanged and bypassed until its meaning is chosen in Configuration Editor. When the values could represent either model, the editor offers both choices.
+
+- **Keep as original component** rewrites it as the independent `LoudnessCorrectionOriginal: Schema 1 Model MixomoShelfV1 ...` component while preserving its enabled state and original ReferenceLevel, ReferenceOffset, and Attenuation. It does not pass through formula conversion.
+- **Convert original shelf profile** preserves the former neutral Windows-volume point by mapping `old ReferenceLevel - old ReferenceOffset` to the formula component's new `ReferenceOffset`, maps `Attenuation` to correction strength, preserves a manual volume when present, clamps volume values below −100 dB, selects `Binding All` to retain Mixomo's shared-default-volume behavior, and then enables the marked formula profile.
+
+The response models are not identical. Choose the path for the algorithm you intend to keep, then review and recalibrate.
 
 ### Previously released formula entries
 
@@ -257,6 +281,16 @@ The converted entry is enabled as `State 1`. Configuration Editor normally saves
 
 v3.0.0 may already have rewritten an older entry as an unmarked formula-format `State 0 ReferenceLevel ...` draft. First choose **Keep existing formula values** so the editor adds the model marker; this deliberately preserves `State 0`. After backing up the configuration, either close the editor and change only that marked entry's `State 0` to `State 1` in `config\config.txt`, or remove the draft and add a new Loudness correction filter. Review the volume mode and recalibrate before use.
 
+## IR convolution
+
+Add an impulse response from **Advanced filters → IR convolution**. Configuration files keep the compatible `Convolution:` command, so existing configurations do not need to be renamed. Relative paths are always resolved from the directory containing the current configuration; local files under `config\IRs` are available from the row menu. The audio service must be able to read the file, and its sample rate must exactly match the current device. Unsupported formats, invalid metadata, early EOF, NaN/Inf samples, or files over 1,048,576 frames or 8,388,608 samples fail safely to the unprocessed signal. Each channel's HybridConv bank is additionally capped at 4,096 partitions; an extremely long IR paired with a very small audio block remains dry rather than triggering an allocation storm.
+
+For a sample-rate mismatch, Editor exposes a manual **Rebuild matched FIR** action and does not start expensive conversion while a path is typed or selected. This action reconstructs a normalized minimum-phase FIR at the current rate from the source file's **magnitude response**. It is not a time-domain resampler and does not preserve the source delay, phase, spatial information, or HRIR cues. Use an IR exported natively at the device rate when those properties matter. The result is first closed as a unique temporary file, then replaces a path-hash-qualified artifact under `generated-ir`; the source file is never overwritten.
+
+Rebuilding reuses FFT workspaces and plans, but still completes synchronously after the button is pressed; a long but valid IR can make Editor temporarily unresponsive. The public source and installer ship no IR audio. Use only files you are licensed to use.
+
+If the Windows audio engine supplies a stable block smaller than the initialization maximum, IR convolution and GraphicEQ first remain dry while a correctly sized convolution state is built in the background, then fade in over 10 ms. The audio callback neither waits for FFTW nor rereads the file. If the host keeps changing block sizes, processing safely returns to dry and requests another state; convolution tails cannot be preserved across those size discontinuities.
+
 ## VST plug-in hosting
 
 The editor can load user-supplied x64 VST2 (`.dll`) and VST3 (`.vst3`) audio effects. **VST plugin** uses the original in-process loader; **Out-of-process VST plugin** uses the experimental detached `EqApoOutProcHost.exe`. The latter can isolate some plug-in failures from Configuration Editor and the APO process, but it is not a security sandbox. No commercial plug-ins are included.
@@ -267,7 +301,22 @@ The editor can load user-supplied x64 VST2 (`.dll`) and VST3 (`.vst3`) audio eff
 - Some plug-ins depend on a desktop session, copy protection, unsupported bus layouts, or APIs that are unsuitable for a system audio service. Compatibility is not guaranteed.
 - Plug-ins run inside the Windows audio-processing path and are not sandboxed. Use only trusted, stable plug-ins, test at a safe volume, and keep a recoverable configuration backup.
 
-## Updates
+### MIDI control of VST parameters
+
+After loading a plug-in, press **MIDI control…** on its row to bind a hardware knob, fader, or button to a controllable parameter exposed by that plug-in. VST3 lists only visible, non-read-only parameters marked `kCanAutomate`, avoiding targets that reject automation. Both in-process and out-of-process VST rows are supported. For out-of-process rows, open and close the plug-in panel once so Editor can capture the parameter list and stable IDs.
+
+1. Select the MIDI input device and target VST parameter.
+2. Choose automatic, absolute, or toggle behavior, then press **Learn MIDI control**.
+3. Move the controller or press the button; optionally accept the learned source on any MIDI channel.
+4. Save the mapping. CC, Note, and Pitch Bend continue to control the parameter in the audio host after Configuration Editor closes.
+
+Automatic mode treats Note as a toggle and CC/Pitch Bend as absolute. Discrete VST3 targets are quantized to the plug-in's reported step count. VST3 mappings use stable ParamIDs; VST2 mappings guard their parameter index with its name so replacing or upgrading a plug-in cannot silently target a different control. Within a row, learning the same physical MIDI source replaces its previous target. Invalid or oversized mapping data disables only MIDI control for that row, not VST audio processing.
+
+This feature controls VST parameters; it does not feed MIDI note/event streams to instrument plug-ins. The audio callback reads a bounded number of changes from a fixed queue and does not write configuration files or perform permission scans. Rows in the same process share one device connection. If the current row already has MIDI mappings, Editor requires a saved profile with no pending edits, then uses its recoverable temporary-audio journal to remove only that row's `MidiConfig` while learning. It restores the original profile only after the Learn dialog has closed its WinMM handle, and applies the new mapping afterward. If another program changed the file and you keep that external version, the new mapping is not applied.
+
+This releases the audio host's ownership for the current row, but another APO row or MIDI program can still hold a single-client driver. The Learn dialog reports a busy device and retries every second; close or suspend the actual owner in that case. After disconnection, the host searches for the same identified device and reconnects.
+
+## Update checks
 
 Selecting automatic update checks during setup creates a scheduled task that runs at sign-in and contacts this repository's GitHub Releases API at most once every 24 hours. It never downloads or installs an update automatically; it only displays a notification and can open the HTTPS release page.
 

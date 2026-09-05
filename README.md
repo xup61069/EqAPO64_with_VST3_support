@@ -5,7 +5,7 @@
 [![建置](https://github.com/xup61069/loudness-correction-apo/actions/workflows/build.yml/badge.svg)](https://github.com/xup61069/loudness-correction-apo/actions/workflows/build.yml)
 [![最新版本](https://img.shields.io/github/v/release/xup61069/loudness-correction-apo)](https://github.com/xup61069/loudness-correction-apo/releases/latest)
 
-本儲存庫是直接 fork 自 [Mixomo/EqAPO64_with_VST3_support](https://github.com/Mixomo/EqAPO64_with_VST3_support) 的 Windows x64 專案，沿用其系統層級雙精度音訊管線與 x64 VST2／VST3 音訊效果流程，並維護公式響度校正、校準工具、完整 Mixomo `exp` 功能線及繁體中文介面。
+本儲存庫是直接 fork 自 [Mixomo/EqAPO64_with_VST3_support](https://github.com/Mixomo/EqAPO64_with_VST3_support) 的 Windows x64 專案，沿用其系統層級雙精度音訊管線與 x64 VST2／VST3 音訊效果流程，並維護彼此獨立的公式響度校正與原版棚架響度校正、各自的校準工具、完整 Mixomo `exp` 功能線及繁體中文介面。
 
 原始碼關係：[Equalizer APO](https://sourceforge.net/projects/equalizerapo/) → [TheFireKahuna/equalizerAPO64](https://github.com/TheFireKahuna/equalizerAPO64) → [Mixomo/EqAPO64_with_VST3_support](https://github.com/Mixomo/EqAPO64_with_VST3_support) → 本儲存庫。
 
@@ -25,7 +25,7 @@
 - 原生 Pan、Chorus、Reverb、Crossfeed、Tone Generator，以及不改變訊號的 VU Meter；
 - 可新增、移除、排序、重設、匯入及匯出的多頻帶 `ParametricEQ:` 編輯器；
 - 可載入使用者自行提供之相容目錄的耳機校正，並可輸出 GraphicEQ、參數等化器及 FIR；
-- Convolution 與 GraphicEQ FIR 流程，包含明確取樣率檢查、相符 FIR 重新產生，以及本機脈衝響應探索；以及
+- **IR 卷積**與 GraphicEQ FIR 流程，包含明確取樣率檢查、手動重建相符 FIR，以及本機脈衝響應探索；以及
 - VST 診斷、多類別 VST3 選擇、濾鏡列複製／重設動作及分離式行程外 host 的生命週期管理。
 
 這些工具與響度校正彼此獨立，不會因安裝而自動啟用；只加入實際需要的濾鏡，並以安全音量測試。公開原始碼與安裝程式刻意不包含耳機量測目錄或脈衝響應音訊。請只加入自己有權使用的資料：相容的 `ash_hpcf_catalog.json` 可放在 `config\HeadphoneCalibrations`，本機卷積檔可放在 `config\IRs`。程式不會自動下載任何資料集，安裝與解除安裝也不會碰觸這兩個使用者資料子目錄。
@@ -70,7 +70,7 @@ Get-Content .\EqualizerAPO-x64-*.exe.sha256
 ## 快速開始
 
 1. 開啟 **Equalizer APO Configuration Editor**，選取實際要使用的播放端點。
-2. 新增 **高階過濾器 → 響度校正**。
+2. 新增 **高階過濾器 → 響度校正**；若要刻意使用 Mixomo 原始棚架演算法，改選完全獨立的 **響度校正（原版）**。
 3. 選擇「**單一端點**」可跟隨目前執行 APO 的實際播放端點；只有刻意讓所有響度校正實例共用 Windows 預設 Multimedia 端點的主音量時，才選擇「**全域（Windows 預設）**」。
 4. 要自動追蹤時關閉「手動音量」；若 Windows 無法代表真實聆聽音量，則啟用手動音量。
 5. 一般音訊端點把「APO 音量跟隨」維持在**關閉**。只有 Windows 音量數值會變、但 VB-Audio Matrix 等路由沒有真的降低音訊時，才選擇需要的跟隨曲線。
@@ -137,7 +137,26 @@ A/B 與旁路都要求設定檔已儲存且沒有未儲存變更，兩者不能�
 
 若設定含動態運算式或條件、跨聲道處理、外部卷積相依檔、訊號產生／時變／非線性處理、VST 外掛或實驗性外部處理濾鏡，自動前級會刻意停用。它只針對所選聲道的取樣線性頻率響應峰值；使用自動響度音量時，也只代表分析當下的端點音量快照。它不是限幅器，無法保證後續音量或素材變更、所選聲道以外的多聲道峰值，或取樣間／true-peak。實際播放仍應檢查相關聲道並另外保留餘裕。
 
-## 響度校正行為
+## 兩個完全獨立的響度校正元件
+
+Configuration Editor 會提供兩個不同元件。它們不是同一列裡的模式切換，也不共用參數、校準狀態或 DSP：
+
+| 元件 | 設定指令／模型 | 音量來源與用途 |
+|---|---|---|
+| **響度校正** | `LoudnessCorrection:`／`FormulaLoudnessV1` | 本 fork 的 29 點公式輪廓，可選 Single／Global、自動或手動音量、Full／Fast 引擎，以及 APO 音量跟隨曲線。 |
+| **響度校正（原版）** | `LoudnessCorrectionOriginal:`／`MixomoShelfV1` | 保存 Mixomo 原始 75 Hz 與 10 kHz 雙棚架演算法，固定跟隨 Windows 預設 Multimedia 播放端點；不含公式版的引擎、手動音量或 `VolumeFollow` 選項。 |
+
+兩者可以同時出現在設定檔，但會依順序各自處理訊號，通常不應疊加。停用、重設或校準其中一個，不會改寫另一個。兩個校準視窗也只會暫時旁路自己那一列，關閉前一定先停止粉紅噪音；若編輯器或系統在校準中斷，復原紀錄會在下次操作前嘗試還原原設定。復原時若選擇保留外部修改，本次量測會直接丟棄，不會再寫回該檔案。
+
+原版新元件的完整設定範例：
+
+```text
+LoudnessCorrectionOriginal: Schema 1 Model MixomoShelfV1 State 1 ReferenceLevel 0 ReferenceOffset 0 Attenuation 1.0
+```
+
+原版在 `ReferenceLevel - ReferenceOffset - WindowsVolumeDb` 等於零時會保持單位增益，不會因剛啟用就固定降低約 1 dB。端點讀取失敗時只暫停原版校正並保持直通；端點恢復後重新預熱並平滑切回。原版固定使用 Windows 預設 `eRender`／`eMultimedia` 端點，因此需要不同端點綁定、手動音量或 Matrix 寬頻衰減時，請使用公式版。
+
+## 響度校正（公式版）行為
 
 ### 引擎模式與效能
 
@@ -235,7 +254,12 @@ LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding All VolumeFollow Wi
 
 ### 原始 Mixomo 棚架輪廓項目
 
-原始 Mixomo 濾波器以相同欄位名稱表示另一種棚架濾波模型；而且部分有效的舊棚架數值會與早期公式版本寫入的數值重疊。因此，所有沒有格式標記的項目都會保持原始文字並略過處理，直到在 Configuration Editor 中選定其意義；數值同時符合兩種模型時，介面會並列兩個選項。按下**轉換原始棚架輪廓**後，系統會把 `舊 ReferenceLevel - 舊 ReferenceOffset` 對應至新的 `ReferenceOffset`，以保留原本的 Windows 中性音量點；同時把 `Attenuation` 對應為校正強度、保留既有手動音量、將低於 −100 dB 的音量限制為 −100 dB，並選用 `Binding All` 保留 Mixomo 共用預設音量的行為，最後才啟用帶有格式標記的公式輪廓。兩種響應模型並不相同，轉換後仍須檢查並重新校準。
+原始 Mixomo 濾波器以相同欄位名稱表示另一種棚架濾波模型；而且部分有效的舊棚架數值會與早期公式版本寫入的數值重疊。因此，所有沒有格式標記的項目都會保持原始文字並略過處理，直到在 Configuration Editor 中選定其意義；數值同時符合兩種模型時，介面會並列兩個選項。
+
+- **保留為原版元件**會改寫成獨立的 `LoudnessCorrectionOriginal: Schema 1 Model MixomoShelfV1 ...`，並保留原本的啟用狀態、ReferenceLevel、ReferenceOffset 與 Attenuation；它不會經過公式版轉換。
+- **轉換原始棚架輪廓**則會把 `舊 ReferenceLevel - 舊 ReferenceOffset` 對應至公式版的 `ReferenceOffset`，以保留原本的 Windows 中性音量點；同時把 `Attenuation` 對應為校正強度、保留既有手動音量、將低於 −100 dB 的音量限制為 −100 dB，並選用 `Binding All` 保留 Mixomo 共用預設音量的行為，最後才啟用帶有格式標記的公式輪廓。
+
+兩種響應模型並不相同；請依想保留的演算法選一條路徑，完成後檢查並重新校準。
 
 ### 先前發布的公式項目
 
@@ -257,6 +281,16 @@ v3.0.0 或 v3.0.1 寫入、沒有格式標記的公式項目同樣會略過處�
 
 v3.0.0 可能已把舊項目重寫為沒有標記的公式格式 `State 0 ReferenceLevel ...` 草稿。請先選擇**保留既有公式數值**，讓編輯器加入模型標記；此步驟會刻意保留 `State 0`。備份設定後，可關閉編輯器，只把該已標記項目在 `config\config.txt` 裡的 `State 0` 改成 `State 1`；也可以刪除草稿後重新新增「響度校正」。啟用前請檢查音量模式並重新校準。
 
+## IR 卷積
+
+在 **高階過濾器 → IR 卷積**加入脈衝響應；設定檔仍使用相容的 `Convolution:` 指令，因此舊設定不必改名。相對路徑一律以目前設定檔所在目錄解析，`config\IRs` 內的本機檔案可從列上的選單挑選。音訊服務必須有讀取權限，且檔案取樣率必須和目前裝置完全相同；格式不支援、中繼資料無效、檔案提早結束、樣本含 NaN／Inf，或超過 1,048,576 個 frame／8,388,608 個 sample 時會失效安全地保持原訊號。每聲道的 HybridConv bank 另限制最多 4,096 個 partition；極長 IR 搭配很小的音訊 block 超過此限制時也會保持乾聲，避免大量小型配置拖垮音訊服務。
+
+取樣率不同時，Editor 只顯示手動的 **重建相符 FIR** 動作，不會在輸入路徑或選檔時自動執行昂貴轉換。這個動作會從原檔的**幅度響應**重建目前取樣率的正規化 minimum-phase FIR；它不是時域 resampler，不能保留原始延遲、相位、空間或 HRIR 資訊。需要這些資訊時，請直接使用原工具匯出的原生取樣率 IR。輸出先寫入獨立暫存檔，完整關閉後才取代 `generated-ir` 中以來源路徑雜湊區分的產物，不會覆寫來源檔。
+
+重建會重複使用 FFT workspace 與 plan，但仍是在按下按鈕後同步完成；很長的合法 IR 可能讓 Editor 暫時沒有回應。公開原始碼與安裝程式不附帶 IR 音訊，請只使用自己有權使用的檔案。
+
+Windows 音訊引擎實際送入的 block 若固定小於初始化上限，IR 卷積與 GraphicEQ 會先保持乾聲，在背景建立相符尺寸的卷積狀態，完成後以 10 ms 淡入，不會在音訊 callback 等待 FFTW 或重新讀檔。若音訊 host 持續改變 block 尺寸，程式會安全地重新旁路並請求新狀態；這種情況無法保證保留前一尺寸的卷積尾音。
+
 ## VST 外掛載入
 
 編輯器可載入使用者自行提供的 x64 VST2（`.dll`）與 VST3（`.vst3`）音訊效果。**VST 外掛**使用原本的行程內載入器；**行程外 VST 外掛**則使用實驗性的分離式 `EqApoOutProcHost.exe`。後者能把部分外掛故障隔離在 Configuration Editor 與 APO 行程之外，但不是安全沙箱。本專案不包含任何商業外掛。
@@ -267,7 +301,22 @@ v3.0.0 可能已把舊項目重寫為沒有標記的公式格式 `State 0 Refere
 - 部分外掛依賴桌面工作階段、版權保護、不支援的匯流排配置，或不適合系統音訊服務的 API，因此不保證全部相容。
 - 外掛在 Windows 音訊處理路徑內執行，沒有沙箱隔離；只使用可信且穩定的外掛，以安全音量測試，並保留可復原的設定備份。
 
-## 更新
+### 用 MIDI 控制 VST 參數
+
+載入外掛後按該列的 **MIDI 控制…**，可把硬體旋鈕、推桿或按鍵綁定到外掛公開且可供控制的參數。VST3 只列出可見、非唯讀且帶有 `kCanAutomate` 的參數，避免學到外掛不接受自動化的目標。行程內與行程外 VST 都支援；行程外模式要先開啟一次外掛面板並關閉，讓 Editor 擷取帶有穩定 ID 的參數清單。
+
+1. 選擇 MIDI 輸入裝置與 VST 目標參數。
+2. 選擇自動、絕對值或切換模式，再按 **學習 MIDI 控制**。
+3. 轉動旋鈕／推桿，或按下按鍵；可固定學到的頻道，也可接受所有頻道。
+4. 儲存設定。Editor 關閉後，CC、Note 與 Pitch Bend 仍由音訊 host 直接控制參數，不需要讓 Editor 常駐。
+
+自動模式會讓 Note 使用切換行為，CC 與 Pitch Bend 使用絕對值；離散 VST3 參數會依外掛回報的 step count 對齊。VST3 綁定使用穩定 ParamID；VST2 使用參數索引加名稱防護，避免外掛換版或換檔後誤控另一個參數。同一列裡一個 MIDI 來源只會對應一個目標，重新學習相同來源會取代舊綁定。無效或過大的 MIDI 設定只會停用該列的 MIDI 控制，不會停用 VST 音訊處理。
+
+這裡的 MIDI 只用來控制 VST 參數，不會把 MIDI note/event 傳給樂器型外掛。音訊 callback 只從固定大小佇列讀取有界數量的控制變更，不會寫設定檔或掃描權限。同一行程內的多列會共用單一裝置連線。若目前這一列已有 MIDI 綁定，Editor 會要求設定檔已儲存且沒有未決變更，再透過可復原的暫時音訊紀錄，只在學習期間移除本列的 `MidiConfig`；學習視窗關閉並釋放 WinMM handle 後，才還原原始設定，再套用新綁定。若檔案同時被其他程式改動而選擇保留外部版本，新綁定不會套用。
+
+這能解除目前這一列的音訊 host 占用，但其他 APO 列或其他 MIDI 軟體仍可能占用只允許單一行程開啟的驅動程式。學習視窗會顯示「裝置忙碌」並每秒重試；遇到這種情況請關閉或暫停實際占用者。硬體中斷後 host 會依裝置識別重新尋找並連線。
+
+## 更新檢查
 
 安裝時選取自動更新檢查，會建立在登入時執行的排程工作，最多每 24 小時連線一次本儲存庫的 GitHub Releases API。它不會自動下載或安裝更新，只會顯示通知，並可開啟 HTTPS Release 頁面。
 

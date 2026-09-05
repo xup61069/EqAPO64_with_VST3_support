@@ -125,7 +125,7 @@ FilterTableRow::FilterTableRow(FilterTable* table, int number, FilterTable::Item
 	this->item = item;
 	this->gui = gui;
 
-	ui->labelNumber->setText(QString("%0").arg(number));
+	ui->labelNumber->setText(QString("%1").arg(number));
 
 	ui->toolBar->addAction(ui->actionAdd);
 	ui->toolBar->addAction(ui->actionCloneAbove);

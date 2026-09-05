@@ -35,6 +35,7 @@ vector<IFilter*> OutProcVSTPluginFilterFactory::createFilter(const wstring& conf
 		wstring libPath;
 		wstring chunkData;
 		wstring hostId;
+		wstring midiConfig;
 		int vst3ClassIndex = 0;
 		unordered_map<wstring, float> paramMap;
 		vector<wstring> parts = StringHelper::splitQuoted(parameters, ' ');
@@ -82,6 +83,11 @@ vector<IFilter*> OutProcVSTPluginFilterFactory::createFilter(const wstring& conf
 				vst3ClassIndex = _wtoi(value.c_str());
 				i += 2;
 			}
+			else if (key == L"MidiConfig")
+			{
+				midiConfig = value;
+				i += 2;
+			}
 			else if (key == L"Engine")
 			{
 				// Reserved for compatibility with experimental editor output.
@@ -103,7 +109,7 @@ vector<IFilter*> OutProcVSTPluginFilterFactory::createFilter(const wstring& conf
 		{
 			TraceF(L"Adding out-of-process VST plugin %s", libPath.c_str());
 			void* mem = MemoryHelper::alloc(sizeof(OutProcVSTPluginFilter));
-			filter = new(mem) OutProcVSTPluginFilter(libPath, chunkData, paramMap, hostId, engine != nullptr && engine->isAnalysisMode(), vst3ClassIndex);
+			filter = new(mem) OutProcVSTPluginFilter(libPath, chunkData, paramMap, hostId, engine != nullptr && engine->isAnalysisMode(), vst3ClassIndex, midiConfig);
 		}
 	}
 

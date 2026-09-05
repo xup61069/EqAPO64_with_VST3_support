@@ -126,6 +126,7 @@ bool parseEditablePreampLine(
 #include "guis/HeadphoneCalibrationFilterGUIFactory.h"
 #include "guis/VSTPluginFilterGUIFactory.h"
 #include "guis/LoudnessCorrectionFilterGUIFactory.h"
+#include "guis/OriginalLoudnessCorrectionFilterGUIFactory.h"
 #include "guis/AudioToolFilterGUIFactory.h"
 #include "Editor/helpers/GUIHelper.h"
 #include "helpers/StringHelper.h"
@@ -212,6 +213,7 @@ FilterTable::FilterTable(MainWindow* mainWindow, QWidget* parent)
 	factories.append(new ConvolutionFilterGUIFactory);
 	factories.append(new VSTPluginFilterGUIFactory);
 	factories.append(new LoudnessCorrectionFilterGUIFactory);
+	factories.append(new OriginalLoudnessCorrectionFilterGUIFactory);
 
 	QApplication::instance()->installEventFilter(this);
 }
@@ -386,6 +388,33 @@ QList<QString> FilterTable::getLines()
 		result.append(item->text);
 
 	return result;
+}
+
+bool FilterTable::makeLinesWithGuiOverride(
+	IFilterGUI* target,
+	const QString& command,
+	const QString& parameters,
+	QList<QString>* lines) const
+{
+	if (target == NULL || lines == NULL || command.trimmed().isEmpty())
+		return false;
+
+	lines->clear();
+	bool replaced = false;
+	for (Item* item : items)
+	{
+		if (item->gui != NULL &&
+			(item->gui == target || item->gui->isAncestorOf(target)))
+		{
+			lines->append(command + ": " + parameters);
+			replaced = true;
+		}
+		else
+		{
+			lines->append(item->text);
+		}
+	}
+	return replaced;
 }
 
 bool FilterTable::planPreampReduction(
@@ -962,7 +991,7 @@ void FilterTable::savePreferences()
 					command = item->text.left(index).trimmed();
 
 				QByteArray byteArray = QJsonDocument::fromVariant(item->prefs).toJson(QJsonDocument::Compact);
-				QString string = QString("%0:%1:%2").arg(i + 1).arg(command).arg(QString::fromUtf8(byteArray));
+				QString string = QString("%1:%2:%3").arg(i + 1).arg(command).arg(QString::fromUtf8(byteArray));
 				prefLines.append(string);
 			}
 		}

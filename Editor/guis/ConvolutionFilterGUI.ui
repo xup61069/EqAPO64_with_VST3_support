@@ -36,7 +36,7 @@
    <item row="0" column="0">
     <widget class="QLabel" name="convolutionLabel">
      <property name="text">
-      <string>Convolution with impulse response:</string>
+      <string>IR file:</string>
      </property>
     </widget>
    </item>
@@ -92,10 +92,10 @@
           <bool>false</bool>
          </property>
          <property name="toolTip">
-         <string>Extract the loaded IR/FIR magnitude response and regenerate a sample-rate-matched FIR for the current audio device.</string>
+         <string>Rebuild a normalized minimum-phase FIR from the loaded magnitude response at the current device sample rate. Original phase and delay are not preserved.</string>
         </property>
         <property name="text">
-         <string>Create matched IR/FIR</string>
+         <string>Rebuild matched FIR</string>
         </property>
        </widget>
       </item>

@@ -193,7 +193,7 @@ namespace
 	}
 }
 
-OutProcVSTPluginFilter::OutProcVSTPluginFilter(wstring libPath, wstring chunkData, unordered_map<wstring, float> paramMap, wstring hostId, bool analysisMode, int vst3ClassIndex)
+OutProcVSTPluginFilter::OutProcVSTPluginFilter(wstring libPath, wstring chunkData, unordered_map<wstring, float> paramMap, wstring hostId, bool analysisMode, int vst3ClassIndex, wstring midiConfig)
 	: sampleRate(0.0f),
 	  hostId(hostId),
 	  channelCount(0),
@@ -227,6 +227,7 @@ OutProcVSTPluginFilter::OutProcVSTPluginFilter(wstring libPath, wstring chunkDat
 	vstConfig.vst3ClassIndex = vst3ClassIndex;
 	vstConfig.chunkData = chunkData;
 	vstConfig.paramMap = paramMap;
+	vstConfig.midiConfig = std::move(midiConfig);
 }
 
 OutProcVSTPluginFilter::~OutProcVSTPluginFilter()

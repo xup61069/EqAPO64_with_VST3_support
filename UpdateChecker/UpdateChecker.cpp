@@ -237,7 +237,7 @@ void UpdateChecker::populateReleaseNotes(const QJsonDocument& doc)
 			first = false;
 		}
 		QDate date = QDate::fromString(versionObj.value("date").toString(), Qt::ISODate);
-		html.append(QString("<div><b>%0 </b><span class=\"date\">(%1)</span></div>")
+		html.append(QString("<div><b>%1 </b><span class=\"date\">(%2)</span></div>")
 			.arg(version.toHtmlEscaped()).arg(QLocale().toString(date, QLocale::ShortFormat).toHtmlEscaped()));
 		html.append("<ul>");
 		QJsonArray infoArray = versionObj.value("info").toArray();

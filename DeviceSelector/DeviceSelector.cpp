@@ -54,10 +54,10 @@ DeviceSelector::DeviceSelector(QWidget* parent)
 
 	setWindowFlags(windowFlags().setFlag(Qt::WindowContextHelpButtonHint, false));
 
-	QString version = QString("%0.%1").arg(MAJOR).arg(MINOR);
+	QString version = QString("%1.%2").arg(MAJOR).arg(MINOR);
 	if (REVISION != 0)
-		version += QString(".%0").arg(REVISION);
-	setWindowTitle(QString("Equalizer APO %0 Device Selector").arg(version));
+		version += QString(".%1").arg(REVISION);
+	setWindowTitle(QString("Equalizer APO %1 Device Selector").arg(version));
 	setAccessibleName(windowTitle());
 	setAccessibleDescription(ui.requestLabel->text());
 

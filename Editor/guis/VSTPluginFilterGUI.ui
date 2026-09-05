@@ -7,13 +7,13 @@
     <x>0</x>
     <y>0</y>
     <width>542</width>
-    <height>80</height>
+     <height>96</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string notr="true"/>
   </property>
-  <layout class="QGridLayout" name="gridLayout_3" columnstretch="0,0,0,0,1">
+   <layout class="QGridLayout" name="gridLayout_3" columnstretch="0,1,0,0,0,1">
    <property name="leftMargin">
     <number>0</number>
    </property>
@@ -61,8 +61,8 @@
      </property>
     </widget>
    </item>
-   <item row="0" column="3">
-    <widget class="QComboBox" name="vst3ClassComboBox">
+    <item row="2" column="1" colspan="3">
+     <widget class="QComboBox" name="vst3ClassComboBox">
      <property name="toolTip">
       <string>Select the VST3 plug-in class inside this bundle</string>
      </property>
@@ -88,7 +88,7 @@
      </property>
     </widget>
    </item>
-   <item row="0" column="4">
+    <item row="0" column="5">
     <spacer name="horizontalSpacer">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -108,8 +108,28 @@
      </property>
     </widget>
    </item>
-   <item row="2" column="0" colspan="4">
-    <widget class="QFrame" name="frame">
+    <item row="2" column="0">
+     <widget class="QLabel" name="classLabel">
+      <property name="text">
+       <string>VST3 class:</string>
+      </property>
+      <property name="buddy">
+       <cstring>vst3ClassComboBox</cstring>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="4">
+     <widget class="QPushButton" name="midiButton">
+      <property name="toolTip">
+       <string>Bind MIDI knobs, faders, and buttons to VST parameters</string>
+      </property>
+      <property name="text">
+       <string>MIDI control…</string>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="0" colspan="5">
+     <widget class="QFrame" name="frame">
      <property name="frameShape">
       <enum>QFrame::StyledPanel</enum>
      </property>
@@ -118,7 +138,7 @@
      </property>
     </widget>
    </item>
-   <item row="3" column="0" colspan="4">
+    <item row="4" column="0" colspan="5">
     <widget class="QPlainTextEdit" name="warningTextEdit">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Ignored" vsizetype="Preferred">

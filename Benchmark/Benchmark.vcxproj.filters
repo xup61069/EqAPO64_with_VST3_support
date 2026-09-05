@@ -9,7 +9,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\stdafx.h" />
+    <ClInclude Include="..\filters\loudnessCorrection\OriginalLoudnessCorrectionFilter.h" />
+    <ClInclude Include="..\filters\loudnessCorrection\OriginalLoudnessCorrectionFilterFactory.h" />
     <ClInclude Include="..\helpers\MemoryHelper.h">
+      <Filter>helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\helpers\VSTMidiBindingCodec.h">
       <Filter>helpers</Filter>
     </ClInclude>
   </ItemGroup>

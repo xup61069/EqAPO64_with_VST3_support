@@ -4,7 +4,7 @@
 <context>
     <name>DeviceSelector</name>
     <message>
-        <location filename="../DeviceSelector.cpp" line="+108"/>
+        <location filename="../DeviceSelector.cpp" line="+110"/>
         <location line="+324"/>
         <source>Info</source>
         <translation>Info</translation>
@@ -389,12 +389,12 @@ CAUTION: Some sound card drivers may produce unwanted sounds when this option is
         <translation>Not tested</translation>
     </message>
     <message>
-        <location line="+33"/>
+        <location line="+57"/>
         <source>Stopping device test…</source>
         <translation>Stopping device test…</translation>
     </message>
     <message>
-        <location line="+39"/>
+        <location line="+38"/>
         <location line="+66"/>
         <source>Error</source>
         <translation>Error</translation>
@@ -462,19 +462,19 @@ CAUTION: Some sound card drivers may produce unwanted sounds when this option is
 <context>
     <name>DeviceTestThread</name>
     <message>
-        <location filename="../DeviceTestThread.cpp" line="+65"/>
-        <location line="+164"/>
+        <location filename="../DeviceTestThread.cpp" line="+69"/>
+        <location line="+171"/>
         <source>Restarting audio service...</source>
         <translation>Restarting audio service...</translation>
     </message>
     <message>
-        <location line="-159"/>
-        <location line="+164"/>
+        <location line="-165"/>
+        <location line="+170"/>
         <source>Restart failed.</source>
         <translation>Restart failed.</translation>
     </message>
     <message>
-        <location line="-150"/>
+        <location line="-156"/>
         <source>Checking APO installation...</source>
         <translation>Checking APO installation...</translation>
     </message>
@@ -484,7 +484,7 @@ CAUTION: Some sound card drivers may produce unwanted sounds when this option is
         <translation>Received unknown device GUID %1.</translation>
     </message>
     <message numerus="yes">
-        <location line="+36"/>
+        <location line="+42"/>
         <source>Check failed for %n device(s).</source>
         <translation>
             <numerusform>Check failed for one device.</numerusform>

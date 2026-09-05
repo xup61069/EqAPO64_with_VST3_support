@@ -4,7 +4,7 @@
 <context>
     <name>DeviceSelector</name>
     <message>
-        <location filename="../DeviceSelector.cpp" line="+152"/>
+        <location filename="../DeviceSelector.cpp" line="+154"/>
         <source>Playback devices</source>
         <translation>播放裝置</translation>
     </message>
@@ -389,12 +389,12 @@ CAUTION: Some sound card drivers can produce unwanted sounds when this is enable
         <translation>未測試</translation>
     </message>
     <message>
-        <location line="+33"/>
+        <location line="+57"/>
         <source>Stopping device test…</source>
         <translation>正在停止裝置測試…</translation>
     </message>
     <message>
-        <location line="+39"/>
+        <location line="+38"/>
         <location line="+66"/>
         <source>Error</source>
         <translation>錯誤</translation>
@@ -462,19 +462,19 @@ CAUTION: Some sound card drivers can produce unwanted sounds when this is enable
 <context>
     <name>DeviceTestThread</name>
     <message>
-        <location filename="../DeviceTestThread.cpp" line="+65"/>
-        <location line="+164"/>
+        <location filename="../DeviceTestThread.cpp" line="+69"/>
+        <location line="+171"/>
         <source>Restarting audio service...</source>
         <translation>正在重新啟動音訊服務...</translation>
     </message>
     <message>
-        <location line="-159"/>
-        <location line="+164"/>
+        <location line="-165"/>
+        <location line="+170"/>
         <source>Restart failed.</source>
         <translation>重啟失敗。</translation>
     </message>
     <message>
-        <location line="-150"/>
+        <location line="-156"/>
         <source>Checking APO installation...</source>
         <translation>檢查 APO 安裝...</translation>
     </message>
@@ -484,7 +484,7 @@ CAUTION: Some sound card drivers can produce unwanted sounds when this is enable
         <translation>收到未知的裝置 GUID %1。</translation>
     </message>
     <message numerus="yes">
-        <location line="+36"/>
+        <location line="+42"/>
         <source>Check failed for %n device(s).</source>
         <translation>
             <numerusform>%n 個裝置檢查失敗。</numerusform>

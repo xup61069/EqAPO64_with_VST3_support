@@ -26,6 +26,12 @@
 #include <fftw3.h>
 
 
+// Bounds the number of separately allocated frequency-domain partitions in a
+// single filter. This keeps valid-but-pathological IR/block-size combinations
+// from turning initialization into millions of small allocations.
+constexpr int HC_MAX_SINGLE_PARTITIONS = 4096;
+
+
 typedef struct str_HConvSingle
 {
 	int step;			// processing step counter
@@ -77,26 +83,27 @@ typedef struct str_HConvTripple
 
 /* single filter functions */
 double hcTime(void);
+// Returns a negative value for invalid input or setup/allocation failure.
 double getProcTime(int flen, int num, double dur);
 void hcPutSingle(HConvSingle *filter, double*x);
 void hcProcessSingle(HConvSingle *filter);
 void hcGetSingle(HConvSingle *filter, double*y);
 void hcGetAddSingle(HConvSingle *filter, double*y);
-void hcInitSingle(HConvSingle *filter, double*h, int hlen, int flen, int steps);
+bool hcInitSingle(HConvSingle *filter, double*h, int hlen, int flen, int steps);
 void hcCloseSingle(HConvSingle *filter);
 
 /* dual filter functions */
 void hcBenchmarkDual(int sflen, int lflen);
 void hcProcessDual(HConvDual *filter, double*in, double*out);
 void hcProcessAddDual(HConvDual *filter, double*in, double*out);
-void hcInitDual(HConvDual *filter, double*h, int hlen, int sflen, int lflen);
+bool hcInitDual(HConvDual *filter, double*h, int hlen, int sflen, int lflen);
 void hcCloseDual(HConvDual *filter);
 
 /* tripple filter functions */
 void hcBenchmarkTripple(int sflen, int mflen, int lflen);
 void hcProcessTripple(HConvTripple *filter, double*in, double*out);
 void hcProcessAddTripple(HConvTripple *filter, double*in, double*out);
-void hcInitTripple(HConvTripple *filter, double*h, int hlen, int sflen, int mflen, int lflen);
+bool hcInitTripple(HConvTripple *filter, double*h, int hlen, int sflen, int mflen, int lflen);
 void hcCloseTripple(HConvTripple *filter);
 
 

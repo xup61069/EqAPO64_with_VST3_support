@@ -64,6 +64,7 @@ IFilterGUI* VSTPluginFilterGUIFactory::createFilterGUI(QString& command, QString
 		{
 			std::wstring libPath;
 			std::wstring chunkData;
+			std::wstring midiConfig;
 			QString hostId;
 			int vst3ClassIndex = 0;
 			std::unordered_map<std::wstring, float> paramMap;
@@ -80,6 +81,8 @@ IFilterGUI* VSTPluginFilterGUIFactory::createFilterGUI(QString& command, QString
 					hostId = QString::fromStdWString(value);
 				else if (key == L"ClassIndex")
 					vst3ClassIndex = _wtoi(value.c_str());
+				else if (key == L"MidiConfig")
+					midiConfig = value;
 				else if (key == L"Engine")
 				{
 					// Compatibility token for experimental lines.
@@ -90,7 +93,7 @@ IFilterGUI* VSTPluginFilterGUIFactory::createFilterGUI(QString& command, QString
 					paramMap[key] = f;
 				}
 			}
-			result = new VSTPluginFilterGUI(VSTPluginLibrary::getInstance(libPath), chunkData, paramMap, true, hostId, vst3ClassIndex);
+			result = new VSTPluginFilterGUI(VSTPluginLibrary::getInstance(libPath), chunkData, paramMap, true, hostId, vst3ClassIndex, midiConfig);
 		}
 		else
 		{
@@ -101,7 +104,7 @@ IFilterGUI* VSTPluginFilterGUIFactory::createFilterGUI(QString& command, QString
 			if (!filters.empty())
 			{
 				VSTPluginFilter* filter = (VSTPluginFilter*)filters[0];
-				result = new VSTPluginFilterGUI(filter->getLibrary(), filter->getChunkData(), filter->getParamMap(), false, QString(), filter->getVST3ClassIndex());
+				result = new VSTPluginFilterGUI(filter->getLibrary(), filter->getChunkData(), filter->getParamMap(), false, QString(), filter->getVST3ClassIndex(), filter->getMidiConfig());
 			}
 			else
 			{
@@ -110,8 +113,12 @@ IFilterGUI* VSTPluginFilterGUIFactory::createFilterGUI(QString& command, QString
 
 			for (IFilter* f : filters)
 			{
-				f->~IFilter();
-				MemoryHelper::free(f);
+				// VSTPluginFilterFactory constructs this concrete type with placement
+				// new in MemoryHelper storage. An explicit base destructor call does
+				// not dispatch virtually and would leak the plug-in/runtime resources.
+				VSTPluginFilter* vstFilter = static_cast<VSTPluginFilter*>(f);
+				vstFilter->~VSTPluginFilter();
+				MemoryHelper::free(vstFilter);
 			}
 		}
 	}

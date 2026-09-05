@@ -20,19 +20,19 @@
 #include "stdafx.h"
 #define _USE_MATH_DEFINES
 #include <cmath>
-#include <mutex>
+#include <new>
+#include <utility>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #define ENABLE_SNDFILE_WINDOWS_PROTOTYPES 1
 #include <sndfile.h>
 
 #include "helpers/LogHelper.h"
+#include "helpers/FFTWHelper.h"
 #include "helpers/MemoryHelper.h"
 #include "GraphicEQFilter.h"
 
 using namespace std;
-
-static mutex fftwPlannerMutex;
 
 GraphicEQFilter::GraphicEQFilter(const std::vector<FilterNode>& nodes, unsigned filterLength)
 	: ConvolutionFilter(L""), nodes(nodes), filterLength(filterLength)
@@ -48,12 +48,29 @@ std::vector<double> GraphicEQFilter::createImpulseResponse(const std::vector<Fil
 {
 	fftw_complex* timeData = fftw_alloc_complex(filterLength * 2);
 	fftw_complex* freqData = fftw_alloc_complex(filterLength * 2);
-	fftw_plan planForward;
-	fftw_plan planReverse;
+	if (timeData == NULL || freqData == NULL)
 	{
-		lock_guard<mutex> plannerLock(fftwPlannerMutex);
+		fftw_free(timeData);
+		fftw_free(freqData);
+		return std::vector<double>();
+	}
+	fftw_plan planForward = NULL;
+	fftw_plan planReverse = NULL;
+	{
+		FFTWPlannerGuard plannerGuard;
 		planForward = fftw_plan_dft_1d(filterLength * 2, timeData, freqData, FFTW_FORWARD, FFTW_ESTIMATE);
 		planReverse = fftw_plan_dft_1d(filterLength * 2, freqData, timeData, FFTW_BACKWARD, FFTW_ESTIMATE);
+	}
+	if (planForward == NULL || planReverse == NULL)
+	{
+		FFTWPlannerGuard plannerGuard;
+		if (planForward != NULL)
+			fftw_destroy_plan(planForward);
+		if (planReverse != NULL)
+			fftw_destroy_plan(planReverse);
+		fftw_free(timeData);
+		fftw_free(freqData);
+		return std::vector<double>();
 	}
 
 	GainIterator gainIterator(nodes);
@@ -94,26 +111,31 @@ std::vector<double> GraphicEQFilter::createImpulseResponse(const std::vector<Fil
 
 	fftw_free(timeData);
 	fftw_free(freqData);
-	fftw_destroy_plan(planForward);
-	fftw_destroy_plan(planReverse);
+	{
+		FFTWPlannerGuard plannerGuard;
+		fftw_destroy_plan(planForward);
+		fftw_destroy_plan(planReverse);
+	}
 
 	return result;
 }
 
-void GraphicEQFilter::initializeFilters(unsigned frameCount)
+bool GraphicEQFilter::prepareImpulseResponse(
+	std::vector<std::vector<double>>& impulseResponses)
 {
 	std::vector<double> impulse = createImpulseResponse(nodes, filterLength, sampleRate);
-	double* buf = new double[impulse.size()];
-	for (size_t i = 0; i < impulse.size(); i++)
-		buf[i] = impulse[i];
+	if (impulse.empty())
+		return false;
 
-	filters = (HConvSingle*)MemoryHelper::alloc(sizeof(HConvSingle) * channelCount);
-	for (unsigned i = 0; i < channelCount; i++)
+	try
 	{
-		hcInitSingle(&filters[i], buf, filterLength, frameCount, 1);
+		impulseResponses.push_back(std::move(impulse));
 	}
-
-	delete[] buf;
+	catch (const std::bad_alloc&)
+	{
+		return false;
+	}
+	return true;
 }
 
 // Minimum phase spectrum from coefficients

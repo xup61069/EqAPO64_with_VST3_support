@@ -85,6 +85,12 @@ try {
 	)
 
 	$env:Path = "$runtimeDirectory;$previousPath"
+	$convolutionLog = & $benchmark --nopause --convselftest 2>&1
+	if ($LASTEXITCODE -ne 0) {
+		throw "Convolution frame-mismatch regression failed:`n$($convolutionLog -join [Environment]::NewLine)"
+	}
+	$convolutionLog | ForEach-Object { Write-Host $_ }
+
 	$commonArguments = @(
 		"--nopause",
 		"--rate", "48000",

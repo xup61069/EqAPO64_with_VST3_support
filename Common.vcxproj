@@ -332,6 +332,8 @@
     <ClInclude Include="filters\loudnessCorrection\LoudnessCorrectionFilterFactory.h" />
     <ClInclude Include="filters\loudnessCorrection\LoudnessProfile.h" />
     <ClInclude Include="filters\loudnessCorrection\LoudnessCorrectionFilter.h" />
+    <ClInclude Include="filters\loudnessCorrection\OriginalLoudnessCorrectionFilter.h" />
+    <ClInclude Include="filters\loudnessCorrection\OriginalLoudnessCorrectionFilterFactory.h" />
     <ClInclude Include="filters\loudnessCorrection\ParameterArchive.h" />
     <ClInclude Include="filters\loudnessCorrection\VolumeController.h" />
     <ClInclude Include="filters\OutProcBiquadFilter.h" />
@@ -366,6 +368,7 @@
     <ClInclude Include="helpers\AbstractLibrary.h" />
     <ClInclude Include="helpers\aeffectx.h" />
     <ClInclude Include="helpers\ChannelHelper.h" />
+    <ClInclude Include="helpers\FFTWHelper.h" />
     <ClInclude Include="helpers\GainIterator.h" />
     <ClInclude Include="helpers\LogHelper.h" />
     <ClInclude Include="helpers\PrecisionTimer.h" />
@@ -375,8 +378,10 @@
     <ClInclude Include="helpers\UncaughtExceptions.h" />
     <ClInclude Include="helpers\VSTDiagnostics.h" />
     <ClInclude Include="helpers\VSTParameterParser.h" />
+    <ClInclude Include="helpers\VSTMidiBindingCodec.h" />
     <ClInclude Include="helpers\VSTPluginInstance.h" />
     <ClInclude Include="helpers\VSTPluginLibrary.h" />
+    <ClInclude Include="helpers\WinMidiInput.h" />
     <ClInclude Include="IFilter.h" />
     <ClInclude Include="IFilterFactory.h" />
     <ClInclude Include="libHybridConv-0.1.1\libHybridConv_eapo.h" />
@@ -417,6 +422,8 @@
     <ClCompile Include="filters\IncludeFilterFactory.cpp" />
     <ClCompile Include="filters\loudnessCorrection\LoudnessCorrectionFilterFactory.cpp" />
     <ClCompile Include="filters\loudnessCorrection\LoudnessCorrectionFilter.cpp" />
+    <ClCompile Include="filters\loudnessCorrection\OriginalLoudnessCorrectionFilter.cpp" />
+    <ClCompile Include="filters\loudnessCorrection\OriginalLoudnessCorrectionFilterFactory.cpp" />
     <ClCompile Include="filters\loudnessCorrection\VolumeController.cpp" />
     <ClCompile Include="filters\OutProcBiquadFilter.cpp" />
     <ClCompile Include="filters\OutProcBiquadFilterFactory.cpp" />
@@ -453,6 +460,7 @@
     <ClCompile Include="helpers\StringHelper.cpp" />
     <ClCompile Include="helpers\VST3PluginIIDs.cpp" />
     <ClCompile Include="helpers\VSTDiagnostics.cpp" />
+    <ClCompile Include="helpers\WinMidiInput.cpp" />
     <ClCompile Include="helpers\VSTPluginInstance.cpp" />
     <ClCompile Include="helpers\VSTPluginLibrary.cpp" />
     <ClCompile Include="third_party\vst3sdk\public.sdk\source\common\threadchecker_win32.cpp">
