@@ -83,6 +83,38 @@ public:
 	}
 
 	__forceinline
+	void processBlock(double* samples, unsigned sampleCount)
+	{
+		// Keeping one section's coefficients and history in locals avoids
+		// reloading a different BiQuad object for every sample in a cascade.
+		// The recurrence and operation order are identical to process().
+		const double b0 = a0;
+		const double b1 = a[0];
+		const double b2 = a[1];
+		const double a1 = a[2];
+		const double a2 = a[3];
+		double previousX1 = x1;
+		double previousX2 = x2;
+		double previousY1 = y1;
+		double previousY2 = y2;
+		for (unsigned index = 0; index < sampleCount; ++index)
+		{
+			const double sample = samples[index];
+			const double result = b0 * sample + b2 * previousX2 +
+				b1 * previousX1 - a2 * previousY2 - a1 * previousY1;
+			previousX2 = previousX1;
+			previousX1 = sample;
+			previousY2 = previousY1;
+			previousY1 = result;
+			samples[index] = result;
+		}
+		x1 = previousX1;
+		x2 = previousX2;
+		y1 = previousY1;
+		y2 = previousY2;
+	}
+
+	__forceinline
 	void setCoefficients(double ain[], const double& a0in)
 	{
 		for (int i = 0; i < 4; i++)

@@ -29,6 +29,7 @@ LoudnessCorrectionFilter::LoudnessCorrectionFilter(const FilterParameters& fPara
 	  _recoveryPending(false),
 	  _channelCount(0),
 	  _activeBandCount(0),
+	  _maximumFrameCount(0),
 	  _fastFitPointCount(0),
 	  _sampleRate(48000.0f),
 	  _activeBankIndex(0),
@@ -120,7 +121,6 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 	unsigned maxFrameCount,
 	std::vector<std::wstring> channelNames)
 {
-	(void)maxFrameCount;
 	if (_stopParameterUpdateThreadEvent)
 		SetEvent(_stopParameterUpdateThreadEvent);
 	if (_parameterUpdateThreadHandle)
@@ -141,7 +141,9 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 	_initialAutomaticVolume = 0.0;
 	_channelCount = channelNames.size();
 	_activeBandCount = 0;
+	_maximumFrameCount = maxFrameCount;
 	_fastFitPointCount = 0;
+	_lowpassBlockScratch.assign(_maximumFrameCount, 0.0);
 	for (size_t bank = 0; bank < 2; ++bank)
 	{
 		_biquadBanks[bank].clear();
@@ -275,9 +277,9 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 		}
 	}
 
-	// The fast engine has no response matrix to invert; its shelf gains
-	// are closed-form. Skipping the N^2 unit-response fit is the bulk of
-	// the fast-mode initialization saving.
+	// The fast engine has no response matrix to invert; its shelf gains are
+	// closed-form. Its larger initialization saving comes from also avoiding
+	// the Full engine's dense refined headroom scan below.
 	if (_parameters.engine != FilterParameters::ENGINE_FAST)
 		computeResponseInverse();
 
@@ -678,11 +680,10 @@ double LoudnessCorrectionFilter::findMaximumResponseDb(
 			return guardedTransferDb(correctionCoeffs, _activeBandCount,
 				outputGainLinear, frequency);
 
-		double response = 20.0 * std::log10(
-			(std::max)(1.0e-15, outputGainLinear));
-		for (size_t band = 0; band < _activeBandCount; ++band)
-			response += bandResponseDb(&correctionCoeffs[band], 1, frequency);
-		return response;
+		return 20.0 * std::log10(
+			(std::max)(1.0e-15, outputGainLinear)) +
+			bandResponseDb(
+				correctionCoeffs, _activeBandCount, frequency);
 	};
 
 	// A dense logarithmic scan resolves the Q=3 pass bands by hundreds of
@@ -949,11 +950,10 @@ double LoudnessCorrectionFilter::findFastMaximumResponseDb(
 			return guardedTransferDb(correctionCoeffs, _activeBandCount,
 				outputGainLinear, frequency);
 
-		double response = 20.0 * std::log10(
-			(std::max)(1.0e-15, outputGainLinear));
-		for (size_t band = 0; band < _activeBandCount; ++band)
-			response += bandResponseDb(&correctionCoeffs[band], 1, frequency);
-		return response;
+		return 20.0 * std::log10(
+			(std::max)(1.0e-15, outputGainLinear)) +
+			bandResponseDb(
+				correctionCoeffs, _activeBandCount, frequency);
 	};
 
 	double maximumResponse = 0.0;
@@ -1201,11 +1201,18 @@ std::complex<double> LoudnessCorrectionFilter::biquadResponse(
 {
 	double omega = 2.0 * PI * frequency / _sampleRate;
 	std::complex<double> z(std::cos(omega), -std::sin(omega));
-	std::complex<double> z2 = z * z;
+	return biquadResponseAtZ(coeffs, z, z * z);
+}
+
+std::complex<double> LoudnessCorrectionFilter::biquadResponseAtZ(
+	const BiquadCoeffs& coeffs,
+	const std::complex<double>& z,
+	const std::complex<double>& zSquared)
+{
 	std::complex<double> numerator =
-		coeffs.b0 + coeffs.b1 * z + coeffs.b2 * z2;
+		coeffs.b0 + coeffs.b1 * z + coeffs.b2 * zSquared;
 	std::complex<double> denominator =
-		1.0 + coeffs.a1 * z + coeffs.a2 * z2;
+		1.0 + coeffs.a1 * z + coeffs.a2 * zSquared;
 	if (std::norm(denominator) < 1.0e-30)
 		return std::complex<double>(0.0, 0.0);
 	return numerator / denominator;
@@ -1229,15 +1236,15 @@ double LoudnessCorrectionFilter::bandResponseDb(
 	size_t bandCount,
 	double frequency) const
 {
-	double response = 0.0;
+	const double omega = 2.0 * PI * frequency / _sampleRate;
+	const std::complex<double> z(std::cos(omega), -std::sin(omega));
+	const std::complex<double> zSquared = z * z;
+	std::complex<double> response(1.0, 0.0);
 	for (size_t band = 0; band < bandCount; ++band)
-	{
-		double magnitudeSquared = (std::max)(
-			1.0e-30,
-			std::norm(biquadResponse(coeffs[band], frequency)));
-		response += 10.0 * std::log10(magnitudeSquared);
-	}
-	return response;
+		response *= biquadResponseAtZ(coeffs[band], z, zSquared);
+	const double magnitudeSquared = (std::max)(
+		1.0e-30, std::norm(response));
+	return 10.0 * std::log10(magnitudeSquared);
 }
 
 double LoudnessCorrectionFilter::guardedTransferDb(
@@ -1246,16 +1253,22 @@ double LoudnessCorrectionFilter::guardedTransferDb(
 	double outputGainLinear,
 	double frequency) const
 {
+	const double omega = 2.0 * PI * frequency / _sampleRate;
+	const std::complex<double> z(std::cos(omega), -std::sin(omega));
+	const std::complex<double> zSquared = z * z;
 	std::complex<double> correction(outputGainLinear, 0.0);
 	for (size_t band = 0; band < bandCount; ++band)
-		correction *= biquadResponse(correctionCoeffs[band], frequency);
+		correction *= biquadResponseAtZ(
+			correctionCoeffs[band], z, zSquared);
 
 	std::complex<double> lowpass(1.0, 0.0);
 	std::complex<double> highpass(1.0, 0.0);
 	for (size_t section = 0; section < CROSSOVER_SECTION_COUNT; ++section)
 	{
-		lowpass *= biquadResponse(_lowpassCoeffs[section], frequency);
-		highpass *= biquadResponse(_highpassCoeffs[section], frequency);
+		lowpass *= biquadResponseAtZ(
+			_lowpassCoeffs[section], z, zSquared);
+		highpass *= biquadResponseAtZ(
+			_highpassCoeffs[section], z, zSquared);
 	}
 
 	double magnitudeSquared = (std::max)(
@@ -1269,20 +1282,25 @@ double LoudnessCorrectionFilter::guardedResponseDb(
 	double outputGainLinear,
 	double frequency) const
 {
+	const double omega = 2.0 * PI * frequency / _sampleRate;
+	const std::complex<double> z(std::cos(omega), -std::sin(omega));
+	const std::complex<double> zSquared = z * z;
 	std::complex<double> correction(outputGainLinear, 0.0);
 	for (size_t band = 0; band < _activeBandCount; ++band)
 	{
 		BiquadCoeffs coefficients;
 		computeBiquadCoeffs(band, gains[band], coefficients);
-		correction *= biquadResponse(coefficients, frequency);
+		correction *= biquadResponseAtZ(coefficients, z, zSquared);
 	}
 
 	std::complex<double> lowpass(1.0, 0.0);
 	std::complex<double> highpass(1.0, 0.0);
 	for (size_t section = 0; section < CROSSOVER_SECTION_COUNT; ++section)
 	{
-		lowpass *= biquadResponse(_lowpassCoeffs[section], frequency);
-		highpass *= biquadResponse(_highpassCoeffs[section], frequency);
+		lowpass *= biquadResponseAtZ(
+			_lowpassCoeffs[section], z, zSquared);
+		highpass *= biquadResponseAtZ(
+			_highpassCoeffs[section], z, zSquared);
 	}
 
 	double magnitudeSquared = (std::max)(
@@ -1467,6 +1485,84 @@ void LoudnessCorrectionFilter::process(double** output, double** input, unsigned
 		LeaveCriticalSection(&_parameterUpdateSection);
 	}
 
+	// The common case has no coefficient transition in flight. Process each
+	// recursive section across the complete block so its coefficients and state
+	// remain in registers instead of walking all 57 Full-engine BiQuad objects
+	// for every sample. Transition and handoff paths retain the sample-ordered
+	// implementation below because their decisions can change within a block.
+	const bool useSectionMajorBlockPath =
+		frameCount <= _maximumFrameCount &&
+		crossoverDomainReady &&
+		!_crossoverHandoffActive &&
+		!_warmupActive &&
+		!_crossfadeActive &&
+		!_bypassFadeActive;
+	if (useSectionMajorBlockPath)
+	{
+		for (size_t channel = 0; channel < _channelCount; ++channel)
+		{
+			double* const inputChannel = input[channel];
+			double* const outputChannel = output[channel];
+			double* const lowpass = _lowpassBlockScratch.data();
+			for (unsigned frame = 0; frame < frameCount; ++frame)
+				lowpass[frame] = inputChannel[frame];
+
+			for (size_t section = 0;
+				section < CROSSOVER_SECTION_COUNT;
+				++section)
+			{
+				_lowpassBanks[_activeBankIndex][channel][section]
+					.processBlock(lowpass, frameCount);
+			}
+
+			if (outputChannel != inputChannel)
+			{
+				for (unsigned frame = 0; frame < frameCount; ++frame)
+					outputChannel[frame] = inputChannel[frame];
+			}
+			for (size_t section = 0;
+				section < CROSSOVER_SECTION_COUNT;
+				++section)
+			{
+				_highpassBanks[_activeBankIndex][channel][section]
+					.processBlock(outputChannel, frameCount);
+			}
+
+			if (runtimeBypass || _bankIdentity[_activeBankIndex])
+			{
+				// A bypassed or identity bank needs only the common A = L + H
+				// domain. The correction state is reset and warmed before reuse.
+				for (unsigned frame = 0; frame < frameCount; ++frame)
+					outputChannel[frame] = lowpass[frame] + outputChannel[frame];
+			}
+			else
+			{
+				for (unsigned frame = 0; frame < frameCount; ++frame)
+					outputChannel[frame] *= _outputGainLinear;
+				for (size_t band = 0; band < _activeBandCount; ++band)
+				{
+					_biquadBanks[_activeBankIndex][channel][band]
+						.processBlock(outputChannel, frameCount);
+				}
+				for (unsigned frame = 0; frame < frameCount; ++frame)
+					outputChannel[frame] = lowpass[frame] + outputChannel[frame];
+			}
+
+			for (size_t band = 0; band < _activeBandCount; ++band)
+				_biquadBanks[_activeBankIndex][channel][band].removeDenormals();
+			for (size_t section = 0;
+				section < CROSSOVER_SECTION_COUNT;
+				++section)
+			{
+				_lowpassBanks[_activeBankIndex][channel][section].removeDenormals();
+				_highpassBanks[_activeBankIndex][channel][section].removeDenormals();
+			}
+		}
+
+		_runtimeBypassWasActive = runtimeBypass;
+		return;
+	}
+
 	struct BankSample
 	{
 		double identity;
@@ -1502,6 +1598,10 @@ void LoudnessCorrectionFilter::process(double** output, double** input, unsigned
 						_highpassBanks[bankIndex][channel][section]
 							.process(highpassIdentitySample);
 				}
+				const double identitySample =
+					lowpassSample + highpassIdentitySample;
+				if (_bankIdentity[bankIndex])
+					return BankSample{ identitySample, identitySample };
 				double highpassCorrectedSample =
 					highpassIdentitySample * outputGainLinear;
 				for (size_t band = 0; band < _activeBandCount; ++band)
@@ -1511,7 +1611,7 @@ void LoudnessCorrectionFilter::process(double** output, double** input, unsigned
 							.process(highpassCorrectedSample);
 				}
 				return BankSample{
-					lowpassSample + highpassIdentitySample,
+					identitySample,
 					lowpassSample + highpassCorrectedSample
 				};
 			};

@@ -88,6 +88,19 @@ public:
 		return response;
 	}
 
+	static double aggregateRawCorrectionResponseDb(
+		const LoudnessCorrectionFilter& filter,
+		const vector<double>& gains,
+		double frequency)
+	{
+		LoudnessCorrectionFilter::BiquadCoeffs coefficients[
+			LoudnessCorrectionFilter::NUM_BANDS];
+		for (size_t band = 0; band < filter._activeBandCount; ++band)
+			filter.computeBiquadCoeffs(band, gains[band], coefficients[band]);
+		return filter.bandResponseDb(
+			coefficients, filter._activeBandCount, frequency);
+	}
+
 	static double guardedResponseDb(
 		const LoudnessCorrectionFilter& filter,
 		const vector<double>& gains,
@@ -1800,6 +1813,174 @@ namespace
 		return passed;
 	}
 
+	bool runLoudnessBlockProcessingCase(
+		LoudnessCorrectionFilter::FilterParameters::EngineMode engine,
+		bool inPlace)
+	{
+		const unsigned sampleRate = 48000;
+		const unsigned channelCount = 2;
+		const unsigned maximumFrameCount = 256;
+		const unsigned storageFrameCount = maximumFrameCount + 1;
+		const unsigned framePattern[] = {
+			0, 1, 16, 64, maximumFrameCount - 1,
+			maximumFrameCount, maximumFrameCount + 1
+		};
+		LoudnessCorrectionFilter::FilterParameters parameters;
+		parameters.state = true;
+		parameters.referenceLevel = 80.0f;
+		parameters.referenceOffset = 0.0f;
+		parameters.attenuation = 1.0f;
+		parameters.useManualVolume = true;
+		parameters.manualVolume = -38.0f;
+		parameters.engine = engine;
+
+		LoudnessCorrectionFilter blockFilter(parameters);
+		LoudnessCorrectionFilter scalarFilter(parameters);
+		FilterRuntimeContext context;
+		context.offlineAnalysis = true;
+		blockFilter.setRuntimeContext(context);
+		scalarFilter.setRuntimeContext(context);
+		vector<wstring> channels(channelCount, L"C");
+		blockFilter.initialize(
+			static_cast<float>(sampleRate), maximumFrameCount, channels);
+		// A zero advertised capacity deliberately selects the existing scalar
+		// fallback while leaving all filter coefficients and states unchanged.
+		scalarFilter.initialize(static_cast<float>(sampleRate), 0, channels);
+
+		vector<vector<double>> input(
+			channelCount, vector<double>(storageFrameCount));
+		vector<vector<double>> blockOutput(
+			channelCount, vector<double>(storageFrameCount));
+		vector<vector<double>> scalarOutput(
+			channelCount, vector<double>(storageFrameCount));
+		vector<double*> inputChannels(channelCount);
+		vector<double*> blockInputChannels(channelCount);
+		vector<double*> scalarInputChannels(channelCount);
+		vector<double*> blockOutputChannels(channelCount);
+		vector<double*> scalarOutputChannels(channelCount);
+		double maximumError = 0.0;
+		bool finite = true;
+		unsigned samplePosition = 0;
+		for (unsigned block = 0; block < 256; ++block)
+		{
+			const unsigned frameCount = framePattern[
+				block % (sizeof(framePattern) / sizeof(framePattern[0]))];
+			if (block == 64)
+			{
+				LoudnessCorrectionFilterTestAccess::publishVolumeUpdate(
+					blockFilter, -52.0);
+				LoudnessCorrectionFilterTestAccess::publishVolumeUpdate(
+					scalarFilter, -52.0);
+			}
+			for (unsigned channel = 0; channel < channelCount; ++channel)
+			{
+				for (unsigned frame = 0; frame < frameCount; ++frame)
+				{
+					const double time = static_cast<double>(
+						samplePosition + frame) / sampleRate;
+					const double value =
+						0.21 * sin(2.0 * M_PI * (37.0 + 311.0 * channel) * time) +
+						0.13 * cos(2.0 * M_PI * (997.0 + 701.0 * channel) * time);
+					input[channel][frame] = value;
+					blockOutput[channel][frame] = value;
+					scalarOutput[channel][frame] = value;
+				}
+				inputChannels[channel] = input[channel].data();
+				blockOutputChannels[channel] = blockOutput[channel].data();
+				scalarOutputChannels[channel] = scalarOutput[channel].data();
+				blockInputChannels[channel] = inPlace ?
+					blockOutput[channel].data() : input[channel].data();
+				scalarInputChannels[channel] = inPlace ?
+					scalarOutput[channel].data() : input[channel].data();
+			}
+
+			blockFilter.process(
+				blockOutputChannels.data(), blockInputChannels.data(), frameCount);
+			scalarFilter.process(
+				scalarOutputChannels.data(), scalarInputChannels.data(), frameCount);
+			for (unsigned channel = 0; channel < channelCount; ++channel)
+			{
+				for (unsigned frame = 0; frame < frameCount; ++frame)
+				{
+					finite = finite && isfinite(blockOutput[channel][frame]) &&
+						isfinite(scalarOutput[channel][frame]);
+					maximumError = (std::max)(maximumError, abs(
+						blockOutput[channel][frame] - scalarOutput[channel][frame]));
+				}
+			}
+			samplePosition += frameCount;
+		}
+
+		const bool passed = finite && maximumError <= 1.0e-12;
+		printf(
+			"Loudness %s mixed block/scalar %s: maximum error %.3g, %s\n",
+			engine == LoudnessCorrectionFilter::FilterParameters::ENGINE_FAST ?
+				"Fast" : "Full",
+			inPlace ? "in-place" : "out-of-place",
+			maximumError,
+			passed ? "passed" : "failed");
+		return passed;
+	}
+
+	bool runLoudnessResponseAggregationTests()
+	{
+		const unsigned sampleRates[] = { 8000, 48000, 384000 };
+		const double volumes[] = { -100.0, -38.0, 0.0 };
+		double maximumError = 0.0;
+		bool finite = true;
+		for (unsigned sampleRate : sampleRates)
+		{
+			for (double volume : volumes)
+			{
+				LoudnessCorrectionFilter::FilterParameters parameters;
+				parameters.state = true;
+				parameters.referenceLevel = 80.0f;
+				parameters.referenceOffset = 0.0f;
+				parameters.attenuation = 1.0f;
+				parameters.useManualVolume = true;
+				parameters.manualVolume = static_cast<float>(volume);
+				LoudnessCorrectionFilter filter(parameters);
+				FilterRuntimeContext context;
+				context.offlineAnalysis = true;
+				filter.setRuntimeContext(context);
+				filter.initialize(
+					static_cast<float>(sampleRate), 256, vector<wstring>(1, L"C"));
+				vector<double> gains;
+				double outputGainLinear = 1.0;
+				LoudnessCorrectionFilterTestAccess::calculateTransfer(
+					filter, volume, gains, outputGainLinear);
+
+				const double minimumFrequency = 1.0;
+				const double maximumFrequency = (std::min)(
+					20000.0, 0.499 * static_cast<double>(sampleRate));
+				const double logMinimum = log(minimumFrequency);
+				const double logMaximum = log(maximumFrequency);
+				for (unsigned point = 0; point < 1025; ++point)
+				{
+					const double frequency = exp(
+						logMinimum + static_cast<double>(point) *
+						(logMaximum - logMinimum) / 1024.0);
+					const double legacy =
+						LoudnessCorrectionFilterTestAccess::rawCorrectionResponseDb(
+							filter, gains, frequency);
+					const double aggregate =
+						LoudnessCorrectionFilterTestAccess::aggregateRawCorrectionResponseDb(
+							filter, gains, frequency);
+					finite = finite && isfinite(legacy) && isfinite(aggregate);
+					maximumError = (std::max)(
+						maximumError, abs(legacy - aggregate));
+				}
+			}
+		}
+
+		const bool passed = finite && maximumError <= 1.0e-9;
+		printf(
+			"Loudness aggregate response: maximum legacy error %.3g dB, %s\n",
+			maximumError,
+			passed ? "passed" : "failed");
+		return passed;
+	}
+
 	int runLoudnessTransitionTests()
 	{
 		bool passed = runLoudnessFormulaTests();
@@ -1808,6 +1989,14 @@ namespace
 		passed = runLoudnessOfflineAnalysisTests() && passed;
 		passed = runFilterEngineDeviceInfoReuseTests() && passed;
 		passed = runLoudnessCrossoverCoefficientTests() && passed;
+		passed = runLoudnessResponseAggregationTests() && passed;
+		for (LoudnessCorrectionFilter::FilterParameters::EngineMode engine : {
+			LoudnessCorrectionFilter::FilterParameters::ENGINE_FULL,
+			LoudnessCorrectionFilter::FilterParameters::ENGINE_FAST })
+		{
+			passed = runLoudnessBlockProcessingCase(engine, false) && passed;
+			passed = runLoudnessBlockProcessingCase(engine, true) && passed;
+		}
 		passed = runLoudnessAnchorFitCase(48000) && passed;
 		passed = runLoudnessAnchorFitCase(192000) && passed;
 		passed = runLoudnessGuardedTransferCase(
@@ -1913,6 +2102,179 @@ namespace
 
 		return passed ? 0 : 1;
 	}
+
+	struct LoudnessPerformanceResult
+	{
+		double initializeMilliseconds;
+		double updateMilliseconds;
+		double processingNanosecondsPerSample;
+		bool valid;
+	};
+
+	double median(vector<double> values)
+	{
+		sort(values.begin(), values.end());
+		const size_t middle = values.size() / 2;
+		if ((values.size() & 1) != 0)
+			return values[middle];
+		return 0.5 * (values[middle - 1] + values[middle]);
+	}
+
+	LoudnessPerformanceResult measureLoudnessPerformance(
+		LoudnessCorrectionFilter::FilterParameters::EngineMode engine,
+		bool useBlockPath,
+		unsigned batchSize = 256)
+	{
+		const unsigned sampleRate = 48000;
+		const unsigned channelCount = 2;
+		const unsigned measuredFrameCount = 1024 * 1024;
+		const unsigned blockCount = (std::max)(
+			1u, measuredFrameCount / batchSize);
+		const unsigned repeatCount = 7;
+		vector<double> initializeTimes;
+		vector<double> updateTimes;
+		vector<double> processingTimes;
+		volatile double outputChecksum = 0.0;
+		bool valid = true;
+
+		for (unsigned repeat = 0; repeat < repeatCount; ++repeat)
+		{
+			LoudnessCorrectionFilter::FilterParameters parameters;
+			parameters.state = true;
+			parameters.referenceLevel = 80.0f;
+			parameters.referenceOffset = 0.0f;
+			parameters.attenuation = 1.0f;
+			parameters.useManualVolume = true;
+			parameters.manualVolume = -38.0f;
+			parameters.engine = engine;
+
+			LoudnessCorrectionFilter filter(parameters);
+			FilterRuntimeContext context;
+			context.offlineAnalysis = true;
+			filter.setRuntimeContext(context);
+			vector<wstring> channels(channelCount, L"C");
+			PrecisionTimer timer;
+			timer.start();
+			filter.initialize(
+				static_cast<float>(sampleRate),
+				useBlockPath ? batchSize : 0,
+				channels);
+			initializeTimes.push_back(timer.stop() * 1000.0);
+
+			timer.start();
+			LoudnessCorrectionFilterTestAccess::publishVolumeUpdate(
+				filter, -42.0 + static_cast<double>(repeat));
+			updateTimes.push_back(timer.stop() * 1000.0);
+
+			vector<vector<double>> input(channelCount, vector<double>(batchSize));
+			vector<vector<double>> output(channelCount, vector<double>(batchSize));
+			vector<double*> inputChannels(channelCount);
+			vector<double*> outputChannels(channelCount);
+			for (unsigned channel = 0; channel < channelCount; ++channel)
+			{
+				inputChannels[channel] = input[channel].data();
+				outputChannels[channel] = output[channel].data();
+				for (unsigned frame = 0; frame < batchSize; ++frame)
+				{
+					input[channel][frame] = 0.25 * sin(
+						2.0 * M_PI * (440.0 + 37.0 * channel) * frame /
+						static_cast<double>(sampleRate));
+				}
+			}
+
+			// Consume the pending coefficient handoff before timing the settled
+			// one-bank path. Offline analysis already starts in the common A domain.
+			unsigned settlingBlocks = 0;
+			const unsigned maximumSettlingBlocks =
+				(2 * sampleRate + batchSize - 1) / batchSize;
+			do
+			{
+				filter.process(outputChannels.data(), inputChannels.data(), batchSize);
+				++settlingBlocks;
+			} while (!LoudnessCorrectionFilterTestAccess::settledOnNonIdentityBank(
+				filter) && settlingBlocks < maximumSettlingBlocks);
+			if (!LoudnessCorrectionFilterTestAccess::settledOnNonIdentityBank(filter))
+			{
+				fprintf(stderr, "Loudness performance filter did not settle.\n");
+				valid = false;
+			}
+
+			timer.start();
+			for (unsigned block = 0; block < blockCount; ++block)
+				filter.process(outputChannels.data(), inputChannels.data(), batchSize);
+			double processingSeconds = timer.stop();
+			const double sampleCount = static_cast<double>(
+				blockCount) * batchSize * channelCount;
+			processingTimes.push_back(
+				processingSeconds * 1.0e9 / sampleCount);
+			outputChecksum += output[repeat % channelCount][repeat % batchSize];
+		}
+
+		if (!isfinite(outputChecksum))
+		{
+			fprintf(stderr, "Loudness performance checksum is non-finite.\n");
+			valid = false;
+		}
+		return LoudnessPerformanceResult{
+			median(initializeTimes),
+			median(updateTimes),
+			median(processingTimes),
+			valid
+		};
+	}
+
+	int runLoudnessPerformanceBenchmark()
+	{
+		const LoudnessPerformanceResult full = measureLoudnessPerformance(
+			LoudnessCorrectionFilter::FilterParameters::ENGINE_FULL, true);
+		const LoudnessPerformanceResult fullScalar = measureLoudnessPerformance(
+			LoudnessCorrectionFilter::FilterParameters::ENGINE_FULL, false);
+		const LoudnessPerformanceResult fast = measureLoudnessPerformance(
+			LoudnessCorrectionFilter::FilterParameters::ENGINE_FAST, true);
+		bool valid = full.valid && fullScalar.valid && fast.valid;
+		printf(
+			"Loudness Full: init %.3f ms, update %.3f ms, process %.3f ns/sample\n",
+			full.initializeMilliseconds,
+			full.updateMilliseconds,
+			full.processingNanosecondsPerSample);
+		printf(
+			"Loudness Full scalar fallback: process %.3f ns/sample\n",
+			fullScalar.processingNanosecondsPerSample);
+		printf(
+			"Loudness Fast: init %.3f ms, update %.3f ms, process %.3f ns/sample\n",
+			fast.initializeMilliseconds,
+			fast.updateMilliseconds,
+			fast.processingNanosecondsPerSample);
+		printf(
+			"Ratios: Full block/scalar %.3f; Fast/Full init %.3f, update %.3f, process %.3f\n",
+			full.processingNanosecondsPerSample /
+				fullScalar.processingNanosecondsPerSample,
+			fast.initializeMilliseconds / full.initializeMilliseconds,
+			fast.updateMilliseconds / full.updateMilliseconds,
+			fast.processingNanosecondsPerSample /
+				full.processingNanosecondsPerSample);
+		const unsigned additionalBatchSizes[] = { 16, 64, 1024 };
+		for (unsigned batchSize : additionalBatchSizes)
+		{
+			const LoudnessPerformanceResult block = measureLoudnessPerformance(
+				LoudnessCorrectionFilter::FilterParameters::ENGINE_FULL,
+				true,
+				batchSize);
+			const LoudnessPerformanceResult scalar = measureLoudnessPerformance(
+				LoudnessCorrectionFilter::FilterParameters::ENGINE_FULL,
+				false,
+				batchSize);
+			valid = block.valid && scalar.valid && valid;
+			printf(
+				"Loudness Full batch %u: block %.3f, scalar %.3f ns/sample, ratio %.3f\n",
+				batchSize,
+				block.processingNanosecondsPerSample,
+				scalar.processingNanosecondsPerSample,
+				block.processingNanosecondsPerSample /
+					scalar.processingNanosecondsPerSample);
+		}
+		return valid ? 0 : 1;
+	}
 }
 
 int main(int argc, char** argv)
@@ -1935,6 +2297,9 @@ int main(int argc, char** argv)
 		TCLAP::SwitchArg loudnessTransitionTestArg(
 			"", "loudness-transition-test",
 			"Run native loudness coefficient-transition safety regressions", cmd);
+		TCLAP::SwitchArg loudnessPerformanceArg(
+			"", "loudness-performance",
+			"Measure native loudness initialization, update, and callback cost", cmd);
 		TCLAP::ValueArg<string> configArg("", "config", "Configuration file to load instead of the installed config.txt", false, "", "path", cmd);
 		TCLAP::ValueArg<string> guidArg("", "guid", "Endpoint GUID to use when parsing configuration (Default: <empty>)", false, "", "string", cmd);
 		TCLAP::ValueArg<string> connectionnameArg("", "connectionname", "Connection name to use when parsing configuration (Default: File output)", false, "File output", "string", cmd);
@@ -1956,6 +2321,8 @@ int main(int argc, char** argv)
 			return runConvolutionSelfTest();
 		if (loudnessTransitionTestArg.getValue())
 			return runLoudnessTransitionTests();
+		if (loudnessPerformanceArg.getValue())
+			return runLoudnessPerformanceBenchmark();
 #ifdef _DEBUG
 		_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 		// _CrtSetBreakAlloc(3318);

@@ -373,6 +373,10 @@ private:
 	std::complex<double> biquadResponse(
 		const BiquadCoeffs& coeffs,
 		double frequency) const;
+	static std::complex<double> biquadResponseAtZ(
+		const BiquadCoeffs& coeffs,
+		const std::complex<double>& z,
+		const std::complex<double>& zSquared);
 	double biquadResponseDb(size_t bandIndex, double gainDb, double frequency) const;
 	double guardedResponseDb(
 		const std::vector<double>& gains,
@@ -397,6 +401,7 @@ private:
 	std::atomic<bool> _recoveryPending;
 	size_t _channelCount;
 	size_t _activeBandCount;
+	unsigned _maximumFrameCount;
 	// Number of profile-table points the fast engine fits. It follows the
 	// same Nyquist cap as the full cascade so both engines aim at the same
 	// audible target set.
@@ -408,6 +413,10 @@ private:
 	std::vector<std::vector<BiQuad>> _biquadBanks[2]; // [bank][channel][band]
 	std::vector<std::vector<BiQuad>> _lowpassBanks[2]; // [bank][channel][section]
 	std::vector<std::vector<BiQuad>> _highpassBanks[2]; // [bank][channel][section]
+	// Settled processing runs one recursive section across a whole block so
+	// its coefficients and history stay hot. Buffers are allocated only here,
+	// during initialize(), and never resized by the audio callback.
+	std::vector<double> _lowpassBlockScratch;
 	size_t _activeBankIndex;
 	size_t _transitionBankIndex;
 	unsigned _crossoverPrewarmPosition;
