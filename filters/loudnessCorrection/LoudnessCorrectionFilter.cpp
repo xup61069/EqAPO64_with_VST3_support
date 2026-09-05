@@ -29,6 +29,8 @@ LoudnessCorrectionFilter::LoudnessCorrectionFilter(const FilterParameters& fPara
 	  _recoveryPending(false),
 	  _channelCount(0),
 	  _activeBandCount(0),
+	  _maximumFrameCount(0),
+	  _fastFitPointCount(0),
 	  _sampleRate(48000.0f),
 	  _activeBankIndex(0),
 	  _transitionBankIndex(1),
@@ -119,7 +121,6 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 	unsigned maxFrameCount,
 	std::vector<std::wstring> channelNames)
 {
-	(void)maxFrameCount;
 	if (_stopParameterUpdateThreadEvent)
 		SetEvent(_stopParameterUpdateThreadEvent);
 	if (_parameterUpdateThreadHandle)
@@ -140,6 +141,9 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 	_initialAutomaticVolume = 0.0;
 	_channelCount = channelNames.size();
 	_activeBandCount = 0;
+	_maximumFrameCount = maxFrameCount;
+	_fastFitPointCount = 0;
+	_lowpassBlockScratch.assign(_maximumFrameCount, 0.0);
 	for (size_t bank = 0; bank < 2; ++bank)
 	{
 		_biquadBanks[bank].clear();
@@ -188,10 +192,29 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 
 	// Frequencies at or above 90% of Nyquist are not representable reliably.
 	double maximumCenterFrequency = 0.45 * static_cast<double>(_sampleRate);
-	while (_activeBandCount < NUM_BANDS &&
-		LoudnessProfile::LOUDNESS_PROFILE_TABLE[_activeBandCount].frequency <= maximumCenterFrequency)
+	if (_parameters.engine == FilterParameters::ENGINE_FAST)
 	{
-		++_activeBandCount;
+		while (_activeBandCount < FAST_BAND_COUNT &&
+			fastBandFrequency(_activeBandCount) <= maximumCenterFrequency)
+		{
+			++_activeBandCount;
+		}
+	}
+	else
+	{
+		while (_activeBandCount < NUM_BANDS &&
+			LoudnessProfile::LOUDNESS_PROFILE_TABLE[_activeBandCount].frequency <= maximumCenterFrequency)
+		{
+			++_activeBandCount;
+		}
+	}
+
+	// Fit points always cover the whole representable profile table,
+	// regardless of engine, so fast and full aim at the same targets.
+	while (_fastFitPointCount < NUM_BANDS &&
+		LoudnessProfile::LOUDNESS_PROFILE_TABLE[_fastFitPointCount].frequency <= maximumCenterFrequency)
+	{
+		++_fastFitPointCount;
 	}
 
 	for (size_t bank = 0; bank < 2; ++bank)
@@ -204,13 +227,28 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 			_biquadBanks[bank][channel].reserve(_activeBandCount);
 			for (size_t band = 0; band < _activeBandCount; ++band)
 			{
-				_biquadBanks[bank][channel].push_back(BiQuad(
-					BiQuad::PEAKING,
-					0.0,
-					LoudnessProfile::LOUDNESS_PROFILE_TABLE[band].frequency,
-					_sampleRate,
-					FILTER_Q,
-					false));
+				if (_parameters.engine == FilterParameters::ENGINE_FAST)
+				{
+					// The peaking top band takes Q; the shelf takes S.
+					const bool isPeak = fastBandType(band) == BiQuad::PEAKING;
+					_biquadBanks[bank][channel].push_back(BiQuad(
+						fastBandType(band),
+						0.0,
+						fastBandFrequency(band),
+						_sampleRate,
+						isPeak ? FAST_PEAK_Q : FAST_SHELF_SLOPE,
+						!isPeak));
+				}
+				else
+				{
+					_biquadBanks[bank][channel].push_back(BiQuad(
+						BiQuad::PEAKING,
+						0.0,
+						LoudnessProfile::LOUDNESS_PROFILE_TABLE[band].frequency,
+						_sampleRate,
+						FILTER_Q,
+						false));
+				}
 			}
 
 			_lowpassBanks[bank][channel].reserve(CROSSOVER_SECTION_COUNT);
@@ -239,7 +277,11 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 		}
 	}
 
-	computeResponseInverse();
+	// The fast engine has no response matrix to invert; its shelf gains are
+	// closed-form. Its larger initialization saving comes from also avoiding
+	// the Full engine's dense refined headroom scan below.
+	if (_parameters.engine != FilterParameters::ENGINE_FAST)
+		computeResponseInverse();
 
 	double initialVolume = 0.0;
 	if (_parameters.state && _parameters.useManualVolume)
@@ -288,7 +330,10 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 	}
 
 	std::vector<double> gains;
-	calculateBandGains(initialVolume, gains, _outputGainLinear);
+	if (_parameters.engine == FilterParameters::ENGINE_FAST)
+		calculateFastShelfGains(initialVolume, gains, _outputGainLinear);
+	else
+		calculateBandGains(initialVolume, gains, _outputGainLinear);
 	bool initialIdentity = _outputGainLinear == 1.0;
 	for (size_t band = 0; band < _activeBandCount; ++band)
 		initialIdentity = initialIdentity && std::abs(gains[band]) <= 1.0e-12;
@@ -299,7 +344,7 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 	_pendingOutputGainLinear = _outputGainLinear;
 	for (size_t band = 0; band < _activeBandCount; ++band)
 	{
-		computeBiquadCoeffs(band, gains[band], _pendingCoeffs[band]);
+		computeBandCoeffs(band, gains[band], _pendingCoeffs[band]);
 		double coefficients[4] = {
 			_pendingCoeffs[band].b1,
 			_pendingCoeffs[band].b2,
@@ -395,11 +440,17 @@ void LoudnessCorrectionFilter::computeResponseInverse()
 		return;
 
 	double augmented[NUM_BANDS][2 * NUM_BANDS] = {};
+	// Unit-gain coefficients depend only on (band, sample rate), so build
+	// each column once and reuse it for every row instead of recomputing
+	// the same coefficients per frequency point.
+	BiquadCoeffs unitCoeffs[NUM_BANDS];
+	for (size_t column = 0; column < _activeBandCount; ++column)
+		computeBiquadCoeffs(column, 1.0, unitCoeffs[column]);
 	for (size_t row = 0; row < _activeBandCount; ++row)
 	{
 		double frequency = LoudnessProfile::LOUDNESS_PROFILE_TABLE[row].frequency;
 		for (size_t column = 0; column < _activeBandCount; ++column)
-			augmented[row][column] = biquadResponseDb(column, 1.0, frequency);
+			augmented[row][column] = bandResponseDb(&unitCoeffs[column], 1, frequency);
 		augmented[row][row + _activeBandCount] = 1.0;
 	}
 
@@ -512,15 +563,18 @@ void LoudnessCorrectionFilter::calculateBandGains(
 	// A biquad's dB response is not perfectly linear in gain. Reusing the
 	// well-conditioned unit-response inverse as a residual corrector converges
 	// to the CSV anchors in a few inexpensive background-thread iterations.
+	// Band coefficients are precomputed once per pass: they do not depend on
+	// the evaluation frequency.
+	BiquadCoeffs passCoeffs[NUM_BANDS];
+	for (size_t band = 0; band < _activeBandCount; ++band)
+		computeBiquadCoeffs(band, outGains[band], passCoeffs[band]);
 	for (unsigned iteration = 1; iteration < FIT_ITERATIONS; ++iteration)
 	{
 		double residual[NUM_BANDS] = {};
 		for (size_t point = 0; point < _activeBandCount; ++point)
 		{
-			double actual = 0.0;
-			double frequency = LoudnessProfile::LOUDNESS_PROFILE_TABLE[point].frequency;
-			for (size_t band = 0; band < _activeBandCount; ++band)
-				actual += biquadResponseDb(band, outGains[band], frequency);
+			double actual = bandResponseDb(passCoeffs, _activeBandCount,
+				LoudnessProfile::LOUDNESS_PROFILE_TABLE[point].frequency);
 			residual[point] = target[point] - actual;
 		}
 
@@ -535,6 +589,8 @@ void LoudnessCorrectionFilter::calculateBandGains(
 					(std::min)(MAX_FILTER_GAIN_DB, outGains[band] + correction));
 			}
 		}
+		for (size_t band = 0; band < _activeBandCount; ++band)
+			computeBiquadCoeffs(band, outGains[band], passCoeffs[band]);
 	}
 
 	outputGainLinear = calculateHeadroomGain(outGains);
@@ -606,21 +662,28 @@ double LoudnessCorrectionFilter::findMaximumResponseDb(
 		static_cast<double>(RESPONSE_SCAN_POINTS - 1);
 	std::vector<double> responses(RESPONSE_SCAN_POINTS, 0.0);
 
+	// Correction coefficients depend only on (band, gain, sample rate).
+	// Precomputing them once makes the dense scan evaluate responses only;
+	// the values are identical to recomputing per frequency point.
+	BiquadCoeffs correctionCoeffs[NUM_BANDS];
+	for (size_t band = 0; band < _activeBandCount; ++band)
+		computeBiquadCoeffs(band, gains[band], correctionCoeffs[band]);
+
 	auto responseAtLogFrequency = [
 		this,
-		&gains,
+		&correctionCoeffs,
 		outputGainLinear,
 		includeSubsonicCrossover](double logFrequency)
 	{
 		double frequency = std::exp(logFrequency);
 		if (includeSubsonicCrossover)
-			return guardedResponseDb(gains, outputGainLinear, frequency);
+			return guardedTransferDb(correctionCoeffs, _activeBandCount,
+				outputGainLinear, frequency);
 
-		double response = 20.0 * std::log10(
-			(std::max)(1.0e-15, outputGainLinear));
-		for (size_t band = 0; band < _activeBandCount; ++band)
-			response += biquadResponseDb(band, gains[band], frequency);
-		return response;
+		return 20.0 * std::log10(
+			(std::max)(1.0e-15, outputGainLinear)) +
+			bandResponseDb(
+				correctionCoeffs, _activeBandCount, frequency);
 	};
 
 	// A dense logarithmic scan resolves the Q=3 pass bands by hundreds of
@@ -681,19 +744,289 @@ double LoudnessCorrectionFilter::findMaximumResponseDb(
 	return maximumResponse;
 }
 
+void LoudnessCorrectionFilter::calculateFastShelfGains(
+	double currentVolumeDb,
+	std::vector<double>& outGains,
+	double& outputGainLinear) const
+{
+	outGains.assign(NUM_BANDS, 0.0);
+	outputGainLinear = 1.0;
+	if (_activeBandCount == 0 || _fastFitPointCount == 0 ||
+		_parameters.attenuation <= 0.0f)
+		return;
+
+	double currentVolume = std::isfinite(currentVolumeDb) ? currentVolumeDb : 0.0;
+	currentVolume = (std::max)(-100.0, (std::min)(0.0, currentVolume));
+	double referenceLevel = (std::max)(1.0, (std::min)(100.0,
+		static_cast<double>(_parameters.referenceLevel)));
+	double loudnessLevel = referenceLevel + currentVolume - _parameters.referenceOffset;
+	loudnessLevel = (std::max)(0.0, (std::min)(100.0, loudnessLevel));
+
+	// The exact same per-point targets as the full cascade. The shelves
+	// below are least-squares fitted to them instead of solved exactly,
+	// so the fast engine tracks the full response by construction.
+	double target[NUM_BANDS] = {};
+	for (size_t point = 0; point < _fastFitPointCount; ++point)
+	{
+		target[point] = static_cast<double>(_parameters.attenuation) *
+			LoudnessProfile::computeContourDelta(loudnessLevel, referenceLevel, point);
+	}
+
+	const size_t shelfCount = (std::min)(_activeBandCount, FAST_BAND_COUNT);
+	BiquadCoeffs unit[FAST_BAND_COUNT];
+	for (size_t band = 0; band < shelfCount; ++band)
+		computeFastShelfCoeffs(band, 1.0, unit[band]);
+
+	// The fitted peak sets the headroom gain, so the target maximum is
+	// anchored first; the remaining points share unit weight.
+	size_t peakPoint = 0;
+	for (size_t point = 1; point < _fastFitPointCount; ++point)
+	{
+		if (target[point] > target[peakPoint])
+			peakPoint = point;
+	}
+
+	// Unit dB responses of each shelf at every fit point, then the
+	// symmetric normal equations for the least-squares gains.
+	double unitResponse[FAST_BAND_COUNT][NUM_BANDS] = {};
+	double normal[FAST_BAND_COUNT][FAST_BAND_COUNT] = {};
+	double projected[FAST_BAND_COUNT] = {};
+	for (size_t point = 0; point < _fastFitPointCount; ++point)
+	{
+		double frequency = LoudnessProfile::LOUDNESS_PROFILE_TABLE[point].frequency;
+		double weight = point == peakPoint ? FAST_PEAK_ANCHOR_WEIGHT : 1.0;
+		for (size_t band = 0; band < shelfCount; ++band)
+		{
+			unitResponse[band][point] = bandResponseDb(&unit[band], 1, frequency);
+			projected[band] += weight * unitResponse[band][point] * target[point];
+			for (size_t other = 0; other <= band; ++other)
+				normal[band][other] += weight * unitResponse[band][point] * unitResponse[other][point];
+		}
+	}
+	normal[0][1] = normal[1][0];
+
+	double fitted[FAST_BAND_COUNT] = {};
+	if (solveFastNormalEquations(normal, projected, shelfCount, fitted))
+	{
+		for (size_t band = 0; band < shelfCount; ++band)
+			outGains[band] = clampFastShelfGain(band, fitted[band]);
+	}
+
+	// One residual pass, mirroring the full cascade: shelf dB responses
+	// are only approximately linear in gain.
+	BiquadCoeffs rendered[FAST_BAND_COUNT];
+	for (size_t band = 0; band < shelfCount; ++band)
+		computeFastShelfCoeffs(band, outGains[band], rendered[band]);
+	double residualProjected[FAST_BAND_COUNT] = {};
+	for (size_t point = 0; point < _fastFitPointCount; ++point)
+	{
+		double frequency = LoudnessProfile::LOUDNESS_PROFILE_TABLE[point].frequency;
+		double actual = 0.0;
+		for (size_t band = 0; band < shelfCount; ++band)
+			actual += bandResponseDb(&rendered[band], 1, frequency);
+		double residual = target[point] - actual;
+		double weight = point == peakPoint ? FAST_PEAK_ANCHOR_WEIGHT : 1.0;
+		for (size_t band = 0; band < shelfCount; ++band)
+			residualProjected[band] += weight * unitResponse[band][point] * residual;
+	}
+	double refinement[FAST_BAND_COUNT] = {};
+	if (solveFastNormalEquations(normal, residualProjected, shelfCount, refinement))
+	{
+		for (size_t band = 0; band < shelfCount; ++band)
+			outGains[band] = clampFastShelfGain(band, outGains[band] + refinement[band]);
+	}
+
+	outputGainLinear = calculateFastHeadroomGain(outGains);
+}
+
+bool LoudnessCorrectionFilter::solveFastNormalEquations(
+	const double normal[FAST_BAND_COUNT][FAST_BAND_COUNT],
+	const double projected[FAST_BAND_COUNT],
+	size_t shelfCount,
+	double (&solution)[FAST_BAND_COUNT])
+{
+	solution[0] = 0.0;
+	solution[1] = 0.0;
+	if (shelfCount == 0)
+		return false;
+	if (shelfCount == 1)
+	{
+		if (std::abs(normal[0][0]) < 1.0e-12)
+			return false;
+		solution[0] = projected[0] / normal[0][0];
+		return true;
+	}
+	double scale = std::abs(normal[0][0] * normal[1][1]);
+	double determinant = normal[0][0] * normal[1][1] - normal[0][1] * normal[1][0];
+	if (std::abs(determinant) < 1.0e-12 * scale)
+		return false;
+	solution[0] = (projected[0] * normal[1][1] - projected[1] * normal[0][1]) / determinant;
+	solution[1] = (normal[0][0] * projected[1] - normal[1][0] * projected[0]) / determinant;
+	return true;
+}
+
+double LoudnessCorrectionFilter::clampFastShelfGain(size_t bandIndex, double gainDb)
+{
+	const double maximumGain = bandIndex == 0 ?
+		FAST_LOW_SHELF_MAX_GAIN_DB : FAST_PEAK_MAX_GAIN_DB;
+	return (std::max)(-maximumGain, (std::min)(maximumGain, gainDb));
+}
+
+double LoudnessCorrectionFilter::calculateFastHeadroomGain(
+	const std::vector<double>& gains) const
+{
+	if (_activeBandCount == 0)
+		return 1.0;
+	bool hasNonZeroGain = false;
+	for (size_t band = 0; band < _activeBandCount; ++band)
+	{
+		if (std::abs(gains[band]) > 1.0e-12)
+		{
+			hasNonZeroGain = true;
+			break;
+		}
+	}
+	if (!hasNonZeroGain)
+		return 1.0;
+
+	// Smooth shelves have no sharp Q=3 peaks to miss, so the coarse sweep
+	// below is enough for the candidate. The guarded A-domain transfer is
+	// still verified exactly as on the full path.
+	double maximumResponse = findFastMaximumResponseDb(gains, 1.0, false);
+	double outputGainLinear = maximumResponse <= 0.0 ? 1.0 :
+		std::pow(10.0, -(maximumResponse + HEADROOM_MARGIN_DB) / 20.0);
+
+	if (findFastMaximumResponseDb(gains, outputGainLinear, true) <=
+		FINAL_RESPONSE_NUMERICAL_TOLERANCE_DB)
+		return outputGainLinear;
+
+	double safeGain = 0.0;
+	double unsafeGain = outputGainLinear;
+	for (unsigned iteration = 0; iteration < 48; ++iteration)
+	{
+		double candidate = 0.5 * (safeGain + unsafeGain);
+		if (findFastMaximumResponseDb(gains, candidate, true) <=
+			FINAL_RESPONSE_NUMERICAL_TOLERANCE_DB)
+			safeGain = candidate;
+		else
+			unsafeGain = candidate;
+	}
+	return safeGain;
+}
+
+double LoudnessCorrectionFilter::findFastMaximumResponseDb(
+	const std::vector<double>& gains,
+	double outputGainLinear,
+	bool includeSubsonicCrossover) const
+{
+	if (_activeBandCount == 0)
+		return 0.0;
+
+	double maximumFrequency = (std::min)(
+		20000.0,
+		0.499 * static_cast<double>(_sampleRate));
+	if (maximumFrequency <= 1.0)
+		return 0.0;
+
+	const double minimumFrequency = 1.0;
+	const double logMinimum = std::log(minimumFrequency);
+	const double logMaximum = std::log(maximumFrequency);
+	const double logStep = (logMaximum - logMinimum) /
+		static_cast<double>(FAST_RESPONSE_SCAN_POINTS - 1);
+	std::vector<double> responses(FAST_RESPONSE_SCAN_POINTS, 0.0);
+
+	BiquadCoeffs correctionCoeffs[FAST_BAND_COUNT];
+	for (size_t band = 0; band < _activeBandCount; ++band)
+		computeFastShelfCoeffs(band, gains[band], correctionCoeffs[band]);
+
+	auto responseAtLogFrequency = [
+		this,
+		&correctionCoeffs,
+		outputGainLinear,
+		includeSubsonicCrossover](double logFrequency)
+	{
+		double frequency = std::exp(logFrequency);
+		if (includeSubsonicCrossover)
+			return guardedTransferDb(correctionCoeffs, _activeBandCount,
+				outputGainLinear, frequency);
+
+		return 20.0 * std::log10(
+			(std::max)(1.0e-15, outputGainLinear)) +
+			bandResponseDb(
+				correctionCoeffs, _activeBandCount, frequency);
+	};
+
+	double maximumResponse = 0.0;
+	for (unsigned point = 0; point < FAST_RESPONSE_SCAN_POINTS; ++point)
+	{
+		double logFrequency = logMinimum + static_cast<double>(point) * logStep;
+		responses[point] = responseAtLogFrequency(logFrequency);
+		maximumResponse = (std::max)(maximumResponse, responses[point]);
+	}
+
+	const double goldenRatioConjugate = 0.6180339887498948482;
+	for (unsigned point = 1; point + 1 < FAST_RESPONSE_SCAN_POINTS; ++point)
+	{
+		if (responses[point] < responses[point - 1] ||
+			responses[point] < responses[point + 1] ||
+			(responses[point] == responses[point - 1] &&
+				responses[point] == responses[point + 1]))
+		{
+			continue;
+		}
+
+		double left = logMinimum + static_cast<double>(point - 1) * logStep;
+		double right = logMinimum + static_cast<double>(point + 1) * logStep;
+		double innerLeft = right - goldenRatioConjugate * (right - left);
+		double innerRight = left + goldenRatioConjugate * (right - left);
+		double leftResponse = responseAtLogFrequency(innerLeft);
+		double rightResponse = responseAtLogFrequency(innerRight);
+
+		for (unsigned iteration = 0;
+			iteration < FAST_RESPONSE_REFINEMENT_ITERATIONS;
+			++iteration)
+		{
+			if (leftResponse < rightResponse)
+			{
+				left = innerLeft;
+				innerLeft = innerRight;
+				leftResponse = rightResponse;
+				innerRight = left + goldenRatioConjugate * (right - left);
+				rightResponse = responseAtLogFrequency(innerRight);
+			}
+			else
+			{
+				right = innerRight;
+				innerRight = innerLeft;
+				rightResponse = leftResponse;
+				innerLeft = right - goldenRatioConjugate * (right - left);
+				leftResponse = responseAtLogFrequency(innerLeft);
+			}
+		}
+
+		maximumResponse = (std::max)(maximumResponse,
+			(std::max)(leftResponse, rightResponse));
+	}
+
+	return maximumResponse;
+}
+
 void LoudnessCorrectionFilter::publishVolumeUpdate(
 	double currentVolumeDb,
 	std::vector<double>& scratchGains)
 {
 	double outputGainLinear = 1.0;
-	calculateBandGains(currentVolumeDb, scratchGains, outputGainLinear);
+	if (_parameters.engine == FilterParameters::ENGINE_FAST)
+		calculateFastShelfGains(currentVolumeDb, scratchGains, outputGainLinear);
+	else
+		calculateBandGains(currentVolumeDb, scratchGains, outputGainLinear);
 	bool identity = outputGainLinear == 1.0;
 	for (size_t band = 0; band < _activeBandCount; ++band)
 		identity = identity && std::abs(scratchGains[band]) <= 1.0e-12;
 
 	EnterCriticalSection(&_parameterUpdateSection);
 	for (size_t band = 0; band < _activeBandCount; ++band)
-		computeBiquadCoeffs(band, scratchGains[band], _pendingCoeffs[band]);
+		computeBandCoeffs(band, scratchGains[band], _pendingCoeffs[band]);
 	_pendingOutputGainLinear = outputGainLinear;
 	_pendingIdentity = identity;
 	_coeffsUpdated.store(true, std::memory_order_release);
@@ -744,6 +1077,88 @@ void LoudnessCorrectionFilter::computeBiquadCoeffs(
 	coeffs.a2 = a2 / a0;
 }
 
+void LoudnessCorrectionFilter::computeBandCoeffs(
+	size_t bandIndex,
+	double gainDb,
+	BiquadCoeffs& coeffs) const
+{
+	if (_parameters.engine == FilterParameters::ENGINE_FAST)
+		computeFastShelfCoeffs(bandIndex, gainDb, coeffs);
+	else
+		computeBiquadCoeffs(bandIndex, gainDb, coeffs);
+}
+
+double LoudnessCorrectionFilter::fastBandFrequency(size_t bandIndex)
+{
+	return bandIndex == 0 ?
+		FAST_LOW_SHELF_FREQUENCY_HZ : FAST_PEAK_FREQUENCY_HZ;
+}
+
+BiQuad::Type LoudnessCorrectionFilter::fastBandType(size_t bandIndex)
+{
+	return bandIndex == 0 ? BiQuad::LOW_SHELF : BiQuad::PEAKING;
+}
+
+void LoudnessCorrectionFilter::computeFastShelfCoeffs(
+	size_t bandIndex,
+	double gainDb,
+	BiquadCoeffs& coeffs) const
+{
+	coeffs.b0 = 1.0;
+	coeffs.b1 = 0.0;
+	coeffs.b2 = 0.0;
+	coeffs.a1 = 0.0;
+	coeffs.a2 = 0.0;
+	if (bandIndex >= FAST_BAND_COUNT)
+		return;
+
+	const double maximumGain = bandIndex == 0 ?
+		FAST_LOW_SHELF_MAX_GAIN_DB : FAST_PEAK_MAX_GAIN_DB;
+	gainDb = (std::max)(-maximumGain, (std::min)(maximumGain, gainDb));
+	const double A = std::pow(10.0, gainDb / 40.0);
+	const double omega = 2.0 * PI *
+		fastBandFrequency(bandIndex) / _sampleRate;
+	const double sine = std::sin(omega);
+	const double cosine = std::cos(omega);
+
+	double b0 = 1.0;
+	double b1 = 0.0;
+	double b2 = 0.0;
+	double a0 = 1.0;
+	double a1 = 0.0;
+	double a2 = 0.0;
+	if (fastBandType(bandIndex) == BiQuad::PEAKING)
+	{
+		const double alpha = sine / (2.0 * FAST_PEAK_Q);
+		b0 = 1.0 + alpha * A;
+		b1 = -2.0 * cosine;
+		b2 = 1.0 - alpha * A;
+		a0 = 1.0 + alpha / A;
+		a1 = -2.0 * cosine;
+		a2 = 1.0 - alpha / A;
+	}
+	else
+	{
+		const double alpha = sine / 2.0 * std::sqrt(
+			(A + 1.0 / A) * (1.0 / FAST_SHELF_SLOPE - 1.0) + 2.0);
+		const double beta = 2.0 * std::sqrt(A) * alpha;
+		b0 = A * ((A + 1.0) - (A - 1.0) * cosine + beta);
+		b1 = 2.0 * A * ((A - 1.0) - (A + 1.0) * cosine);
+		b2 = A * ((A + 1.0) - (A - 1.0) * cosine - beta);
+		a0 = (A + 1.0) + (A - 1.0) * cosine + beta;
+		a1 = -2.0 * ((A - 1.0) + (A + 1.0) * cosine);
+		a2 = (A + 1.0) + (A - 1.0) * cosine - beta;
+	}
+
+	if (!std::isfinite(a0) || std::abs(a0) < 1.0e-20)
+		return;
+	coeffs.b0 = b0 / a0;
+	coeffs.b1 = b1 / a0;
+	coeffs.b2 = b2 / a0;
+	coeffs.a1 = a1 / a0;
+	coeffs.a2 = a2 / a0;
+}
+
 void LoudnessCorrectionFilter::computeCrossoverCoeffs(
 	bool highPass,
 	size_t sectionIndex,
@@ -786,11 +1201,18 @@ std::complex<double> LoudnessCorrectionFilter::biquadResponse(
 {
 	double omega = 2.0 * PI * frequency / _sampleRate;
 	std::complex<double> z(std::cos(omega), -std::sin(omega));
-	std::complex<double> z2 = z * z;
+	return biquadResponseAtZ(coeffs, z, z * z);
+}
+
+std::complex<double> LoudnessCorrectionFilter::biquadResponseAtZ(
+	const BiquadCoeffs& coeffs,
+	const std::complex<double>& z,
+	const std::complex<double>& zSquared)
+{
 	std::complex<double> numerator =
-		coeffs.b0 + coeffs.b1 * z + coeffs.b2 * z2;
+		coeffs.b0 + coeffs.b1 * z + coeffs.b2 * zSquared;
 	std::complex<double> denominator =
-		1.0 + coeffs.a1 * z + coeffs.a2 * z2;
+		1.0 + coeffs.a1 * z + coeffs.a2 * zSquared;
 	if (std::norm(denominator) < 1.0e-30)
 		return std::complex<double>(0.0, 0.0);
 	return numerator / denominator;
@@ -809,25 +1231,76 @@ double LoudnessCorrectionFilter::biquadResponseDb(
 	return 10.0 * std::log10(magnitudeSquared);
 }
 
+double LoudnessCorrectionFilter::bandResponseDb(
+	const BiquadCoeffs* coeffs,
+	size_t bandCount,
+	double frequency) const
+{
+	const double omega = 2.0 * PI * frequency / _sampleRate;
+	const std::complex<double> z(std::cos(omega), -std::sin(omega));
+	const std::complex<double> zSquared = z * z;
+	std::complex<double> response(1.0, 0.0);
+	for (size_t band = 0; band < bandCount; ++band)
+		response *= biquadResponseAtZ(coeffs[band], z, zSquared);
+	const double magnitudeSquared = (std::max)(
+		1.0e-30, std::norm(response));
+	return 10.0 * std::log10(magnitudeSquared);
+}
+
+double LoudnessCorrectionFilter::guardedTransferDb(
+	const BiquadCoeffs* correctionCoeffs,
+	size_t bandCount,
+	double outputGainLinear,
+	double frequency) const
+{
+	const double omega = 2.0 * PI * frequency / _sampleRate;
+	const std::complex<double> z(std::cos(omega), -std::sin(omega));
+	const std::complex<double> zSquared = z * z;
+	std::complex<double> correction(outputGainLinear, 0.0);
+	for (size_t band = 0; band < bandCount; ++band)
+		correction *= biquadResponseAtZ(
+			correctionCoeffs[band], z, zSquared);
+
+	std::complex<double> lowpass(1.0, 0.0);
+	std::complex<double> highpass(1.0, 0.0);
+	for (size_t section = 0; section < CROSSOVER_SECTION_COUNT; ++section)
+	{
+		lowpass *= biquadResponseAtZ(
+			_lowpassCoeffs[section], z, zSquared);
+		highpass *= biquadResponseAtZ(
+			_highpassCoeffs[section], z, zSquared);
+	}
+
+	double magnitudeSquared = (std::max)(
+		1.0e-30,
+		std::norm(lowpass + highpass * correction));
+	return 10.0 * std::log10(magnitudeSquared);
+}
+
 double LoudnessCorrectionFilter::guardedResponseDb(
 	const std::vector<double>& gains,
 	double outputGainLinear,
 	double frequency) const
 {
+	const double omega = 2.0 * PI * frequency / _sampleRate;
+	const std::complex<double> z(std::cos(omega), -std::sin(omega));
+	const std::complex<double> zSquared = z * z;
 	std::complex<double> correction(outputGainLinear, 0.0);
 	for (size_t band = 0; band < _activeBandCount; ++band)
 	{
 		BiquadCoeffs coefficients;
 		computeBiquadCoeffs(band, gains[band], coefficients);
-		correction *= biquadResponse(coefficients, frequency);
+		correction *= biquadResponseAtZ(coefficients, z, zSquared);
 	}
 
 	std::complex<double> lowpass(1.0, 0.0);
 	std::complex<double> highpass(1.0, 0.0);
 	for (size_t section = 0; section < CROSSOVER_SECTION_COUNT; ++section)
 	{
-		lowpass *= biquadResponse(_lowpassCoeffs[section], frequency);
-		highpass *= biquadResponse(_highpassCoeffs[section], frequency);
+		lowpass *= biquadResponseAtZ(
+			_lowpassCoeffs[section], z, zSquared);
+		highpass *= biquadResponseAtZ(
+			_highpassCoeffs[section], z, zSquared);
 	}
 
 	double magnitudeSquared = (std::max)(
@@ -1012,6 +1485,84 @@ void LoudnessCorrectionFilter::process(double** output, double** input, unsigned
 		LeaveCriticalSection(&_parameterUpdateSection);
 	}
 
+	// The common case has no coefficient transition in flight. Process each
+	// recursive section across the complete block so its coefficients and state
+	// remain in registers instead of walking all 57 Full-engine BiQuad objects
+	// for every sample. Transition and handoff paths retain the sample-ordered
+	// implementation below because their decisions can change within a block.
+	const bool useSectionMajorBlockPath =
+		frameCount <= _maximumFrameCount &&
+		crossoverDomainReady &&
+		!_crossoverHandoffActive &&
+		!_warmupActive &&
+		!_crossfadeActive &&
+		!_bypassFadeActive;
+	if (useSectionMajorBlockPath)
+	{
+		for (size_t channel = 0; channel < _channelCount; ++channel)
+		{
+			double* const inputChannel = input[channel];
+			double* const outputChannel = output[channel];
+			double* const lowpass = _lowpassBlockScratch.data();
+			for (unsigned frame = 0; frame < frameCount; ++frame)
+				lowpass[frame] = inputChannel[frame];
+
+			for (size_t section = 0;
+				section < CROSSOVER_SECTION_COUNT;
+				++section)
+			{
+				_lowpassBanks[_activeBankIndex][channel][section]
+					.processBlock(lowpass, frameCount);
+			}
+
+			if (outputChannel != inputChannel)
+			{
+				for (unsigned frame = 0; frame < frameCount; ++frame)
+					outputChannel[frame] = inputChannel[frame];
+			}
+			for (size_t section = 0;
+				section < CROSSOVER_SECTION_COUNT;
+				++section)
+			{
+				_highpassBanks[_activeBankIndex][channel][section]
+					.processBlock(outputChannel, frameCount);
+			}
+
+			if (runtimeBypass || _bankIdentity[_activeBankIndex])
+			{
+				// A bypassed or identity bank needs only the common A = L + H
+				// domain. The correction state is reset and warmed before reuse.
+				for (unsigned frame = 0; frame < frameCount; ++frame)
+					outputChannel[frame] = lowpass[frame] + outputChannel[frame];
+			}
+			else
+			{
+				for (unsigned frame = 0; frame < frameCount; ++frame)
+					outputChannel[frame] *= _outputGainLinear;
+				for (size_t band = 0; band < _activeBandCount; ++band)
+				{
+					_biquadBanks[_activeBankIndex][channel][band]
+						.processBlock(outputChannel, frameCount);
+				}
+				for (unsigned frame = 0; frame < frameCount; ++frame)
+					outputChannel[frame] = lowpass[frame] + outputChannel[frame];
+			}
+
+			for (size_t band = 0; band < _activeBandCount; ++band)
+				_biquadBanks[_activeBankIndex][channel][band].removeDenormals();
+			for (size_t section = 0;
+				section < CROSSOVER_SECTION_COUNT;
+				++section)
+			{
+				_lowpassBanks[_activeBankIndex][channel][section].removeDenormals();
+				_highpassBanks[_activeBankIndex][channel][section].removeDenormals();
+			}
+		}
+
+		_runtimeBypassWasActive = runtimeBypass;
+		return;
+	}
+
 	struct BankSample
 	{
 		double identity;
@@ -1047,6 +1598,10 @@ void LoudnessCorrectionFilter::process(double** output, double** input, unsigned
 						_highpassBanks[bankIndex][channel][section]
 							.process(highpassIdentitySample);
 				}
+				const double identitySample =
+					lowpassSample + highpassIdentitySample;
+				if (_bankIdentity[bankIndex])
+					return BankSample{ identitySample, identitySample };
 				double highpassCorrectedSample =
 					highpassIdentitySample * outputGainLinear;
 				for (size_t band = 0; band < _activeBandCount; ++band)
@@ -1056,7 +1611,7 @@ void LoudnessCorrectionFilter::process(double** output, double** input, unsigned
 							.process(highpassCorrectedSample);
 				}
 				return BankSample{
-					lowpassSample + highpassIdentitySample,
+					identitySample,
 					lowpassSample + highpassCorrectedSample
 				};
 			};

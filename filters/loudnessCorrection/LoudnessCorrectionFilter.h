@@ -37,6 +37,15 @@ public:
 			BINDING_ALL = 1
 		};
 
+		// Full runs the 29-band fitted correction. Fast fits a low shelf
+		// plus a top peaking filter to the same targets; it skips the
+		// response-matrix fit and the dense refined peak search.
+		enum EngineMode
+		{
+			ENGINE_FULL = 0,
+			ENGINE_FAST = 1
+		};
+
 		bool state;
 		float referenceLevel;
 		float referenceOffset;
@@ -44,6 +53,7 @@ public:
 		float manualVolume;
 		bool useManualVolume;
 		BindingMode binding;
+		EngineMode engine;
 
 		std::vector<char> serialize()
 		{
@@ -52,6 +62,10 @@ public:
 			archive.add(std::wstring(L"FormulaLoudnessV1"), L"Model");
 			archive.add(std::wstring(
 				binding == BINDING_ALL ? L"All" : L"Single"), L"Binding");
+			// The default full engine is omitted so profiles written before
+			// Engine existed keep their exact text.
+			if (engine == ENGINE_FAST)
+				archive.add(std::wstring(L"Fast"), L"Engine");
 			archive.add(state, L"State");
 			archive.add(referenceLevel, L"ReferenceLevel");
 			archive.add(referenceOffset, L"ReferenceOffset");
@@ -77,6 +91,8 @@ public:
 				return true;
 			size_t bindingCount = archive.count(std::wregex(
 				L"(?:^|\\s)Binding(?=\\s|$)", std::regex_constants::icase));
+			size_t engineCount = archive.count(std::wregex(
+				L"(?:^|\\s)Engine(?=\\s|$)", std::regex_constants::icase));
 			if (archive.count(std::wregex(L"(?:^|\\s)Schema(?=\\s|$)",
 					std::regex_constants::icase)) != 1 ||
 				archive.count(std::wregex(L"(?:^|\\s)Model(?=\\s|$)",
@@ -88,6 +104,7 @@ public:
 				archive.count(std::wregex(L"(?:^|\\s)ReferenceOffset(?=\\s|$)",
 					std::regex_constants::icase)) != 1 ||
 				bindingCount > 1 ||
+				engineCount > 1 ||
 				archive.count(std::wregex(L"(?:^|\\s)Attenuation(?=\\s|$)",
 					std::regex_constants::icase)) > 1 ||
 				archive.count(std::wregex(L"(?:^|\\s)Volume(?=\\s|$)",
@@ -112,6 +129,29 @@ public:
 				std::regex_constants::icase)))
 			{
 				binding = BINDING_SINGLE;
+			}
+			else
+			{
+				return true;
+			}
+
+			if (engineCount == 0)
+			{
+				// Schema 1 profiles written before Engine was introduced use
+				// the full engine.
+				engine = ENGINE_FULL;
+			}
+			else if (archive.find(std::wregex(
+				L"(?:^|\\s)Engine\\s+Fast(?=\\s|$)",
+				std::regex_constants::icase)))
+			{
+				engine = ENGINE_FAST;
+			}
+			else if (archive.find(std::wregex(
+				L"(?:^|\\s)Engine\\s+Full(?=\\s|$)",
+				std::regex_constants::icase)))
+			{
+				engine = ENGINE_FULL;
 			}
 			else
 			{
@@ -162,6 +202,7 @@ public:
 			  manualVolume(0.0f),
 			  useManualVolume(false),
 			  binding(BINDING_SINGLE),
+			  engine(ENGINE_FULL),
 			  _isInitialized(false)
 		{
 		}
@@ -174,6 +215,7 @@ public:
 			  manualVolume(0.0f),
 			  useManualVolume(false),
 			  binding(BINDING_SINGLE),
+			  engine(ENGINE_FULL),
 			  _isInitialized(false)
 		{
 			_isInitialized = !deSerialize<T>(input);
@@ -248,6 +290,25 @@ private:
 	static const unsigned RESPONSE_SCAN_POINTS = 4097;
 	static const unsigned RESPONSE_REFINEMENT_ITERATIONS = 32;
 
+	// Fast engine: a low shelf plus a top peaking filter, least-squares
+	// fitted to the same targets as the full cascade. The coarse sweep
+	// below is enough for smooth responses; the dense refined search
+	// stays on the full path only.
+	static const size_t FAST_BAND_COUNT = 2;
+	static constexpr double FAST_LOW_SHELF_FREQUENCY_HZ = 120.0;
+	static constexpr double FAST_PEAK_FREQUENCY_HZ = 12500.0;
+	static constexpr double FAST_PEAK_Q = 2.0;
+	// Same bounds as the full cascade: the fit needs the same room, and
+	// the guarded headroom gain keeps it clip-free.
+	static constexpr double FAST_LOW_SHELF_MAX_GAIN_DB = 48.0;
+	static constexpr double FAST_PEAK_MAX_GAIN_DB = 48.0;
+	static constexpr double FAST_SHELF_SLOPE = 0.4;
+	// The least-squares peak anchor. The fitted peak sets the headroom
+	// gain, so the target maximum is weighted to match it first.
+	static constexpr double FAST_PEAK_ANCHOR_WEIGHT = 20.0;
+	static const unsigned FAST_RESPONSE_SCAN_POINTS = 256;
+	static const unsigned FAST_RESPONSE_REFINEMENT_ITERATIONS = 8;
+
 	void computeResponseInverse();
 	static bool isSafeCrossoverHandoff(
 		double previousRaw,
@@ -264,7 +325,47 @@ private:
 		double& outputGainLinear) const;
 	double calculateHeadroomGain(const std::vector<double>& gains) const;
 	void publishVolumeUpdate(double currentVolumeDb, std::vector<double>& scratchGains);
+	void calculateFastShelfGains(
+		double currentVolumeDb,
+		std::vector<double>& outGains,
+		double& outputGainLinear) const;
+	double calculateFastHeadroomGain(const std::vector<double>& gains) const;
+	double findFastMaximumResponseDb(
+		const std::vector<double>& gains,
+		double outputGainLinear,
+		bool includeSubsonicCrossover) const;
+	// Solves the symmetric shelf normal equations N*x = p. Returns false
+	// when degenerate; the solution is zeroed then.
+	static bool solveFastNormalEquations(
+		const double normal[FAST_BAND_COUNT][FAST_BAND_COUNT],
+		const double projected[FAST_BAND_COUNT],
+		size_t shelfCount,
+		double (&solution)[FAST_BAND_COUNT]);
+	static double clampFastShelfGain(size_t bandIndex, double gainDb);
 	void computeBiquadCoeffs(size_t bandIndex, double gainDb, BiquadCoeffs& coeffs) const;
+	// Dispatches to the full peaking cascade or the fast shelves depending
+	// on the configured engine. Coefficients depend only on (band, gain,
+	// sample rate), never on the evaluation frequency, so scans precompute
+	// them once instead of once per frequency point.
+	void computeBandCoeffs(size_t bandIndex, double gainDb, BiquadCoeffs& coeffs) const;
+	void computeFastShelfCoeffs(
+		size_t bandIndex,
+		double gainDb,
+		BiquadCoeffs& coeffs) const;
+	static double fastBandFrequency(size_t bandIndex);
+	static BiQuad::Type fastBandType(size_t bandIndex);
+	// Sum of |H| over precomputed bands, in dB. No coefficient work.
+	double bandResponseDb(
+		const BiquadCoeffs* coeffs,
+		size_t bandCount,
+		double frequency) const;
+	// Complete A-domain transfer |L + H*C| over precomputed correction
+	// bands, in dB. No coefficient work.
+	double guardedTransferDb(
+		const BiquadCoeffs* correctionCoeffs,
+		size_t bandCount,
+		double outputGainLinear,
+		double frequency) const;
 	void computeCrossoverCoeffs(
 		bool highPass,
 		size_t sectionIndex,
@@ -272,6 +373,10 @@ private:
 	std::complex<double> biquadResponse(
 		const BiquadCoeffs& coeffs,
 		double frequency) const;
+	static std::complex<double> biquadResponseAtZ(
+		const BiquadCoeffs& coeffs,
+		const std::complex<double>& z,
+		const std::complex<double>& zSquared);
 	double biquadResponseDb(size_t bandIndex, double gainDb, double frequency) const;
 	double guardedResponseDb(
 		const std::vector<double>& gains,
@@ -296,6 +401,11 @@ private:
 	std::atomic<bool> _recoveryPending;
 	size_t _channelCount;
 	size_t _activeBandCount;
+	unsigned _maximumFrameCount;
+	// Number of profile-table points the fast engine fits. It follows the
+	// same Nyquist cap as the full cascade so both engines aim at the same
+	// audible target set.
+	size_t _fastFitPointCount;
 	float _sampleRate;
 
 	// Both banks are allocated during initialize(). A new bank starts with
@@ -303,6 +413,10 @@ private:
 	std::vector<std::vector<BiQuad>> _biquadBanks[2]; // [bank][channel][band]
 	std::vector<std::vector<BiQuad>> _lowpassBanks[2]; // [bank][channel][section]
 	std::vector<std::vector<BiQuad>> _highpassBanks[2]; // [bank][channel][section]
+	// Settled processing runs one recursive section across a whole block so
+	// its coefficients and history stay hot. Buffers are allocated only here,
+	// during initialize(), and never resized by the audio callback.
+	std::vector<double> _lowpassBlockScratch;
 	size_t _activeBankIndex;
 	size_t _transitionBankIndex;
 	unsigned _crossoverPrewarmPosition;

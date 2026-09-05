@@ -296,6 +296,7 @@ IFilterGUI* LoudnessCorrectionFilterGUIFactory::createFilterGUI(QString& command
 					params.binding,
 					params.useManualVolume,
 					params.manualVolume,
+					params.engine,
 					endpointId,
 					selectedEndpointIsRender);
 

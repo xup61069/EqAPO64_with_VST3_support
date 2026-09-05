@@ -355,6 +355,16 @@
        </property>
       </widget>
      </item>
+     <item row="2" column="0" colspan="2">
+      <widget class="QCheckBox" name="fastEngineCheckBox">
+       <property name="toolTip">
+        <string>Experimental two-filter approximation. Uses less CPU but may differ noticeably from Full, especially at very low listening levels.</string>
+       </property>
+       <property name="text">
+        <string>Experimental fast engine:</string>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
    <item row="3" column="0">

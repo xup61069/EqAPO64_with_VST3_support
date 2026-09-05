@@ -28,10 +28,14 @@ try {
 	$enabledConfig = Join-Path $resolvedTestDirectory "enabled.txt"
 	$offsetConfig = Join-Path $resolvedTestDirectory "offset-40.txt"
 	$legacyConfig = Join-Path $resolvedTestDirectory "legacy-unmarked.txt"
+	$fastConfig = Join-Path $resolvedTestDirectory "fast-enabled.txt"
+	$fastInvalidConfig = Join-Path $resolvedTestDirectory "fast-invalid.txt"
 	$disabledOutput = Join-Path $resolvedTestDirectory "disabled.wav"
 	$enabledOutput = Join-Path $resolvedTestDirectory "enabled.wav"
 	$offsetOutput = Join-Path $resolvedTestDirectory "offset-40.wav"
 	$legacyOutput = Join-Path $resolvedTestDirectory "legacy-unmarked.wav"
+	$fastOutput = Join-Path $resolvedTestDirectory "fast-enabled.wav"
+	$fastInvalidOutput = Join-Path $resolvedTestDirectory "fast-invalid.wav"
 
 	$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 	# The generated chirp is exactly full scale.  Give this integration fixture
@@ -65,6 +69,20 @@ try {
 			"LoudnessCorrection: State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0",
 		$utf8NoBom
 	)
+	[System.IO.File]::WriteAllText(
+		$fastConfig,
+		$integrationInputHeadroom +
+			"LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0 Engine Fast",
+		$utf8NoBom
+	)
+	# An unknown engine name must fail closed to bypass, exactly like an
+	# unmarked legacy entry.
+	[System.IO.File]::WriteAllText(
+		$fastInvalidConfig,
+		$integrationInputHeadroom +
+			"LoudnessCorrection: Schema 1 Model FormulaLoudnessV1 Binding Single State 1 ReferenceLevel 80 ReferenceOffset 0 Attenuation 1.0 Volume -38.0 Engine Turbo",
+		$utf8NoBom
+	)
 
 	$env:Path = "$runtimeDirectory;$previousPath"
 	$commonArguments = @(
@@ -95,17 +113,29 @@ try {
 	if ($LASTEXITCODE -ne 0) {
 		throw "Legacy fail-closed benchmark failed:`n$($legacyLog -join [Environment]::NewLine)"
 	}
+	$fastLog = & $benchmark @commonArguments --config $fastConfig --output $fastOutput 2>&1
+	if ($LASTEXITCODE -ne 0) {
+		throw "Fast-engine runtime benchmark failed:`n$($fastLog -join [Environment]::NewLine)"
+	}
+	$fastInvalidLog = & $benchmark @commonArguments --config $fastInvalidConfig --output $fastInvalidOutput 2>&1
+	if ($LASTEXITCODE -ne 0) {
+		throw "Invalid-engine fail-closed benchmark failed:`n$($fastInvalidLog -join [Environment]::NewLine)"
+	}
 
 	if (!(Test-Path -LiteralPath $disabledOutput) -or
 		!(Test-Path -LiteralPath $enabledOutput) -or
 		!(Test-Path -LiteralPath $offsetOutput) -or
-		!(Test-Path -LiteralPath $legacyOutput)) {
+		!(Test-Path -LiteralPath $legacyOutput) -or
+		!(Test-Path -LiteralPath $fastOutput) -or
+		!(Test-Path -LiteralPath $fastInvalidOutput)) {
 		throw "Benchmark did not produce all expected WAV files."
 	}
 	$disabledHash = (Get-FileHash -LiteralPath $disabledOutput -Algorithm SHA256).Hash
 	$enabledHash = (Get-FileHash -LiteralPath $enabledOutput -Algorithm SHA256).Hash
 	$offsetHash = (Get-FileHash -LiteralPath $offsetOutput -Algorithm SHA256).Hash
 	$legacyHash = (Get-FileHash -LiteralPath $legacyOutput -Algorithm SHA256).Hash
+	$fastHash = (Get-FileHash -LiteralPath $fastOutput -Algorithm SHA256).Hash
+	$fastInvalidHash = (Get-FileHash -LiteralPath $fastInvalidOutput -Algorithm SHA256).Hash
 	if ($disabledHash -eq $enabledHash) {
 		throw "Loudness correction produced the same output as the disabled filter."
 	}
@@ -115,8 +145,17 @@ try {
 	if ($legacyHash -ne $disabledHash) {
 		throw "Unmarked legacy loudness settings did not fail closed to bypass."
 	}
+	if ($fastHash -eq $disabledHash) {
+		throw "Fast-engine loudness correction produced the same output as the disabled filter."
+	}
+	if ($fastInvalidHash -ne $disabledHash) {
+		throw "Unknown Engine setting did not fail closed to bypass."
+	}
 	if (($enabledLog -join "`n") -match "samples clipped") {
 		throw "The enabled loudness-correction benchmark clipped samples:`n$($enabledLog -join [Environment]::NewLine)"
+	}
+	if (($fastLog -join "`n") -match "samples clipped") {
+		throw "The fast-engine loudness-correction benchmark clipped samples:`n$($fastLog -join [Environment]::NewLine)"
 	}
 
 	# Windows PowerShell promotes redirected native stderr records according to

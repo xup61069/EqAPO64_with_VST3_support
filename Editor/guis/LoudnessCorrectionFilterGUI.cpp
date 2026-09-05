@@ -39,6 +39,7 @@ LoudnessCorrectionFilterGUI::LoudnessCorrectionFilterGUI(
 	LoudnessCorrectionFilter::FilterParameters::BindingMode binding,
 	bool useManualVolume,
 	double manualVolume,
+	LoudnessCorrectionFilter::FilterParameters::EngineMode engine,
 	const std::wstring& endpointIdentifier,
 	bool selectedEndpointIsRender)
 	: IFilterGUI(),
@@ -93,6 +94,10 @@ LoudnessCorrectionFilterGUI::LoudnessCorrectionFilterGUI(
 	ui->bindingComboBox->setCurrentIndex(
 		binding == LoudnessCorrectionFilter::FilterParameters::BINDING_ALL ? 1 : 0);
 	ui->bindingComboBox->blockSignals(bindingBlocked);
+	bool engineBlocked = ui->fastEngineCheckBox->blockSignals(true);
+	ui->fastEngineCheckBox->setChecked(
+		engine == LoudnessCorrectionFilter::FilterParameters::ENGINE_FAST);
+	ui->fastEngineCheckBox->blockSignals(engineBlocked);
 	refreshVolumeController();
 	updateAutomaticVolumeUi();
 
@@ -140,6 +145,9 @@ void LoudnessCorrectionFilterGUI::store(QString& command, QString& parameters)
 	if (ui->manualVolumeCheckBox->isChecked())
 		parameters += QString(" Volume %0").arg(
 			ui->volumeSpinBox->value(), 0, 'f', 1);
+
+	if (ui->fastEngineCheckBox->isChecked())
+		parameters += QString(" Engine Fast");
 }
 
 LoudnessCorrectionFilter::FilterParameters::BindingMode
@@ -316,6 +324,12 @@ void LoudnessCorrectionFilterGUI::on_volumeSpinBox_valueChanged(double value)
 		lastVolume = value;
 		emit updateModel();
 	}
+}
+
+void LoudnessCorrectionFilterGUI::on_fastEngineCheckBox_toggled(bool checked)
+{
+	(void)checked;
+	emit updateModel();
 }
 
 void LoudnessCorrectionFilterGUI::on_studioButton_clicked()

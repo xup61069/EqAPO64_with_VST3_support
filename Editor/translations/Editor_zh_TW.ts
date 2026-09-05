@@ -1573,6 +1573,16 @@ Alexander Walch</source>
         <source>Calibration not applied</source>
         <translation>未套用校正</translation>
     </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="361"/>
+        <source>Experimental fast engine:</source>
+        <translation>實驗性快速引擎：</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="360"/>
+        <source>Experimental two-filter approximation. Uses less CPU but may differ noticeably from Full, especially at very low listening levels.</source>
+        <translation>實驗性的雙濾波器近似。CPU 用量較低，但與完整引擎可能有明顯差異，聆聽音量很低時尤其如此。</translation>
+    </message>
 </context>
 <context>
     <name>LoudnessCorrectionFilterGUIDialog</name>
