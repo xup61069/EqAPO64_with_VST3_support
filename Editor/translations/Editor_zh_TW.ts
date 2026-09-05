@@ -1573,6 +1573,16 @@ Alexander Walch</source>
         <source>Calibration not applied</source>
         <translation>未套用校正</translation>
     </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="361"/>
+        <source>Fast engine:</source>
+        <translation>快速引擎：</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="360"/>
+        <source>Fast engine fits a shelving plus peaking pair to the full correction curve. Same volume tracking, much faster initialization.</source>
+        <translation>快速引擎以擱架加峰值兩段擬合完整校正曲線，音量追蹤相同，初始化快得多。</translation>
+    </message>
 </context>
 <context>
     <name>LoudnessCorrectionFilterGUIDialog</name>

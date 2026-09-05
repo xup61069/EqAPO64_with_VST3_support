@@ -662,6 +662,64 @@ namespace
 		passed = checkCase("duplicate-binding-fails-closed",
 			!duplicateBinding.isInitialized()) && passed;
 
+		LoudnessCorrectionFilter::FilterParameters fastEngine(std::wstring(
+			L"Schema 1 Model FormulaLoudnessV1 Binding Single State 1 "
+			L"ReferenceLevel 80 ReferenceOffset 0 Attenuation 1 Engine Fast"));
+		passed = checkCase("fast-engine-parses",
+			fastEngine.isInitialized() &&
+			fastEngine.engine ==
+				LoudnessCorrectionFilter::FilterParameters::ENGINE_FAST) && passed;
+
+		LoudnessCorrectionFilter::FilterParameters defaultEngine(std::wstring(
+			L"Schema 1 Model FormulaLoudnessV1 Binding Single State 1 "
+			L"ReferenceLevel 80 ReferenceOffset 0 Attenuation 1"));
+		passed = checkCase("absent-engine-defaults-to-full",
+			defaultEngine.isInitialized() &&
+			defaultEngine.engine ==
+				LoudnessCorrectionFilter::FilterParameters::ENGINE_FULL) && passed;
+
+		LoudnessCorrectionFilter::FilterParameters explicitFull(std::wstring(
+			L"Schema 1 Model FormulaLoudnessV1 Binding Single State 1 "
+			L"ReferenceLevel 80 ReferenceOffset 0 Attenuation 1 Engine Full"));
+		passed = checkCase("explicit-full-engine-parses",
+			explicitFull.isInitialized() &&
+			explicitFull.engine ==
+				LoudnessCorrectionFilter::FilterParameters::ENGINE_FULL) && passed;
+
+		LoudnessCorrectionFilter::FilterParameters invalidEngine(std::wstring(
+			L"Schema 1 Model FormulaLoudnessV1 Binding Single State 1 "
+			L"ReferenceLevel 80 ReferenceOffset 0 Attenuation 1 Engine Turbo"));
+		LoudnessCorrectionFilter::FilterParameters duplicateEngine(std::wstring(
+			L"Schema 1 Model FormulaLoudnessV1 Binding Single State 1 "
+			L"ReferenceLevel 80 ReferenceOffset 0 Attenuation 1 Engine Fast Engine Full"));
+		passed = checkCase("invalid-engine-fails-closed",
+			!invalidEngine.isInitialized()) && passed;
+		passed = checkCase("duplicate-engine-fails-closed",
+			!duplicateEngine.isInitialized()) && passed;
+
+		// The default full engine omits the key so older profiles keep
+		// their exact text; the fast engine round-trips explicitly.
+		LoudnessCorrectionFilter::FilterParameters fastSource;
+		fastSource.state = true;
+		fastSource.referenceLevel = 80.0f;
+		fastSource.referenceOffset = 0.0f;
+		fastSource.attenuation = 1.0f;
+		fastSource.useManualVolume = false;
+		fastSource.binding = LoudnessCorrectionFilter::FilterParameters::BINDING_SINGLE;
+		fastSource.engine = LoudnessCorrectionFilter::FilterParameters::ENGINE_FAST;
+		std::vector<char> fastSerialized = fastSource.serialize();
+		std::string fastText(fastSerialized.begin(), fastSerialized.end());
+		LoudnessCorrectionFilter::FilterParameters fastRoundTrip(fastSerialized);
+		passed = checkCase("fast-engine-round-trip",
+			fastText.find("Engine Fast") != std::string::npos &&
+			fastRoundTrip.isInitialized() &&
+			fastRoundTrip.engine ==
+				LoudnessCorrectionFilter::FilterParameters::ENGINE_FAST) && passed;
+		std::vector<char> fullSerialized = source.serialize();
+		std::string fullText(fullSerialized.begin(), fullSerialized.end());
+		passed = checkCase("full-engine-omits-key",
+			fullText.find("Engine") == std::string::npos) && passed;
+
 		printf("Loudness parameter codec: %s\n", passed ? "passed" : "failed");
 		return passed;
 	}
