@@ -1575,13 +1575,13 @@ Alexander Walch</source>
     </message>
     <message>
         <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="361"/>
-        <source>Fast engine:</source>
-        <translation>快速引擎：</translation>
+        <source>Experimental fast engine:</source>
+        <translation>實驗性快速引擎：</translation>
     </message>
     <message>
         <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="360"/>
-        <source>Fast engine fits a shelving plus peaking pair to the full correction curve. Same volume tracking, much faster initialization.</source>
-        <translation>快速引擎以擱架加峰值兩段擬合完整校正曲線，音量追蹤相同，初始化快得多。</translation>
+        <source>Experimental two-filter approximation. Uses less CPU but may differ noticeably from Full, especially at very low listening levels.</source>
+        <translation>實驗性的雙濾波器近似。CPU 用量較低，但與完整引擎可能有明顯差異，聆聽音量很低時尤其如此。</translation>
     </message>
 </context>
 <context>

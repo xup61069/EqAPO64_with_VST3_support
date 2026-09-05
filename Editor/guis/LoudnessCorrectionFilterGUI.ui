@@ -358,10 +358,10 @@
      <item row="2" column="0" colspan="2">
       <widget class="QCheckBox" name="fastEngineCheckBox">
        <property name="toolTip">
-        <string>Fast engine fits a shelving plus peaking pair to the full correction curve. Same volume tracking, much faster initialization.</string>
+        <string>Experimental two-filter approximation. Uses less CPU but may differ noticeably from Full, especially at very low listening levels.</string>
        </property>
        <property name="text">
-        <string>Fast engine:</string>
+        <string>Experimental fast engine:</string>
        </property>
       </widget>
      </item>
