@@ -40,6 +40,8 @@ struct AnalysisVolumeSnapshot
 	QString requestedEndpointId;
 	QString resolvedEndpointId;
 	double volumeDb = 0.0;
+	double volumeScalar = 1.0;
+	bool muted = false;
 	bool available = false;
 };
 

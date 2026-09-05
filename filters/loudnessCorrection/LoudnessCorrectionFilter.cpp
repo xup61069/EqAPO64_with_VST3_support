@@ -25,6 +25,8 @@ LoudnessCorrectionFilter::LoudnessCorrectionFilter(const FilterParameters& fPara
 	  _runtimeContext(),
 	  _hasInitialAutomaticVolume(false),
 	  _initialAutomaticVolume(0.0),
+	  _initialAutomaticVolumeScalar(1.0),
+	  _initialAutomaticMuted(false),
 	  _runtimeBypass(false),
 	  _recoveryPending(false),
 	  _channelCount(0),
@@ -63,6 +65,13 @@ LoudnessCorrectionFilter::LoudnessCorrectionFilter(const FilterParameters& fPara
 	  _outputGainLinear(1.0),
 	  _targetOutputGainLinear(1.0),
 	  _pendingOutputGainLinear(1.0),
+	  _volumeFollowGainLinear(1.0),
+	  _targetVolumeFollowGainLinear(1.0),
+	  _volumeFollowStepPerSample(0.0),
+	  _pendingVolumeFollowGainLinear(1.0),
+	  _volumeFollowRampRemaining(0),
+	  _volumeFollowRampLength(480),
+	  _volumeFollowUpdated(false),
 	  _coeffsUpdated(false)
 {
 	InitializeCriticalSection(&_parameterUpdateSection);
@@ -139,6 +148,8 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 	_recoveryPending.store(false, std::memory_order_relaxed);
 	_hasInitialAutomaticVolume = false;
 	_initialAutomaticVolume = 0.0;
+	_initialAutomaticVolumeScalar = 1.0;
+	_initialAutomaticMuted = false;
 	_channelCount = channelNames.size();
 	_activeBandCount = 0;
 	_maximumFrameCount = maxFrameCount;
@@ -174,6 +185,12 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 	_bankIdentity[0] = false;
 	_bankIdentity[1] = false;
 	_pendingIdentity = false;
+	_volumeFollowGainLinear = 1.0;
+	_targetVolumeFollowGainLinear = 1.0;
+	_volumeFollowStepPerSample = 0.0;
+	_pendingVolumeFollowGainLinear = 1.0;
+	_volumeFollowRampRemaining = 0;
+	_volumeFollowUpdated.store(false, std::memory_order_relaxed);
 	_coeffsUpdated.store(false, std::memory_order_relaxed);
 	_sampleRate = std::isfinite(sampleRate) && sampleRate >= 8000.0f ? sampleRate : 48000.0f;
 	_crossoverPrewarmLength = (std::max)(1u, static_cast<unsigned>(
@@ -184,6 +201,8 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 		std::lround(_sampleRate * COEFFICIENT_CROSSFADE_SECONDS)));
 	_bypassFadeLength = (std::max)(1u, static_cast<unsigned>(
 		std::lround(_sampleRate * BYPASS_FADE_SECONDS)));
+	_volumeFollowRampLength = (std::max)(1u, static_cast<unsigned>(
+		std::lround(_sampleRate * VOLUME_FOLLOW_RAMP_SECONDS)));
 	for (size_t section = 0; section < CROSSOVER_SECTION_COUNT; ++section)
 	{
 		computeCrossoverCoeffs(false, section, _lowpassCoeffs[section]);
@@ -284,9 +303,12 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 		computeResponseInverse();
 
 	double initialVolume = 0.0;
+	double initialVolumeScalar = 1.0;
+	bool initialMuted = false;
 	if (_parameters.state && _parameters.useManualVolume)
 	{
 		initialVolume = _parameters.manualVolume;
+		initialVolumeScalar = (initialVolume + 100.0) / 100.0;
 	}
 	else if (_parameters.state)
 	{
@@ -300,18 +322,30 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 				_runtimeContext.volumeObservations->push_back(observation);
 			}
 			_runtimeBypass.store(true, std::memory_order_relaxed);
-			LogF(L"LoudnessCorrection automatic volume mode is unavailable for this binding; filter is bypassed. Use manual volume mode.");
+			if (_parameters.volumeFollow == FilterParameters::VOLUME_FOLLOW_OFF)
+				LogF(L"LoudnessCorrection automatic volume mode is unavailable for this binding; filter is bypassed. Use manual volume mode.");
+			else
+				LogF(L"LoudnessCorrection automatic volume mode is unavailable for this binding; correction is bypassed and APO volume follow stays muted. Use manual volume mode.");
 		}
 		else
 		{
 			VolumeController volumeController(getVolumeControllerEndpointId());
-			const HRESULT volumeResult = volumeController.getVolume(initialVolume);
+			EndpointVolumeState volumeState;
+			const HRESULT volumeResult = volumeController.getVolumeState(volumeState);
+			if (SUCCEEDED(volumeResult))
+			{
+				initialVolume = volumeState.levelDb;
+				initialVolumeScalar = volumeState.scalar;
+				initialMuted = volumeState.muted;
+			}
 			if (_runtimeContext.volumeObservations != nullptr)
 			{
 				FilterRuntimeVolumeObservation observation;
 				observation.requestedEndpointId = getVolumeControllerEndpointId();
 				observation.resolvedEndpointId = volumeController.getEndpointId();
 				observation.volumeDb = initialVolume;
+				observation.volumeScalar = initialVolumeScalar;
+				observation.muted = initialMuted;
 				observation.available = SUCCEEDED(volumeResult);
 				_runtimeContext.volumeObservations->push_back(observation);
 			}
@@ -319,15 +353,41 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 			{
 				_runtimeBypass.store(true, std::memory_order_relaxed);
 				initialVolume = 0.0;
-				LogF(L"LoudnessCorrection could not read the configured endpoint volume; filter is bypassed until the endpoint recovers.");
+				if (_parameters.volumeFollow == FilterParameters::VOLUME_FOLLOW_OFF)
+					LogF(L"LoudnessCorrection could not read the configured endpoint volume; filter is bypassed until the endpoint recovers.");
+				else
+					LogF(L"LoudnessCorrection could not read the configured endpoint volume; correction is bypassed and APO volume follow stays muted until the endpoint recovers.");
 			}
 			else
 			{
 				_hasInitialAutomaticVolume = true;
 				_initialAutomaticVolume = initialVolume;
+				_initialAutomaticVolumeScalar = initialVolumeScalar;
+				_initialAutomaticMuted = initialMuted;
 			}
 		}
 	}
+
+	// Install the synchronous snapshot directly. Configuration changes already
+	// crossfade whole filter instances, so beginning at unity here would create
+	// an avoidable full-volume burst before the polling thread's first update.
+	// If an enabled automatic source has never yielded a valid snapshot, fail
+	// closed to silence: this mode is explicitly used when the endpoint itself
+	// does not attenuate the actual audio route.
+	if (_parameters.state &&
+		_parameters.volumeFollow != FilterParameters::VOLUME_FOLLOW_OFF)
+	{
+		if (!_parameters.useManualVolume && !_hasInitialAutomaticVolume)
+			_volumeFollowGainLinear = 0.0;
+		else
+			_volumeFollowGainLinear = calculateVolumeFollowGain(
+				_parameters.volumeFollow,
+				initialVolume,
+				initialVolumeScalar,
+				initialMuted);
+	}
+	_targetVolumeFollowGainLinear = _volumeFollowGainLinear;
+	_pendingVolumeFollowGainLinear = _volumeFollowGainLinear;
 
 	std::vector<double> gains;
 	if (_parameters.engine == FilterParameters::ENGINE_FAST)
@@ -415,13 +475,13 @@ std::vector<std::wstring> LoudnessCorrectionFilter::initialize(
 				CloseHandle(_stopParameterUpdateThreadEvent);
 				_stopParameterUpdateThreadEvent = NULL;
 				_runtimeBypass.store(true, std::memory_order_relaxed);
-				LogF(L"LoudnessCorrection could not start endpoint-volume tracking; filter is bypassed.");
+				LogF(L"LoudnessCorrection could not start endpoint-volume tracking; correction is bypassed and any initial APO volume-follow gain is held.");
 			}
 		}
 		else
 		{
 			_runtimeBypass.store(true, std::memory_order_relaxed);
-			LogF(L"LoudnessCorrection could not create the endpoint-volume tracking event; filter is bypassed.");
+			LogF(L"LoudnessCorrection could not create the endpoint-volume tracking event; correction is bypassed and any initial APO volume-follow gain is held.");
 		}
 	}
 
@@ -615,11 +675,12 @@ double LoudnessCorrectionFilter::calculateHeadroomGain(
 
 	double maximumResponse = findMaximumResponseDb(gains, 1.0, false);
 	double outputGainLinear = maximumResponse <= 0.0 ? 1.0 :
-		std::pow(10.0, -(maximumResponse + HEADROOM_MARGIN_DB) / 20.0);
+		std::pow(10.0, -maximumResponse / 20.0);
 
 	// The audible transfer is the complex sum L + H*C, not merely the
 	// correction cascade C. LR28 gives L and H matching phase with
-	// |L| + |H| = 1, while the correction branch retains the 1 dB margin.
+	// |L| + |H| = 1. The candidate normalizes the correction peak to 0 dB;
+	// it must not impose an extra fixed attenuation at near-neutral volumes.
 	// Scan the actual final transfer as a defense against implementation or
 	// floating-point drift. The fallback search runs only if that invariant is
 	// unexpectedly violated, and still happens off the audio callback.
@@ -894,7 +955,7 @@ double LoudnessCorrectionFilter::calculateFastHeadroomGain(
 	// A-domain transfer is still verified exactly as on the full path.
 	double maximumResponse = findFastMaximumResponseDb(gains, 1.0, false);
 	double outputGainLinear = maximumResponse <= 0.0 ? 1.0 :
-		std::pow(10.0, -(maximumResponse + HEADROOM_MARGIN_DB) / 20.0);
+		std::pow(10.0, -maximumResponse / 20.0);
 
 	if (findFastMaximumResponseDb(gains, outputGainLinear, true) <=
 		FINAL_RESPONSE_NUMERICAL_TOLERANCE_DB)
@@ -1015,6 +1076,70 @@ void LoudnessCorrectionFilter::publishVolumeUpdate(
 	double currentVolumeDb,
 	std::vector<double>& scratchGains)
 {
+	double clampedVolumeDb = std::isfinite(currentVolumeDb) ?
+		(std::max)(-100.0, (std::min)(0.0, currentVolumeDb)) : 0.0;
+	double derivedScalar = (clampedVolumeDb + 100.0) / 100.0;
+	publishVolumeUpdate(
+		clampedVolumeDb,
+		derivedScalar,
+		false,
+		scratchGains);
+}
+
+double LoudnessCorrectionFilter::calculateVolumeFollowGain(
+	FilterParameters::VolumeFollowMode mode,
+	double currentVolumeDb,
+	double currentVolumeScalar,
+	bool muted)
+{
+	if (mode == FilterParameters::VOLUME_FOLLOW_OFF)
+		return 1.0;
+	if (muted)
+		return 0.0;
+
+	const double minimumGain = 1.0e-5; // -100 dB, exact zero is reserved for mute.
+	double levelDb = std::isfinite(currentVolumeDb) ? currentVolumeDb : 0.0;
+	levelDb = (std::max)(-100.0, (std::min)(0.0, levelDb));
+	double scalar = std::isfinite(currentVolumeScalar) ?
+		currentVolumeScalar : (levelDb + 100.0) / 100.0;
+	scalar = (std::max)(0.0, (std::min)(1.0, scalar));
+
+	switch (mode)
+	{
+	case FilterParameters::VOLUME_FOLLOW_LINEAR:
+		return (std::max)(minimumGain, scalar);
+	case FilterParameters::VOLUME_FOLLOW_LOGARITHMIC:
+		return (std::max)(minimumGain, scalar * scalar);
+	case FilterParameters::VOLUME_FOLLOW_WINDOWS:
+		return std::pow(10.0, levelDb / 20.0);
+	case FilterParameters::VOLUME_FOLLOW_OFF:
+	default:
+		return 1.0;
+	}
+}
+
+void LoudnessCorrectionFilter::publishVolumeFollowUpdate(
+	double currentVolumeDb,
+	double currentVolumeScalar,
+	bool muted)
+{
+	const double followGain = calculateVolumeFollowGain(
+		_parameters.volumeFollow,
+		currentVolumeDb,
+		currentVolumeScalar,
+		muted);
+	EnterCriticalSection(&_parameterUpdateSection);
+	_pendingVolumeFollowGainLinear = followGain;
+	_volumeFollowUpdated.store(true, std::memory_order_release);
+	LeaveCriticalSection(&_parameterUpdateSection);
+}
+
+void LoudnessCorrectionFilter::publishVolumeUpdate(
+	double currentVolumeDb,
+	double currentVolumeScalar,
+	bool muted,
+	std::vector<double>& scratchGains)
+{
 	double outputGainLinear = 1.0;
 	if (_parameters.engine == FilterParameters::ENGINE_FAST)
 		calculateFastShelfGains(currentVolumeDb, scratchGains, outputGainLinear);
@@ -1029,6 +1154,12 @@ void LoudnessCorrectionFilter::publishVolumeUpdate(
 		computeBandCoeffs(band, scratchGains[band], _pendingCoeffs[band]);
 	_pendingOutputGainLinear = outputGainLinear;
 	_pendingIdentity = identity;
+	_pendingVolumeFollowGainLinear = calculateVolumeFollowGain(
+		_parameters.volumeFollow,
+		currentVolumeDb,
+		currentVolumeScalar,
+		muted);
+	_volumeFollowUpdated.store(true, std::memory_order_release);
 	_coeffsUpdated.store(true, std::memory_order_release);
 	LeaveCriticalSection(&_parameterUpdateSection);
 }
@@ -1313,11 +1444,18 @@ unsigned long __stdcall LoudnessCorrectionFilter::parameterUpdateThread(void* pa
 {
 	LoudnessCorrectionFilter* self = static_cast<LoudnessCorrectionFilter*>(parameter);
 	VolumeController volumeController(self->getVolumeControllerEndpointId());
-	double lastVolume = self->_hasInitialAutomaticVolume ?
+	double lastCorrectionVolume = self->_hasInitialAutomaticVolume ?
 		self->_initialAutomaticVolume :
 		std::numeric_limits<double>::quiet_NaN();
+	double lastFollowVolume = lastCorrectionVolume;
+	double lastVolumeScalar = self->_hasInitialAutomaticVolume ?
+		self->_initialAutomaticVolumeScalar :
+		std::numeric_limits<double>::quiet_NaN();
+	bool lastMuted = self->_initialAutomaticMuted;
 	ULONGLONG lastReadTime = 0;
 	std::vector<double> gains;
+	const bool correctionEnabled =
+		self->_parameters.attenuation > 0.0f && self->_activeBandCount > 0;
 
 	while (WaitForSingleObject(
 		self->_stopParameterUpdateThreadEvent,
@@ -1331,42 +1469,176 @@ unsigned long __stdcall LoudnessCorrectionFilter::parameterUpdateThread(void* pa
 			continue;
 
 		lastReadTime = now;
-		double currentVolume = 0.0;
-		if (FAILED(volumeController.getVolume(currentVolume)))
+		EndpointVolumeState currentState;
+		if (FAILED(volumeController.getVolumeState(currentState)))
 		{
 			self->_recoveryPending.store(false, std::memory_order_release);
 			self->_runtimeBypass.store(true, std::memory_order_release);
+			// Volume follow is the safety-critical realization of the user's
+			// requested attenuation. Keep its last known gain while only the
+			// contour-correction branch fades to identity.
 			continue;
 		}
 
 		bool recovering = self->_runtimeBypass.load(std::memory_order_acquire);
-		if (!recovering && std::isfinite(lastVolume) &&
-			std::abs(currentVolume - lastVolume) <= 0.05)
+		const bool correctionVolumeChanged =
+			!std::isfinite(lastCorrectionVolume) ||
+			std::abs(currentState.levelDb - lastCorrectionVolume) > 0.05;
+		const bool followStateChanged = !std::isfinite(lastVolumeScalar) ||
+			!std::isfinite(lastFollowVolume) ||
+			std::abs(currentState.levelDb - lastFollowVolume) > 1.0e-6 ||
+			std::abs(currentState.scalar - lastVolumeScalar) > 1.0e-6 ||
+			currentState.muted != lastMuted || correctionVolumeChanged;
+		if (!recovering && !correctionVolumeChanged && !followStateChanged)
 			continue;
 
-		self->publishVolumeUpdate(currentVolume, gains);
+		if (correctionEnabled && (recovering || correctionVolumeChanged))
+		{
+			self->publishVolumeUpdate(
+				currentState.levelDb,
+				currentState.scalar,
+				currentState.muted,
+				gains);
+		}
+		else
+		{
+			// A mute or scalar-only notification changes only the final wideband
+			// gain. With no correction branch, every endpoint update does too.
+			// Avoid needless coefficient publication and 350 ms bank warmup.
+			self->publishVolumeFollowUpdate(
+				currentState.levelDb,
+				currentState.scalar,
+				currentState.muted);
+		}
+		if (correctionVolumeChanged)
+			lastCorrectionVolume = currentState.levelDb;
 		if (recovering)
 		{
-			// Keep bypass asserted until the audio thread has installed the
-			// recovered coefficients. It will warm the new bank silently and
-			// crossfade from the common magnitude-unity A = L + H domain.
+			// Keep bypass asserted until the audio thread consumes this recovery.
+			// With correction enabled, it installs the recovered coefficients and
+			// lets them crossfade from the common magnitude-unity A = L + H domain;
+			// without a correction branch, consuming the follow target is sufficient.
 			self->_recoveryPending.store(true, std::memory_order_release);
 		}
-		lastVolume = currentVolume;
+		lastFollowVolume = currentState.levelDb;
+		lastVolumeScalar = currentState.scalar;
+		lastMuted = currentState.muted;
 	}
 	return 0;
 }
 
 #pragma AVRT_CODE_BEGIN
+void LoudnessCorrectionFilter::installPendingVolumeFollow()
+{
+	if (!_volumeFollowUpdated.load(std::memory_order_acquire) ||
+		!TryEnterCriticalSection(&_parameterUpdateSection))
+	{
+		return;
+	}
+
+	_targetVolumeFollowGainLinear = _pendingVolumeFollowGainLinear;
+	const double difference =
+		_targetVolumeFollowGainLinear - _volumeFollowGainLinear;
+	if (std::abs(difference) <= 1.0e-15)
+	{
+		_volumeFollowGainLinear = _targetVolumeFollowGainLinear;
+		_volumeFollowStepPerSample = 0.0;
+		_volumeFollowRampRemaining = 0;
+	}
+	else
+	{
+		_volumeFollowStepPerSample =
+			difference / static_cast<double>(_volumeFollowRampLength);
+		_volumeFollowRampRemaining = _volumeFollowRampLength;
+	}
+	_volumeFollowUpdated.store(false, std::memory_order_release);
+	LeaveCriticalSection(&_parameterUpdateSection);
+}
+
+double LoudnessCorrectionFilter::volumeFollowGainAtFrame(unsigned frame) const
+{
+	if (_volumeFollowRampRemaining == 0)
+		return _volumeFollowGainLinear;
+	unsigned step = (std::min)(frame + 1, _volumeFollowRampRemaining);
+	return _volumeFollowGainLinear +
+		_volumeFollowStepPerSample * static_cast<double>(step);
+}
+
+void LoudnessCorrectionFilter::applyVolumeFollow(
+	double* samples,
+	unsigned frameCount) const
+{
+	if (_parameters.volumeFollow == FilterParameters::VOLUME_FOLLOW_OFF)
+		return;
+	if (_volumeFollowRampRemaining == 0)
+	{
+		if (_volumeFollowGainLinear == 1.0)
+			return;
+		for (unsigned frame = 0; frame < frameCount; ++frame)
+			samples[frame] *= _volumeFollowGainLinear;
+		return;
+	}
+	for (unsigned frame = 0; frame < frameCount; ++frame)
+		samples[frame] *= volumeFollowGainAtFrame(frame);
+}
+
+void LoudnessCorrectionFilter::advanceVolumeFollow(unsigned frameCount)
+{
+	if (_volumeFollowRampRemaining == 0 || frameCount == 0)
+		return;
+	unsigned advanced = (std::min)(frameCount, _volumeFollowRampRemaining);
+	_volumeFollowGainLinear +=
+		_volumeFollowStepPerSample * static_cast<double>(advanced);
+	_volumeFollowRampRemaining -= advanced;
+	if (_volumeFollowRampRemaining == 0)
+	{
+		_volumeFollowGainLinear = _targetVolumeFollowGainLinear;
+		_volumeFollowStepPerSample = 0.0;
+	}
+}
+
 void LoudnessCorrectionFilter::process(double** output, double** input, unsigned frameCount)
 {
-	if (!_parameters.state || _parameters.attenuation <= 0.0f ||
-		_activeBandCount == 0)
+	if (!_parameters.state)
 	{
 		for (size_t channel = 0; channel < _channelCount; ++channel)
 		{
 			for (unsigned frame = 0; frame < frameCount; ++frame)
 				output[channel][frame] = input[channel][frame];
+		}
+		return;
+	}
+
+	installPendingVolumeFollow();
+
+	const bool correctionEnabled =
+		_parameters.attenuation > 0.0f && _activeBandCount > 0;
+	if (!correctionEnabled)
+	{
+		for (size_t channel = 0; channel < _channelCount; ++channel)
+		{
+			for (unsigned frame = 0; frame < frameCount; ++frame)
+				output[channel][frame] = input[channel][frame];
+			applyVolumeFollow(output[channel], frameCount);
+		}
+		advanceVolumeFollow(frameCount);
+
+		// With no tonal-correction branch there is no bank to warm or crossfade.
+		// Still consume a successful endpoint-recovery token so the worker does
+		// not repeat a needless Full fit on every fallback poll. Preserve the
+		// same failure-wins ordering as the correction-enabled path below.
+		if (_recoveryPending.load(std::memory_order_acquire))
+		{
+			_runtimeBypass.store(false, std::memory_order_release);
+			bool expectedRecovery = true;
+			if (!_recoveryPending.compare_exchange_strong(
+				expectedRecovery,
+				false,
+				std::memory_order_acq_rel,
+				std::memory_order_acquire))
+			{
+				_runtimeBypass.store(true, std::memory_order_release);
+			}
 		}
 		return;
 	}
@@ -1557,8 +1829,11 @@ void LoudnessCorrectionFilter::process(double** output, double** input, unsigned
 				_lowpassBanks[_activeBankIndex][channel][section].removeDenormals();
 				_highpassBanks[_activeBankIndex][channel][section].removeDenormals();
 			}
+
+			applyVolumeFollow(outputChannel, frameCount);
 		}
 
+		advanceVolumeFollow(frameCount);
 		_runtimeBypassWasActive = runtimeBypass;
 		return;
 	}
@@ -1751,6 +2026,8 @@ void LoudnessCorrectionFilter::process(double** output, double** input, unsigned
 				_highpassBanks[bank][channel][section].removeDenormals();
 			}
 		}
+
+		applyVolumeFollow(outputChannel, frameCount);
 	}
 
 	if (_crossoverHandoffActive &&
@@ -1821,6 +2098,7 @@ void LoudnessCorrectionFilter::process(double** output, double** input, unsigned
 		}
 	}
 
+	advanceVolumeFollow(frameCount);
 	_runtimeBypassWasActive = runtimeBypass;
 }
 #pragma AVRT_CODE_END

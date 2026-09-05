@@ -54,6 +54,39 @@ public:
 		filter.publishVolumeUpdate(volume, scratchGains);
 	}
 
+	static void publishVolumeState(
+		LoudnessCorrectionFilter& filter,
+		double volumeDb,
+		double volumeScalar,
+		bool muted)
+	{
+		vector<double> scratchGains;
+		filter.publishVolumeUpdate(
+			volumeDb, volumeScalar, muted, scratchGains);
+	}
+
+	static double volumeFollowGain(
+		LoudnessCorrectionFilter::FilterParameters::VolumeFollowMode mode,
+		double volumeDb,
+		double volumeScalar,
+		bool muted)
+	{
+		return LoudnessCorrectionFilter::calculateVolumeFollowGain(
+			mode, volumeDb, volumeScalar, muted);
+	}
+
+	static double currentVolumeFollowGain(
+		const LoudnessCorrectionFilter& filter)
+	{
+		return filter._volumeFollowGainLinear;
+	}
+
+	static unsigned volumeFollowRampRemaining(
+		const LoudnessCorrectionFilter& filter)
+	{
+		return filter._volumeFollowRampRemaining;
+	}
+
 	static void beginRuntimeBypass(LoudnessCorrectionFilter& filter)
 	{
 		filter._recoveryPending.store(false, std::memory_order_release);
@@ -75,6 +108,23 @@ public:
 		double& outputGainLinear)
 	{
 		filter.calculateBandGains(volume, gains, outputGainLinear);
+	}
+
+	static void calculateConfiguredTransfer(
+		const LoudnessCorrectionFilter& filter,
+		double volume,
+		vector<double>& gains,
+		double& outputGainLinear)
+	{
+		if (filter._parameters.engine ==
+			LoudnessCorrectionFilter::FilterParameters::ENGINE_FAST)
+		{
+			filter.calculateFastShelfGains(volume, gains, outputGainLinear);
+		}
+		else
+		{
+			filter.calculateBandGains(volume, gains, outputGainLinear);
+		}
 	}
 
 	static double rawCorrectionResponseDb(
@@ -733,7 +783,434 @@ namespace
 		passed = checkCase("full-engine-omits-key",
 			fullText.find("Engine") == std::string::npos) && passed;
 
+		LoudnessCorrectionFilter::FilterParameters defaultFollow(std::wstring(
+			L"Schema 1 Model FormulaLoudnessV1 Binding Single State 1 "
+			L"ReferenceLevel 80 ReferenceOffset 0 Attenuation 1"));
+		passed = checkCase("absent-volume-follow-defaults-off",
+			defaultFollow.isInitialized() &&
+			defaultFollow.volumeFollow ==
+				LoudnessCorrectionFilter::FilterParameters::VOLUME_FOLLOW_OFF) && passed;
+		LoudnessCorrectionFilter::FilterParameters explicitOff(std::wstring(
+			L"Schema 1 Model FormulaLoudnessV1 Binding Single State 1 "
+			L"ReferenceLevel 80 ReferenceOffset 0 Attenuation 1 VolumeFollow Off"));
+		passed = checkCase("explicit-volume-follow-off-parses",
+			explicitOff.isInitialized() &&
+			explicitOff.volumeFollow ==
+				LoudnessCorrectionFilter::FilterParameters::VOLUME_FOLLOW_OFF) && passed;
+
+		struct FollowCodecCase
+		{
+			const wchar_t* token;
+			LoudnessCorrectionFilter::FilterParameters::VolumeFollowMode mode;
+		};
+		const FollowCodecCase followCases[] = {
+			{ L"Linear", LoudnessCorrectionFilter::FilterParameters::VOLUME_FOLLOW_LINEAR },
+			{ L"Logarithmic", LoudnessCorrectionFilter::FilterParameters::VOLUME_FOLLOW_LOGARITHMIC },
+			{ L"Windows", LoudnessCorrectionFilter::FilterParameters::VOLUME_FOLLOW_WINDOWS }
+		};
+		for (const FollowCodecCase& followCase : followCases)
+		{
+			std::wstring text =
+				L"Schema 1 Model FormulaLoudnessV1 Binding Single State 1 "
+				L"ReferenceLevel 80 ReferenceOffset 0 Attenuation 1 VolumeFollow ";
+			text += followCase.token;
+			LoudnessCorrectionFilter::FilterParameters decoded(text);
+			decoded.useManualVolume = true;
+			decoded.manualVolume = -20.0f;
+			std::vector<char> encoded = decoded.serialize();
+			std::string encodedText(encoded.begin(), encoded.end());
+			LoudnessCorrectionFilter::FilterParameters roundTripped(encoded);
+			passed = checkCase("volume-follow-round-trip",
+				decoded.isInitialized() && decoded.volumeFollow == followCase.mode &&
+				encodedText.find("VolumeFollow") != std::string::npos &&
+				roundTripped.isInitialized() &&
+				roundTripped.volumeFollow == followCase.mode) && passed;
+		}
+
+		LoudnessCorrectionFilter::FilterParameters invalidFollow(std::wstring(
+			L"Schema 1 Model FormulaLoudnessV1 Binding Single State 1 "
+			L"ReferenceLevel 80 ReferenceOffset 0 Attenuation 1 VolumeFollow Cubic"));
+		LoudnessCorrectionFilter::FilterParameters missingFollowValue(std::wstring(
+			L"Schema 1 Model FormulaLoudnessV1 Binding Single State 1 "
+			L"ReferenceLevel 80 ReferenceOffset 0 Attenuation 1 VolumeFollow"));
+		LoudnessCorrectionFilter::FilterParameters duplicateFollow(std::wstring(
+			L"Schema 1 Model FormulaLoudnessV1 Binding Single State 1 "
+			L"ReferenceLevel 80 ReferenceOffset 0 Attenuation 1 "
+			L"VolumeFollow Linear VolumeFollow Windows"));
+		passed = checkCase("invalid-volume-follow-fails-closed",
+			!invalidFollow.isInitialized()) && passed;
+		passed = checkCase("missing-volume-follow-value-fails-closed",
+			!missingFollowValue.isInitialized()) && passed;
+		passed = checkCase("duplicate-volume-follow-fails-closed",
+			!duplicateFollow.isInitialized()) && passed;
+
+		// ParameterArchive has historically ignored extension fields. Keep that
+		// forward-compatible behavior while adding the optional VolumeFollow key.
+		LoudnessCorrectionFilter::FilterParameters unknownExtension(std::wstring(
+			L"Schema 1 Model FormulaLoudnessV1 Binding Single State 1 "
+			L"ReferenceLevel 80 ReferenceOffset 0 Attenuation 1 "
+			L"VolumeFollow Linear FutureHint KeepMe"));
+		passed = checkCase("unknown-extension-field-remains-compatible",
+			unknownExtension.isInitialized() &&
+			unknownExtension.volumeFollow ==
+				LoudnessCorrectionFilter::FilterParameters::VOLUME_FOLLOW_LINEAR) && passed;
+
+		std::vector<char> offSerialized = explicitOff.serialize();
+		std::string offText(offSerialized.begin(), offSerialized.end());
+		LoudnessCorrectionFilter::FilterParameters offRoundTrip(offSerialized);
+		passed = checkCase("off-volume-follow-omits-key",
+			offText.find("VolumeFollow") == std::string::npos &&
+			offRoundTrip.isInitialized() &&
+			offRoundTrip.volumeFollow ==
+				LoudnessCorrectionFilter::FilterParameters::VOLUME_FOLLOW_OFF) && passed;
+
 		printf("Loudness parameter codec: %s\n", passed ? "passed" : "failed");
+		return passed;
+	}
+
+	bool runLoudnessVolumeFollowTests()
+	{
+		using Parameters = LoudnessCorrectionFilter::FilterParameters;
+		const double epsilon = 1.0e-12;
+		bool passed = true;
+		auto checkGain = [&](const char* name, Parameters::VolumeFollowMode mode,
+			double volumeDb, double scalar, bool muted, double expected)
+		{
+			double actual = LoudnessCorrectionFilterTestAccess::volumeFollowGain(
+				mode, volumeDb, scalar, muted);
+			bool result = std::isfinite(actual) && std::abs(actual - expected) <= epsilon;
+			if (!result)
+				fprintf(stderr, "%s: expected %.12f, got %.12f.\n",
+					name, expected, actual);
+			return result;
+		};
+
+		passed = checkGain("volume-follow-off", Parameters::VOLUME_FOLLOW_OFF,
+			-20.0, 0.5, true, 1.0) && passed;
+		passed = checkGain("volume-follow-linear", Parameters::VOLUME_FOLLOW_LINEAR,
+			-20.0, 0.5, false, 0.5) && passed;
+		passed = checkGain("volume-follow-logarithmic",
+			Parameters::VOLUME_FOLLOW_LOGARITHMIC,
+			-20.0, 0.5, false, 0.25) && passed;
+		passed = checkGain("volume-follow-windows", Parameters::VOLUME_FOLLOW_WINDOWS,
+			-20.0, 0.5, false, 0.1) && passed;
+		passed = checkGain("volume-follow-windows-uses-reported-db",
+			Parameters::VOLUME_FOLLOW_WINDOWS,
+			-6.020599913279624, 0.1, false, 0.5) && passed;
+		passed = checkGain("volume-follow-linear-mute", Parameters::VOLUME_FOLLOW_LINEAR,
+			-20.0, 0.5, true, 0.0) && passed;
+		passed = checkGain("volume-follow-logarithmic-mute",
+			Parameters::VOLUME_FOLLOW_LOGARITHMIC,
+			-20.0, 0.5, true, 0.0) && passed;
+		passed = checkGain("volume-follow-windows-mute", Parameters::VOLUME_FOLLOW_WINDOWS,
+			-20.0, 0.5, true, 0.0) && passed;
+		passed = checkGain("volume-follow-linear-cannot-amplify",
+			Parameters::VOLUME_FOLLOW_LINEAR,
+			0.0, 2.0, false, 1.0) && passed;
+		passed = checkGain("volume-follow-windows-cannot-amplify",
+			Parameters::VOLUME_FOLLOW_WINDOWS,
+			6.0, 0.5, false, 1.0) && passed;
+		passed = checkGain("volume-follow-windows-floor",
+			Parameters::VOLUME_FOLLOW_WINDOWS,
+			-200.0, 0.0, false, 1.0e-5) && passed;
+
+		const unsigned sampleRate = 48000;
+		const unsigned blockSize = 256;
+		Parameters parameters;
+		parameters.state = true;
+		parameters.attenuation = 0.0f;
+		parameters.useManualVolume = true;
+		parameters.manualVolume = -20.0f;
+		parameters.volumeFollow = Parameters::VOLUME_FOLLOW_WINDOWS;
+		LoudnessCorrectionFilter filter(parameters);
+		filter.initialize(
+			static_cast<float>(sampleRate), blockSize, vector<wstring>(1, L"C"));
+
+		double inputStorage[blockSize];
+		double outputStorage[blockSize];
+		for (unsigned frame = 0; frame < blockSize; ++frame)
+			inputStorage[frame] = frame % 2 == 0 ? 0.8 : -0.4;
+		double* inputChannels[] = { inputStorage };
+		double* outputChannels[] = { outputStorage };
+		filter.process(outputChannels, inputChannels, blockSize);
+		for (unsigned frame = 0; frame < blockSize; ++frame)
+		{
+			if (std::abs(outputStorage[frame] - inputStorage[frame] * 0.1) > epsilon)
+				passed = false;
+		}
+
+		LoudnessCorrectionFilterTestAccess::publishVolumeState(
+			filter, -6.020599913279624, 0.5, false);
+		filter.process(outputChannels, inputChannels, blockSize);
+		passed = LoudnessCorrectionFilterTestAccess::volumeFollowRampRemaining(filter) > 0 &&
+			outputStorage[0] > inputStorage[0] * 0.1 &&
+			outputStorage[0] < inputStorage[0] * 0.5 && passed;
+		for (unsigned block = 0;
+			block < 8 &&
+			LoudnessCorrectionFilterTestAccess::volumeFollowRampRemaining(filter) > 0;
+			++block)
+		{
+			filter.process(outputChannels, inputChannels, blockSize);
+		}
+		passed = std::abs(
+			LoudnessCorrectionFilterTestAccess::currentVolumeFollowGain(filter) - 0.5) <=
+			epsilon &&
+			LoudnessCorrectionFilterTestAccess::volumeFollowRampRemaining(filter) == 0 &&
+			passed;
+
+		LoudnessCorrectionFilterTestAccess::beginRuntimeBypass(filter);
+		filter.process(outputChannels, inputChannels, blockSize);
+		passed = std::abs(outputStorage[0] - inputStorage[0] * 0.5) <= epsilon && passed;
+		LoudnessCorrectionFilterTestAccess::publishRuntimeRecovery(
+			filter, -6.020599913279624);
+		filter.process(outputChannels, inputChannels, blockSize);
+		passed = !LoudnessCorrectionFilterTestAccess::runtimeBypass(filter) && passed;
+
+		LoudnessCorrectionFilterTestAccess::publishVolumeState(
+			filter, -6.020599913279624, 0.5, true);
+		// The callback must first consume the published target before remaining
+		// can become nonzero. Bound the drain so a broken ramp cannot hang CI.
+		filter.process(outputChannels, inputChannels, blockSize);
+		for (unsigned block = 0;
+			block < 8 &&
+			LoudnessCorrectionFilterTestAccess::volumeFollowRampRemaining(filter) > 0;
+			++block)
+		{
+			filter.process(outputChannels, inputChannels, blockSize);
+		}
+		filter.process(outputChannels, inputChannels, blockSize);
+		passed =
+			LoudnessCorrectionFilterTestAccess::volumeFollowRampRemaining(filter) == 0 &&
+			std::abs(outputStorage[0]) <= epsilon && passed;
+
+		// Every channel must share one ramp position. Compare out-of-place and
+		// in-place filters, then retarget halfway through a ramp and require the
+		// first new sample to continue from the callback's current gain.
+		Parameters rampParameters = parameters;
+		rampParameters.manualVolume = -20.0f;
+		LoudnessCorrectionFilter outOfPlaceFilter(rampParameters);
+		LoudnessCorrectionFilter inPlaceFilter(rampParameters);
+		vector<wstring> stereoChannels(2, L"C");
+		outOfPlaceFilter.initialize(
+			static_cast<float>(sampleRate), blockSize, stereoChannels);
+		inPlaceFilter.initialize(
+			static_cast<float>(sampleRate), blockSize, stereoChannels);
+		double stereoInput[2][blockSize];
+		double stereoOutput[2][blockSize];
+		double inPlaceStorage[2][blockSize];
+		double* stereoInputChannels[] = { stereoInput[0], stereoInput[1] };
+		double* stereoOutputChannels[] = { stereoOutput[0], stereoOutput[1] };
+		double* inPlaceChannels[] = { inPlaceStorage[0], inPlaceStorage[1] };
+		auto prepareStereoBlock = [&]()
+		{
+			for (unsigned channel = 0; channel < 2; ++channel)
+			{
+				for (unsigned frame = 0; frame < blockSize; ++frame)
+				{
+					stereoInput[channel][frame] = 1.0;
+					stereoOutput[channel][frame] = 0.0;
+					inPlaceStorage[channel][frame] = 1.0;
+				}
+			}
+		};
+		auto processStereoBlock = [&](unsigned frameCount)
+		{
+			prepareStereoBlock();
+			outOfPlaceFilter.process(
+				stereoOutputChannels, stereoInputChannels, frameCount);
+			inPlaceFilter.process(inPlaceChannels, inPlaceChannels, frameCount);
+			for (unsigned channel = 0; channel < 2; ++channel)
+			{
+				for (unsigned frame = 0; frame < frameCount; ++frame)
+				{
+					passed = std::abs(
+						stereoOutput[channel][frame] -
+						inPlaceStorage[channel][frame]) <= epsilon && passed;
+					passed = std::abs(
+						stereoOutput[channel][frame] -
+						stereoOutput[0][frame]) <= epsilon && passed;
+				}
+			}
+		};
+		processStereoBlock(blockSize);
+		passed = std::abs(stereoOutput[0][0] - 0.1) <= epsilon && passed;
+
+		const double firstTargetDb = -6.020599913279624;
+		LoudnessCorrectionFilterTestAccess::publishVolumeState(
+			outOfPlaceFilter, firstTargetDb, 0.5, false);
+		LoudnessCorrectionFilterTestAccess::publishVolumeState(
+			inPlaceFilter, firstTargetDb, 0.5, false);
+		const unsigned partialRampFrames = 128;
+		processStereoBlock(partialRampFrames);
+		double currentBeforeRetarget =
+			LoudnessCorrectionFilterTestAccess::currentVolumeFollowGain(
+				outOfPlaceFilter);
+		double lastBeforeRetarget = stereoOutput[0][partialRampFrames - 1];
+		const double oldStepBound = std::abs(0.5 - 0.1) / 480.0 + epsilon;
+		passed = std::abs(lastBeforeRetarget - currentBeforeRetarget) <=
+			oldStepBound && passed;
+
+		const double retargetGain = 0.05;
+		const double retargetDb = 20.0 * std::log10(retargetGain);
+		LoudnessCorrectionFilterTestAccess::publishVolumeState(
+			outOfPlaceFilter, retargetDb, retargetGain, false);
+		LoudnessCorrectionFilterTestAccess::publishVolumeState(
+			inPlaceFilter, retargetDb, retargetGain, false);
+		processStereoBlock(64);
+		const double retargetStepBound =
+			std::abs(currentBeforeRetarget - retargetGain) / 480.0 + epsilon;
+		passed = std::abs(stereoOutput[0][0] - currentBeforeRetarget) <=
+			retargetStepBound &&
+			stereoOutput[0][0] <= currentBeforeRetarget + epsilon &&
+			stereoOutput[0][0] >= retargetGain - epsilon && passed;
+
+		// Keep volume follow as a final wideband stage while active Full/Fast
+		// correction crosses raw -> common A, warms, fades, and reaches the
+		// settled block path. Use in-place processing on the followed side so
+		// this also guards its post-gain ordering.
+		for (Parameters::EngineMode engine : {
+			Parameters::ENGINE_FULL, Parameters::ENGINE_FAST })
+		{
+			Parameters baselineParameters = parameters;
+			baselineParameters.attenuation = 1.0f;
+			baselineParameters.engine = engine;
+			baselineParameters.volumeFollow = Parameters::VOLUME_FOLLOW_OFF;
+			Parameters followedParameters = baselineParameters;
+			followedParameters.volumeFollow = Parameters::VOLUME_FOLLOW_WINDOWS;
+
+			LoudnessCorrectionFilter baselineFilter(baselineParameters);
+			LoudnessCorrectionFilter followedFilter(followedParameters);
+			baselineFilter.initialize(
+				static_cast<float>(sampleRate), blockSize, stereoChannels);
+			followedFilter.initialize(
+				static_cast<float>(sampleRate), blockSize, stereoChannels);
+
+			double baselineInput[2][blockSize];
+			double baselineOutput[2][blockSize];
+			double followedInPlace[2][blockSize];
+			double* baselineInputChannels[] = {
+				baselineInput[0], baselineInput[1] };
+			double* baselineOutputChannels[] = {
+				baselineOutput[0], baselineOutput[1] };
+			double* followedInPlaceChannels[] = {
+				followedInPlace[0], followedInPlace[1] };
+			bool activeCorrectionPassed = true;
+			const unsigned blockCount = 768;
+			for (unsigned block = 0; block < blockCount; ++block)
+			{
+				for (unsigned channel = 0; channel < 2; ++channel)
+				{
+					for (unsigned frame = 0; frame < blockSize; ++frame)
+					{
+						const double phase = 2.0 * 3.14159265358979323846 *
+							(997.0 + channel * 151.0) *
+							static_cast<double>(block * blockSize + frame) /
+							static_cast<double>(sampleRate);
+						const double sample = 0.6 * std::sin(phase);
+						baselineInput[channel][frame] = sample;
+						followedInPlace[channel][frame] = sample;
+					}
+				}
+
+				baselineFilter.process(
+					baselineOutputChannels, baselineInputChannels, blockSize);
+				followedFilter.process(
+					followedInPlaceChannels, followedInPlaceChannels, blockSize);
+				for (unsigned channel = 0; channel < 2; ++channel)
+				{
+					for (unsigned frame = 0; frame < blockSize; ++frame)
+					{
+						activeCorrectionPassed = std::abs(
+							followedInPlace[channel][frame] -
+							baselineOutput[channel][frame] * 0.1) <= 1.0e-10 &&
+							activeCorrectionPassed;
+					}
+				}
+			}
+			activeCorrectionPassed =
+				LoudnessCorrectionFilterTestAccess::settledOnNonIdentityBank(
+					baselineFilter) &&
+				LoudnessCorrectionFilterTestAccess::settledOnNonIdentityBank(
+					followedFilter) &&
+				activeCorrectionPassed;
+			if (!activeCorrectionPassed)
+				fprintf(stderr, "volume-follow-active-correction-post-gain failed.\n");
+			passed = activeCorrectionPassed && passed;
+		}
+
+		// Automatic Single binding without endpoint identity cannot provide a
+		// trustworthy first snapshot. An enabled APO-owned follow mode must stay
+		// silent instead of leaking a full-volume startup block.
+		Parameters unavailableParameters = parameters;
+		unavailableParameters.useManualVolume = false;
+		unavailableParameters.binding = Parameters::BINDING_SINGLE;
+		LoudnessCorrectionFilter unavailableFilter(unavailableParameters);
+		unavailableFilter.initialize(
+			static_cast<float>(sampleRate), blockSize, vector<wstring>(1, L"C"));
+		unavailableFilter.process(outputChannels, inputChannels, blockSize);
+		passed = std::abs(
+			LoudnessCorrectionFilterTestAccess::currentVolumeFollowGain(
+				unavailableFilter)) <= epsilon && passed;
+		for (unsigned frame = 0; frame < blockSize; ++frame)
+			passed = std::abs(outputStorage[frame]) <= epsilon && passed;
+
+		Parameters disabled = parameters;
+		disabled.state = false;
+		LoudnessCorrectionFilter disabledFilter(disabled);
+		disabledFilter.initialize(
+			static_cast<float>(sampleRate), blockSize, vector<wstring>(1, L"C"));
+		disabledFilter.process(outputChannels, inputChannels, blockSize);
+		for (unsigned frame = 0; frame < blockSize; ++frame)
+			passed = outputStorage[frame] == inputStorage[frame] && passed;
+
+		printf("Loudness APO volume follow: %s\n", passed ? "passed" : "failed");
+		return passed;
+	}
+
+	bool runLoudnessNearZeroHeadroomTests()
+	{
+		using Parameters = LoudnessCorrectionFilter::FilterParameters;
+		bool passed = true;
+		for (Parameters::EngineMode engine : {
+			Parameters::ENGINE_FULL, Parameters::ENGINE_FAST })
+		{
+			Parameters parameters;
+			parameters.state = true;
+			parameters.referenceLevel = 80.0f;
+			parameters.referenceOffset = 0.0f;
+			parameters.attenuation = 1.0f;
+			parameters.useManualVolume = true;
+			parameters.manualVolume = -0.001f;
+			parameters.engine = engine;
+
+			LoudnessCorrectionFilter filter(parameters);
+			filter.initialize(48000.0f, 256, vector<wstring>(1, L"C"));
+			vector<double> gains;
+			double nearZeroOutputGain = 1.0;
+			LoudnessCorrectionFilterTestAccess::calculateConfiguredTransfer(
+				filter, -0.001, gains, nearZeroOutputGain);
+			const double nearZeroLossDb = 20.0 * std::log10(
+				(std::max)(nearZeroOutputGain, 1.0e-15));
+
+			double zeroOutputGain = 1.0;
+			LoudnessCorrectionFilterTestAccess::calculateConfiguredTransfer(
+				filter, 0.0, gains, zeroOutputGain);
+			bool zeroIdentity = std::abs(zeroOutputGain - 1.0) <= 1.0e-12;
+			for (double gain : gains)
+				zeroIdentity = zeroIdentity && std::abs(gain) <= 1.0e-12;
+
+			const bool enginePassed =
+				std::isfinite(nearZeroOutputGain) &&
+				nearZeroOutputGain <= 1.0 &&
+				nearZeroLossDb > -0.01 &&
+				zeroIdentity;
+			printf(
+				"Loudness %s near-zero headroom: %.9f dB, %s\n",
+				engine == Parameters::ENGINE_FAST ? "Fast" : "Full",
+				nearZeroLossDb,
+				enginePassed ? "passed" : "failed");
+			passed = enginePassed && passed;
+		}
 		return passed;
 	}
 
@@ -1000,8 +1477,10 @@ namespace
 		double rawMaximumResponse =
 			LoudnessCorrectionFilterTestAccess::maximumRawCorrectionResponseDb(
 				filter, gains);
+		// Peak normalization must not add a fixed audible loss. The complete
+		// L + H*C verification below can still reduce this candidate if needed.
 		double expectedOutputGain = rawMaximumResponse <= 0.0 ? 1.0 :
-			std::pow(10.0, -(rawMaximumResponse + 1.0) / 20.0);
+			std::pow(10.0, -rawMaximumResponse / 20.0);
 		const double probeFrequencies[] = { 31.5, 80.0, 1000.0 };
 		double probeResponses[3] = {};
 		double probeCorrectionDeltas[3] = {};
@@ -1985,6 +2464,8 @@ namespace
 	{
 		bool passed = runLoudnessFormulaTests();
 		passed = runLoudnessParameterCodecTests() && passed;
+		passed = runLoudnessVolumeFollowTests() && passed;
+		passed = runLoudnessNearZeroHeadroomTests() && passed;
 		passed = runLoudnessRuntimeContextTests() && passed;
 		passed = runLoudnessOfflineAnalysisTests() && passed;
 		passed = runFilterEngineDeviceInfoReuseTests() && passed;

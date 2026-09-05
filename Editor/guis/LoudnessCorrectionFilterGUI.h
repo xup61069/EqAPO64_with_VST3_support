@@ -45,6 +45,7 @@ public:
 		bool useManualVolume,
 		double manualVolume,
 		LoudnessCorrectionFilter::FilterParameters::EngineMode engine,
+		LoudnessCorrectionFilter::FilterParameters::VolumeFollowMode volumeFollow,
 		const std::wstring& endpointIdentifier,
 		bool selectedEndpointIsRender);
 	~LoudnessCorrectionFilterGUI();
@@ -64,15 +65,19 @@ private slots:
 	void on_manualVolumeCheckBox_toggled(bool checked);
 	void on_volumeSpinBox_valueChanged(double value);
 	void on_fastEngineCheckBox_toggled(bool checked);
+	void on_volumeFollowComboBox_currentIndexChanged(int index);
 	void on_studioButton_clicked();
 	void on_calibrateButton_clicked();
 	void updateVolume();
 
 private:
 	LoudnessCorrectionFilter::FilterParameters::BindingMode getBindingMode() const;
+	LoudnessCorrectionFilter::FilterParameters::VolumeFollowMode
+		getVolumeFollowMode() const;
 	std::wstring getRequestedEndpointId() const;
 	void refreshVolumeController();
 	void updateAutomaticVolumeUi();
+	bool tryReadEndpointVolumeState(EndpointVolumeState& volumeState);
 	bool tryUpdateVolume();
 	Ui::LoudnessCorrectionFilterGUI* ui;
 	bool state;

@@ -39,7 +39,7 @@
    </item>
    <item>
     <widget class="QLabel" name="safetyStatusLabel">
-     <property name="text"><string>Loudness correction is temporarily disabled while this window is open.</string></property>
+     <property name="text"><string>The equal-loudness contour is temporarily disabled while this window is open; APO volume follow remains active when enabled.</string></property>
      <property name="wordWrap"><bool>true</bool></property>
     </widget>
    </item>

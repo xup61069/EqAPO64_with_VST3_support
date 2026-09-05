@@ -47,7 +47,15 @@ private:
 	QTimer* timer = NULL;
 	VolumeController* volumeController = NULL;
 	std::wstring volumeControllerEndpointId;
+	std::wstring lastResolvedEndpointId;
+	bool volumeAvailable = false;
 	double lastVolume = -1;
+	double lastVolumeScalar = 1.0;
+	bool lastMuted = false;
 	VolumeController* defaultVolumeController = NULL;
+	std::wstring lastDefaultResolvedEndpointId;
+	bool defaultVolumeAvailable = false;
 	double lastDefaultVolume = -1;
+	double lastDefaultVolumeScalar = 1.0;
+	bool lastDefaultMuted = false;
 };

@@ -19,6 +19,7 @@ THREAD_CPP = (ROOT / "Editor" / "AnalysisThread.cpp").read_text(
 THREAD_H = (ROOT / "Editor" / "AnalysisThread.h").read_text(encoding="utf-8")
 TABLE_CPP = (ROOT / "Editor" / "FilterTable.cpp").read_text(encoding="utf-8")
 ENGINE_CPP = (ROOT / "FilterEngine.cpp").read_text(encoding="utf-8")
+FILTER_INTERFACE = (ROOT / "IFilter.h").read_text(encoding="utf-8")
 LOUDNESS_CPP = (
     ROOT / "filters" / "loudnessCorrection" / "LoudnessCorrectionFilter.cpp"
 ).read_text(encoding="utf-8")
@@ -183,11 +184,21 @@ class AnalysisPanelSafetyTests(unittest.TestCase):
         for token in (
             "observation.requestedEndpointId = getVolumeControllerEndpointId()",
             "observation.resolvedEndpointId = volumeController.getEndpointId()",
-            "observation.volumeDb = initialVolume",
+            "observation.volumeDb =",
+            "observation.volumeScalar =",
+            "observation.muted =",
             "observation.available = false",
             "observation.available = SUCCEEDED(volumeResult)",
         ):
             self.assertIn(token, LOUDNESS_CPP)
+
+        for source in (FILTER_INTERFACE, THREAD_H):
+            self.assertIn("double volumeScalar", source)
+            self.assertIn("bool muted", source)
+        self.assertIn(
+            "snapshot.volumeScalar = observation.volumeScalar", THREAD_CPP
+        )
+        self.assertIn("snapshot.muted = observation.muted", THREAD_CPP)
 
         file_check = MAIN_CPP[
             MAIN_CPP.index("static bool analysisFilesStillMatch") : MAIN_CPP.index(
@@ -211,7 +222,10 @@ class AnalysisPanelSafetyTests(unittest.TestCase):
         self.assertIn("!snapshot.available", volume_check)
         self.assertIn("snapshot.requestedEndpointId", volume_check)
         self.assertIn("snapshot.resolvedEndpointId", volume_check)
-        self.assertIn("currentVolumeDb != snapshot.volumeDb", volume_check)
+        self.assertIn("getVolumeState(", volume_check)
+        self.assertIn("snapshot.volumeDb", volume_check)
+        self.assertIn("snapshot.volumeScalar", volume_check)
+        self.assertIn("snapshot.muted", volume_check)
 
     def test_auto_preamp_topology_is_an_explicit_fail_closed_allowlist(self) -> None:
         topology = MAIN_CPP[

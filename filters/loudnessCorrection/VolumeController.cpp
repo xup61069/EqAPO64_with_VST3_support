@@ -76,8 +76,8 @@ namespace
 class EndpointVolumeCallback : public IAudioEndpointVolumeCallback
 {
 public:
-	EndpointVolumeCallback(std::atomic<bool>* flag)
-		: _refCount(1), _flag(flag) {}
+	EndpointVolumeCallback()
+		: _refCount(1), _changed(true) {}
 
 	ULONG STDMETHODCALLTYPE AddRef()
 	{
@@ -117,16 +117,22 @@ public:
 
 	HRESULT STDMETHODCALLTYPE OnNotify(PAUDIO_VOLUME_NOTIFICATION_DATA pNotify)
 	{
-		if (_flag && pNotify)
-		{
-			_flag->store(true, std::memory_order_relaxed);
-		}
+		if (pNotify)
+			_changed.store(true, std::memory_order_release);
 		return S_OK;
+	}
+
+	bool consumeChanged()
+	{
+		return _changed.exchange(false, std::memory_order_acq_rel);
 	}
 
 private:
 	long _refCount;
-	std::atomic<bool>* _flag;
+	// The endpoint can retain this COM object if unregistering fails. Keep the
+	// notification state inside the callback so a delayed OnNotify never writes
+	// through a pointer to an already-destroyed VolumeController.
+	std::atomic<bool> _changed;
 };
 
 VolumeController::VolumeController(const std::wstring& endpointId)
@@ -239,7 +245,7 @@ bool VolumeController::initEndpoint()
 	float increment = 0.0f;
 	endpointVolume->GetVolumeRange(&minimumVolume, &maximumVolume, &increment);
 
-	EndpointVolumeCallback* callback = new EndpointVolumeCallback(&_volumeChanged);
+	EndpointVolumeCallback* callback = new EndpointVolumeCallback();
 	if (FAILED(endpointVolume->RegisterControlChangeNotify(callback)))
 	{
 		callback->Release();
@@ -352,6 +358,74 @@ HRESULT VolumeController::getVolume(double& currentVolume)
 	return res;
 }
 
+HRESULT VolumeController::getVolumeState(EndpointVolumeState& state)
+{
+	if (!refreshEndpointIfChanged())
+		return E_FAIL;
+	if (_endpointVolume == NULL && !initEndpoint())
+		return E_FAIL;
+
+	HRESULT result = E_FAIL;
+	for (unsigned attempt = 0; attempt < 4; ++attempt)
+	{
+		float firstDb = 0.0f;
+		float firstScalar = 1.0f;
+		BOOL firstMuted = FALSE;
+		float secondDb = 0.0f;
+		float secondScalar = 1.0f;
+		BOOL secondMuted = FALSE;
+
+		result = _endpointVolume->GetMasterVolumeLevel(&firstDb);
+		if (SUCCEEDED(result))
+			result = _endpointVolume->GetMasterVolumeLevelScalar(&firstScalar);
+		if (SUCCEEDED(result))
+			result = _endpointVolume->GetMute(&firstMuted);
+		if (SUCCEEDED(result))
+			result = _endpointVolume->GetMasterVolumeLevel(&secondDb);
+		if (SUCCEEDED(result))
+			result = _endpointVolume->GetMasterVolumeLevelScalar(&secondScalar);
+		if (SUCCEEDED(result))
+			result = _endpointVolume->GetMute(&secondMuted);
+
+		if (FAILED(result))
+		{
+			cleanup();
+			// Match getVolume's one reconnect attempt for transient endpoint
+			// invalidation, but never publish a partially collected tuple.
+			if (attempt == 0 && initEndpoint())
+				continue;
+			return result;
+		}
+
+		if (!std::isfinite(firstDb) || !std::isfinite(firstScalar) ||
+			!std::isfinite(secondDb) || !std::isfinite(secondScalar))
+		{
+			cleanup();
+			return E_FAIL;
+		}
+
+		// Core Audio exposes these values through separate getters. Collect the
+		// tuple twice and accept it only when both generations agree, preventing
+		// correction dB and follow scalar/mute from describing different moments
+		// while the user drags the volume slider.
+		if (std::abs(firstDb - secondDb) <= 1.0e-4f &&
+			std::abs(firstScalar - secondScalar) <= 1.0e-6f &&
+			firstMuted == secondMuted)
+		{
+			state.levelDb = secondDb;
+			state.scalar = (std::max)(0.0,
+				(std::min)(1.0, static_cast<double>(secondScalar)));
+			state.muted = secondMuted != FALSE;
+			_lastVolume = secondDb;
+			return S_OK;
+		}
+
+		result = HRESULT_FROM_WIN32(ERROR_RETRY);
+	}
+
+	return result;
+}
+
 HRESULT VolumeController::setVolume(double volume)
 {
 	if (!refreshEndpointIfChanged())
@@ -373,5 +447,8 @@ HRESULT VolumeController::setVolume(double volume)
 
 bool VolumeController::hasVolumeChanged()
 {
-	return _volumeChanged.exchange(false, std::memory_order_relaxed);
+	bool changed = _volumeChanged.exchange(false, std::memory_order_acq_rel);
+	if (_callback != NULL)
+		changed = _callback->consumeChanged() || changed;
+	return changed;
 }

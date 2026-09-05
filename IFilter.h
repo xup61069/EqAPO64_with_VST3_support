@@ -29,6 +29,8 @@ struct FilterRuntimeVolumeObservation
 	std::wstring requestedEndpointId;
 	std::wstring resolvedEndpointId;
 	double volumeDb = 0.0;
+	double volumeScalar = 1.0;
+	bool muted = false;
 	bool available = false;
 };
 

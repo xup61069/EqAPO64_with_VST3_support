@@ -14,12 +14,20 @@
 
 class EndpointVolumeCallback;
 
+struct EndpointVolumeState
+{
+	double levelDb = 0.0;
+	double scalar = 1.0;
+	bool muted = false;
+};
+
 class VolumeController
 {
 public:
 	explicit VolumeController(const std::wstring& endpointId = L"");
 	~VolumeController();
 	HRESULT getVolume(double& currentVolume);
+	HRESULT getVolumeState(EndpointVolumeState& state);
 	HRESULT setVolume(double volume);
 	bool hasVolumeChanged();
 	const std::wstring& getEndpointId() const { return _endpointId; }

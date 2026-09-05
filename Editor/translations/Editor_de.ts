@@ -1565,14 +1565,64 @@ Alexander Walch</translation>
         <translation>Kalibrierung nicht angewendet</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="382"/>
-        <source>The bound playback volume could not be read. Reconnect the device, choose another binding, or use manual volume and try again.</source>
-        <translation>Die zugeordnete Wiedergabelautstärke konnte nicht gelesen werden. Verbinden Sie das Gerät erneut, wählen Sie eine andere Zuordnung oder verwenden Sie die manuelle Lautstärke und versuchen Sie es erneut.</translation>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="361"/>
+        <source>APO volume-follow attenuation:</source>
+        <translation>APO-Lautstärkeabsenkung:</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="401"/>
-        <source>The bound playback volume could not be read. The measured level was not applied; reconnect the device, choose another binding, or use manual volume and try again.</source>
-        <translation>Die zugeordnete Wiedergabelautstärke konnte nicht gelesen werden. Der gemessene Pegel wurde nicht angewendet. Verbinden Sie das Gerät erneut, wählen Sie eine andere Zuordnung oder verwenden Sie die manuelle Lautstärke und versuchen Sie es erneut.</translation>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="377"/>
+        <source>Applies Windows volume as an extra gain inside Equalizer APO. Use this only when the routed endpoint reports volume changes but does not attenuate audio; otherwise attenuation is applied twice. Linear uses the endpoint scalar, Logarithmic squares it, and Windows uses the endpoint&apos;s reported dB.</source>
+        <translation>Wendet die Windows-Lautstärke als zusätzliche Verstärkung in Equalizer APO an. Verwenden Sie dies nur, wenn der geroutete Endpunkt Lautstärkeänderungen meldet, das Audiosignal aber nicht absenkt; andernfalls wird es doppelt abgesenkt. Linear verwendet den Skalarwert des Endpunkts, Logarithmisch dessen Quadrat und Windows den vom Endpunkt gemeldeten dB-Wert.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="407"/>
+        <source>Experimental fast engine:</source>
+        <translation>Experimentelle schnelle Engine:</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="404"/>
+        <source>Experimental two-filter approximation. Uses less CPU but may differ noticeably from Full, especially at very low listening levels.</source>
+        <translation>Experimentelle Näherung mit zwei Filtern. Benötigt weniger CPU-Leistung, kann aber besonders bei sehr niedrigen Abhörpegeln deutlich vom vollständigen Modus abweichen.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="386"/>
+        <source>Linear</source>
+        <translation>Linear</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="391"/>
+        <source>Logarithmic</source>
+        <translation>Logarithmisch</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="381"/>
+        <source>Off</source>
+        <translation>Aus</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="511"/>
+        <source>Playback became muted, inaudible, or unavailable. The measured level was not applied; restore the endpoint and run calibration again.</source>
+        <translation>Die Wiedergabe wurde stumm, unhörbar oder nicht verfügbar. Der Messwert wurde nicht übernommen; stellen Sie den Endpunkt wieder her und führen Sie die Kalibrierung erneut aus.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="455"/>
+        <source>The bound playback endpoint is muted or set to zero volume. Unmute it and raise the Windows volume before calibrating.</source>
+        <translation>Der gebundene Wiedergabeendpunkt ist stummgeschaltet oder auf Lautstärke null eingestellt. Heben Sie die Stummschaltung auf und erhöhen Sie vor der Kalibrierung die Windows-Lautstärke.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="447"/>
+        <source>The bound playback volume could not be read. Reconnect the device or choose another readable playback binding, then try again.</source>
+        <translation>Die gebundene Wiedergabelautstärke konnte nicht gelesen werden. Verbinden Sie das Gerät erneut oder wählen Sie eine andere lesbare Wiedergabebindung und versuchen Sie es erneut.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.cpp" line="540"/>
+        <source>The selected volume-follow curve produced an inaudible level. Raise the volume and run calibration again.</source>
+        <translation>Die gewählte Lautstärke-Folgekurve ergab einen unhörbaren Pegel. Erhöhen Sie die Lautstärke und führen Sie die Kalibrierung erneut aus.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUI.ui" line="396"/>
+        <source>Windows (reported dB)</source>
+        <translation>Windows (gemeldete dB)</translation>
     </message>
 </context>
 <context>
@@ -1596,11 +1646,6 @@ Alexander Walch</translation>
         <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="36"/>
         <source>Use a sound-level meter with slow response and Z weighting. Complete the three steps below.</source>
         <translation>Verwenden Sie einen Schallpegelmesser mit langsamer Reaktion und Z-Bewertung. Führen Sie die drei folgenden Schritte aus.</translation>
-    </message>
-    <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="42"/>
-        <source>Loudness correction is temporarily disabled while this window is open.</source>
-        <translation>Die Lautheitskorrektur ist vorübergehend deaktiviert, solange dieses Fenster geöffnet ist.</translation>
     </message>
     <message>
         <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="48"/>
@@ -1700,17 +1745,6 @@ Alexander Walch</translation>
         <translation>Messung verwenden</translation>
     </message>
     <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="102"/>
-        <source>The selected playback device is not the Windows default playback device. Test-noise playback is blocked to prevent calibration on the wrong speaker.</source>
-        <translation>Das ausgewählte Wiedergabegerät ist nicht das Windows-Standardwiedergabegerät. Die Wiedergabe des Testgeräuschs wurde blockiert, um eine Kalibrierung am falschen Lautsprecher zu verhindern.</translation>
-    </message>
-    <message>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="105"/>
-        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="267"/>
-        <source>Make this device the Windows default to play the signal</source>
-        <translation>Dieses Gerät als Windows-Standardgerät festlegen, um das Signal abzuspielen</translation>
-    </message>
-    <message>
         <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="111"/>
         <source>Playback device changed · signal stopped</source>
         <translation>Wiedergabegerät geändert · Signal gestoppt</translation>
@@ -1783,6 +1817,66 @@ Alexander Walch</translation>
         <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="252"/>
         <source>Playing on the right speaker</source>
         <translation>Wiedergabe über den rechten Lautsprecher</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="206"/>
+        <source>Endpoint muted - signal stopped</source>
+        <translation>Endpunkt stummgeschaltet - Signal gestoppt</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="218"/>
+        <source>Endpoint unavailable - signal stopped</source>
+        <translation>Endpunkt nicht verfügbar - Signal gestoppt</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="207"/>
+        <source>Playback blocked - endpoint is muted or at zero volume</source>
+        <translation>Wiedergabe blockiert - Endpunkt ist stummgeschaltet oder auf Lautstärke null</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="219"/>
+        <source>Playback blocked - endpoint volume is unavailable</source>
+        <translation>Wiedergabe blockiert - Endpunktlautstärke ist nicht verfügbar</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="209"/>
+        <source>Playback endpoint is inaudible</source>
+        <translation>Wiedergabeendpunkt ist unhörbar</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="221"/>
+        <source>Playback endpoint unavailable</source>
+        <translation>Wiedergabeendpunkt nicht verfügbar</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.ui" line="42"/>
+        <source>The equal-loudness contour is temporarily disabled while this window is open; APO volume follow remains active when enabled.</source>
+        <translation>Die Isophonenkontur ist vorübergehend deaktiviert, solange dieses Fenster geöffnet ist; die APO-Lautstärkenachführung bleibt aktiv, wenn sie eingeschaltet ist.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="223"/>
+        <source>The playback endpoint volume became unreadable. Test noise was stopped and this measurement cannot be used.</source>
+        <translation>Die Lautstärke des Wiedergabeendpunkts konnte nicht mehr gelesen werden. Das Testgeräusch wurde gestoppt und diese Messung kann nicht verwendet werden.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="224"/>
+        <source>The playback endpoint volume cannot be read. Reconnect the device before calibrating.</source>
+        <translation>Die Lautstärke des Wiedergabeendpunkts kann nicht gelesen werden. Verbinden Sie das Gerät vor der Kalibrierung erneut.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="211"/>
+        <source>The playback endpoint was muted or set to zero volume. Test noise was stopped and this measurement cannot be used.</source>
+        <translation>Der Wiedergabeendpunkt wurde stummgeschaltet oder auf Lautstärke null gestellt. Das Testgeräusch wurde gestoppt und diese Messung kann nicht verwendet werden.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="105"/>
+        <source>The selected playback device must remain the audible Windows default playback device. Muted, zero-volume, unreadable, or mismatched endpoints block the calibration signal.</source>
+        <translation>Das ausgewählte Wiedergabegerät muss das hörbare Windows-Standardwiedergabegerät bleiben. Stummgeschaltete, auf null gestellte, nicht lesbare oder abweichende Endpunkte blockieren das Kalibrierungssignal.</translation>
+    </message>
+    <message>
+        <location filename="../guis/LoudnessCorrectionFilterGUIDialog.cpp" line="212"/>
+        <source>Unmute the playback endpoint and raise the Windows volume before playing the calibration signal.</source>
+        <translation>Heben Sie die Stummschaltung des Wiedergabeendpunkts auf und erhöhen Sie die Windows-Lautstärke, bevor Sie das Kalibrierungssignal abspielen.</translation>
     </message>
 </context>
 <context>

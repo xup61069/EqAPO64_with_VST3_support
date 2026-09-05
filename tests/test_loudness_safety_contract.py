@@ -87,6 +87,41 @@ PUBLIC_RELEASE_TEXT_PATHS = tuple(
 
 
 class LoudnessSafetyContractTests(unittest.TestCase):
+    def test_endpoint_volume_snapshot_and_callback_lifetime_are_safe(self) -> None:
+        self.assertIn("struct EndpointVolumeState", VOLUME_HEADER)
+        for token in (
+            "double levelDb",
+            "double scalar",
+            "bool muted",
+            "getVolumeState(EndpointVolumeState& state)",
+        ):
+            self.assertIn(token, VOLUME_HEADER)
+
+        state_reader = VOLUME_SOURCE[
+            VOLUME_SOURCE.index("HRESULT VolumeController::getVolumeState") :
+            VOLUME_SOURCE.index("HRESULT VolumeController::setVolume")
+        ]
+        self.assertGreaterEqual(state_reader.count("GetMasterVolumeLevel("), 2)
+        self.assertGreaterEqual(
+            state_reader.count("GetMasterVolumeLevelScalar("), 2
+        )
+        self.assertGreaterEqual(state_reader.count("GetMute("), 2)
+        self.assertIn("firstDb - secondDb", state_reader)
+        self.assertIn("firstScalar - secondScalar", state_reader)
+        self.assertIn("firstMuted == secondMuted", state_reader)
+        self.assertIn("ERROR_RETRY", state_reader)
+
+        callback = VOLUME_SOURCE[
+            VOLUME_SOURCE.index("class EndpointVolumeCallback") :
+            VOLUME_SOURCE.index("VolumeController::VolumeController")
+        ]
+        self.assertIn("std::atomic<bool> _changed", callback)
+        self.assertIn("_changed.store(true", callback)
+        self.assertIn("consumeChanged()", callback)
+        self.assertNotRegex(callback, r"std::atomic<bool>\s*\*")
+        self.assertNotIn("_volumeChanged", callback)
+        self.assertIn("_callback->consumeChanged()", VOLUME_SOURCE)
+
     def test_formula_parameters_are_versioned_and_legacy_values_fail_closed(self) -> None:
         self.assertIn('archive.add(1, L"Schema")', FILTER_HEADER)
         self.assertIn('L"FormulaLoudnessV1"', FILTER_HEADER)
@@ -220,7 +255,10 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         self.assertIn("candidate->OpenPropertyStore(", VOLUME_SOURCE)
         self.assertIn("device->GetId(&endpointId)", VOLUME_SOURCE)
         self.assertNotIn("waveOutGetVolume", VOLUME_SOURCE)
-        self.assertNotIn("GetMasterVolumeLevelScalar", VOLUME_SOURCE)
+        # dB remains the contour source; scalar/mute are collected only as
+        # additional state for optional APO-owned volume following.
+        self.assertIn("GetMasterVolumeLevel(&", VOLUME_SOURCE)
+        self.assertIn("GetMasterVolumeLevelScalar(&", VOLUME_SOURCE)
 
     def test_global_default_rebind_failure_clears_the_old_endpoint(self) -> None:
         self.assertIn("bool refreshEndpointIfChanged();", VOLUME_HEADER)
@@ -270,7 +308,27 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         )
         self.assertIn("_recoveryPending", FILTER_HEADER)
         self.assertIn("_transitionFromBypass", FILTER_HEADER)
-        self.assertIn("if (!recovering && std::isfinite(lastVolume)", FILTER_SOURCE)
+        self.assertIn("const bool correctionVolumeChanged", FILTER_SOURCE)
+        self.assertIn("const bool followStateChanged", FILTER_SOURCE)
+        self.assertIn("double lastCorrectionVolume", FILTER_SOURCE)
+        self.assertIn("double lastFollowVolume", FILTER_SOURCE)
+        self.assertEqual(
+            FILTER_SOURCE.count("lastCorrectionVolume = currentState.levelDb"),
+            1,
+        )
+        self.assertIn(
+            "if (!recovering && !correctionVolumeChanged && !followStateChanged)",
+            FILTER_SOURCE,
+        )
+        worker = FILTER_SOURCE.split(
+            "unsigned long __stdcall LoudnessCorrectionFilter::parameterUpdateThread",
+            maxsplit=1,
+        )[1].split("#pragma AVRT_CODE_BEGIN", maxsplit=1)[0]
+        self.assertIn("const bool correctionEnabled =", worker)
+        self.assertIn(
+            "if (correctionEnabled && (recovering || correctionVolumeChanged))",
+            worker,
+        )
         self.assertIn("_hasInitialAutomaticVolume = true;", FILTER_SOURCE)
         self.assertIn("self->_hasInitialAutomaticVolume ?", FILTER_SOURCE)
         self.assertIn("self->_initialAutomaticVolume", FILTER_SOURCE)
@@ -351,7 +409,12 @@ class LoudnessSafetyContractTests(unittest.TestCase):
         gui_source = GUI_PATH.read_text(encoding="utf-8")
         gui_ui = GUI_UI_PATH.read_text(encoding="utf-8")
         calibration_source = CALIBRATION_PATH.read_text(encoding="utf-8")
-        self.assertIn("FAILED(volumeController->getVolume(endpointVolume))", gui_source)
+        self.assertIn(
+            "FAILED(volumeController->getVolumeState(endpointVolumeState))",
+            gui_source,
+        )
+        self.assertIn("calibrationEndpointState.muted", gui_source)
+        self.assertIn("calibrationEndpointState.scalar <= 0.0", gui_source)
         self.assertIn('tr("Manual volume (required):")', gui_source)
         self.assertIn('name="bindingComboBox"', gui_ui)
         self.assertIn(
@@ -386,27 +449,61 @@ class LoudnessSafetyContractTests(unittest.TestCase):
             maxsplit=1,
         )[1]
         self.assertLess(
-            play_handler.index("isPlaybackEndpointStillValid()"),
+            play_handler.index("updatePlaybackReadiness(true)"),
             play_handler.index("PlaySoundA("),
         )
         playback_body = play_handler.split(
             "void LoudnessCorrectionFilterGUIDialog::on_stopButton_clicked()",
             maxsplit=1,
         )[0]
-        first_check = playback_body.index("isPlaybackEndpointStillValid()")
+        first_check = playback_body.index("updatePlaybackReadiness(true)")
         second_check = playback_body.index(
-            "isPlaybackEndpointStillValid()", first_check + 1
+            "updatePlaybackReadiness(true)", first_check + 1
         )
         decode_complete = playback_body.index("buffer.close();")
         play_sound = playback_body.index("PlaySoundA(buffer.data().data()")
         self.assertLess(decode_complete, second_check)
         self.assertLess(second_check, play_sound)
+        self.assertIn("measurementValid(false)", calibration_source)
+        constructor = calibration_source[
+            calibration_source.index("LoudnessCorrectionFilterGUIDialog::LoudnessCorrectionFilterGUIDialog") :
+            calibration_source.index("void LoudnessCorrectionFilterGUIDialog::setPlaybackStatus")
+        ]
+        self.assertRegex(
+            constructor,
+            r"button\(QDialogButtonBox::Save\)[\s\S]*"
+            r"saveButton->setEnabled\(false\)",
+        )
+        self.assertLess(
+            playback_body.index("measurementValid = false"),
+            playback_body.index('QFile file(":/sounds/pinkNoise.flac")'),
+        )
+        self.assertGreater(
+            playback_body.index("measurementValid = true"),
+            play_sound,
+        )
+        self.assertIn(
+            "void LoudnessCorrectionFilterGUIDialog::accept()",
+            calibration_source,
+        )
+        accept_body = calibration_source.split(
+            "void LoudnessCorrectionFilterGUIDialog::accept()", maxsplit=1
+        )[1].split(
+            "void LoudnessCorrectionFilterGUIDialog::on_playButton_clicked()",
+            maxsplit=1,
+        )[0]
+        self.assertIn("!measurementValid", accept_body)
+        self.assertIn("!updatePlaybackReadiness(true)", accept_body)
+        self.assertIn("QDialog::accept()", accept_body)
         self.assertIn("GetDefaultAudioEndpoint(eRender, role", calibration_source)
         self.assertIn("isDefaultRenderEndpoint(endpointId, eConsole)", calibration_source)
         self.assertIn("isDefaultRenderEndpoint(endpointId, eMultimedia)", calibration_source)
         self.assertIn("endpointGuardTimer.start(250)", calibration_source)
         self.assertIn("&QTimer::timeout", calibration_source)
-        self.assertIn("&& !tryUpdateVolume())", gui_source)
+        self.assertGreaterEqual(
+            gui_source.count("tryReadEndpointVolumeState(calibrationEndpointState)"),
+            2,
+        )
         self.assertIn('tr("Calibration not applied")', gui_source)
         self.assertIn("ui->bothRadioButton->hide()", calibration_source)
         self.assertIn("Schema 1 Model FormulaLoudnessV1", gui_source)

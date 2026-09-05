@@ -5,6 +5,10 @@
 - Reduced the default Full loudness engine's settled callback cost with a preallocated section-major block path while retaining the transition fallback and sample-for-sample native equivalence coverage.
 - Reduced Full-engine initialization and volume-update cost by reusing each frequency's complex terms and aggregating the correction cascade before magnitude conversion.
 - Kept the lower-cost, at-most-two-section Fast engine as an explicitly labeled experimental option because extreme low-level response tests can differ from Full by roughly 10–15 dB.
+- Added optional read-only APO volume following for Matrix-style routes that report a Windows volume without applying it to audio. `Off` remains the compatible default; `Linear`, squared `Logarithmic`, and endpoint-dB-based `Windows` curves attenuate the complete post-correction output without writing system volume.
+- Smoothed volume-follow changes over 10 ms, mapped endpoint mute to exact silence, kept startup muted until the first valid automatic-volume snapshot, and held the last successful attenuation across transient runtime read failures instead of jumping to full volume.
+- Removed the unconditional 1 dB correction-branch headroom margin that made nearly neutral correction start quieter, while retaining peak-derived attenuation and the complete-transfer safety scan.
+- Made endpoint notification callbacks own their change signal so a failed Windows callback unregister cannot leave a pointer into a destroyed controller.
 
 ## 3.0.7
 
