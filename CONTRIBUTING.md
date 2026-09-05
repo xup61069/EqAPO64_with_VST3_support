@@ -11,13 +11,27 @@ Thank you for improving this Equalizer APO fork. Bug fixes, tested device-compat
 
 ## Local checks
 
-Use 64-bit Windows with Git, Python 3, CMake, and Visual Studio's Desktop development with C++ workload.
+Use 64-bit Windows with Git, Python 3, CMake, and Visual Studio's Desktop development with C++ workload. Every change runs the baseline checks:
 
 ```powershell
 python -m unittest discover -s .\tests -p "test_*.py" -v
+git diff --check
+```
+
+Add checks according to the files and behavior changed:
+
+| Scope | Additional check |
+|---|---|
+| C++, DSP, project wiring, or installer | `.\scripts\build-installer-x64.ps1 -Configuration Release` followed by `.\scripts\test-runtime-loudness.ps1 -Configuration Release` |
+| Out-of-process VST host | `python -m unittest discover -s .\tests -p "test_outproc_vst_lifecycle.py" -v` |
+| UI | `.\scripts\capture-ui-regression.ps1 -Configuration Release`, then inspect the generated matrix |
+| PR or release preparation | `.\scripts\test-public-history.ps1 -Revision HEAD` |
+
+The expanded C++/DSP sequence is:
+
+```powershell
 .\scripts\build-installer-x64.ps1 -Configuration Release
 .\scripts\test-runtime-loudness.ps1 -Configuration Release
-git diff --check
 ```
 
 For DSP changes, describe the expected response, sample rates tested, numerical error, headroom behavior, and any CPU trade-off. For UI changes, check English, `zh_CN`, and `zh_TW`; do not submit unfinished Traditional Chinese strings. Changes to the loudness-profile data or implementation must also update [NOTICE.md](NOTICE.md) when needed.
@@ -28,7 +42,7 @@ For DSP changes, describe the expected response, sample rates tested, numerical 
 - Keep real-time audio processing free of allocation, locks that can block, logging, and system API calls.
 - Do expensive curve fitting and endpoint queries outside the audio callback.
 - Add a regression test for every numerical or parsing bug that can be tested independently.
-- Explain user-visible changes in `CHANGELOG.md`.
+- Explain user-visible changes under `Unreleased` or the applicable release in `CHANGELOG.md`; do not duplicate release logs into README files.
 - Use clear, imperative commit subjects.
 
 ## Pull requests

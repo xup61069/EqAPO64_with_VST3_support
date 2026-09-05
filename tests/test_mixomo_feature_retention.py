@@ -132,11 +132,18 @@ class MixomoFeatureRetentionTests(unittest.TestCase):
         )
 
     def test_readme_identifies_feature_complete_line_and_requested_title(self) -> None:
-        for relative_path in ("README.md", "README_zh-TW.md"):
+        expected_titles = {
+            "README.md": "# Equalizer APO 響度校正更新",
+            "README.en.md": "# Loudness Correction for Equalizer APO",
+        }
+        for relative_path, title in expected_titles.items():
             content = read(relative_path)
-            self.assertEqual(content.splitlines()[0], "# Equalizer APO 響度校正更新")
+            self.assertEqual(content.splitlines()[0], title)
             self.assertIn("Mixomo", content)
             self.assertIn("`exp`", content)
+
+        legacy_chinese_link = read("README_zh-TW.md")
+        self.assertIn("[README.md](README.md)", legacy_chinese_link)
 
 
 if __name__ == "__main__":
